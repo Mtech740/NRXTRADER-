@@ -1,13 +1,12 @@
--- NRXTRADER Database Schema (PostgreSQL)
--- Updated: email-based authentication, phone optional
+-- Add email column if missing
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;
 
--- Drop old tables if you need to recreate (only for fresh start)
--- DROP TABLE IF EXISTS subscriptions CASCADE;
--- DROP TABLE IF EXISTS ledger CASCADE;
--- DROP TABLE IF EXISTS trades CASCADE;
--- DROP TABLE IF EXISTS users CASCADE;
+-- Make phone optional
+ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
 
--- Users table
+-- If you need to create the table from scratch (only for fresh databases),
+-- you can use the full CREATE TABLE below. Otherwise, ignore this part.
+/*
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -21,7 +20,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Trades (manual & smart tool)
 CREATE TABLE IF NOT EXISTS trades (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -40,7 +38,6 @@ CREATE TABLE IF NOT EXISTS trades (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Financial ledger (every balance change)
 CREATE TABLE IF NOT EXISTS ledger (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -52,7 +49,6 @@ CREATE TABLE IF NOT EXISTS ledger (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Premium subscriptions log
 CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -62,3 +58,4 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     ended_at TIMESTAMP,
     status VARCHAR DEFAULT 'active'
 );
+*/
