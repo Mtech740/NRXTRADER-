@@ -1,3 +1,0 @@
-DATABASE_URL=postgresql://user:password@host:5432/dbname
-JWT_SECRET=your_random_secret_key
-PORT=5000
