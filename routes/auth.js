@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
-// Register (email required, phone optional)
 router.post('/register', async (req, res) => {
     const { email, phone, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -16,15 +15,11 @@ router.post('/register', async (req, res) => {
         );
         res.json({ success: true, user: result.rows[0] });
     } catch (err) {
-        if (err.code === '23505') {
-            return res.status(400).json({ error: 'Email already registered' });
-        }
-        console.error('Register error:', err);
-        res.status(500).json({ error: 'Server error' });
+        // SEND REAL ERROR to frontend (temporarily)
+        res.status(500).json({ error: err.message || 'Server error', detail: err.detail || '', code: err.code || '' });
     }
 });
 
-// Login (by email)
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -47,8 +42,7 @@ router.post('/login', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error('Login error:', err);
-        res.status(500).json({ error: 'Server error' });
+        res.status(500).json({ error: err.message || 'Server error', detail: err.detail || '', code: err.code || '' });
     }
 });
 
