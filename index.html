@@ -3,92 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NRXTRADER – Smart Trading Platform</title>
+    <title>NRXTRADER – Professional Trading Platform</title>
     <style>
         :root {
-            --bg: #0a0e17;
-            --card: #111827;
-            --accent: #0066ff;
-            --accent2: #00d4ff;
-            --text: #e2e8f0;
-            --sub: #94a3b8;
-            --green: #4ade80;
-            --red: #f87171;
-            --border: #1e293b;
+            --bg: #0b0f14;
+            --surface: #131820;
+            --border: #1e2532;
+            --text: #e3e6eb;
+            --text-secondary: #8a919d;
+            --accent: #2962ff;
+            --accent-hover: #1e4fd7;
+            --green: #00c853;
+            --red: #ff1744;
+            --warning: #ffab00;
+            --radius: 12px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: var(--bg);
             color: var(--text);
+            line-height: 1.5;
             padding: 16px;
             max-width: 500px;
-            margin: auto;
+            margin: 0 auto;
         }
+        /* Header */
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            padding: 8px 0;
         }
-        .logo { height: 40px; }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 800;
+            font-size: 1.6rem;
+            letter-spacing: -0.5px;
+            color: #fff;
+        }
+        .logo svg { height: 32px; width: auto; }
         .badge {
             background: var(--accent);
+            color: white;
             padding: 4px 10px;
-            border-radius: 12px;
+            border-radius: 20px;
             font-size: 0.7rem;
-            font-weight: bold;
+            font-weight: 600;
+            text-transform: uppercase;
         }
+        /* Card */
         .card {
-            background: var(--card);
+            background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 16px;
+            border-radius: var(--radius);
+            padding: 20px;
             margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
+        .card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        /* Balance */
         .balance-row {
             display: flex;
             justify-content: space-between;
+            align-items: baseline;
             margin-bottom: 4px;
         }
-        .balance-label { color: var(--sub); font-size: 0.8rem; }
-        .balance-value { font-size: 2rem; font-weight: bold; }
-        .profit { color: var(--green); }
-        .loss { color: var(--red); }
+        .balance-label { font-size: 0.8rem; color: var(--text-secondary); }
+        .balance-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 6px 0;
+        }
+        .balance-value.positive { color: var(--green); }
+        .balance-value.negative { color: var(--red); }
+        .plan-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+            background: rgba(255,255,255,0.08);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+        .plan-badge .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            display: inline-block;
+        }
+        .plan-badge.free .dot { background: var(--text-secondary); }
+        .plan-badge.pro .dot { background: var(--accent); }
+        .plan-badge.trial .dot { background: var(--warning); }
+        /* Forms */
+        .input-field {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
         .btn {
+            display: block;
             width: 100%;
             background: var(--accent);
             border: none;
             color: white;
-            font-size: 1rem;
-            font-weight: bold;
-            padding: 14px;
-            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 12px;
+            border-radius: 8px;
             cursor: pointer;
-            margin-top: 8px;
             transition: background 0.2s;
+            margin-top: 10px;
         }
-        .btn:active { background: #004ecc; }
+        .btn:hover, .btn:active { background: var(--accent-hover); }
         .btn-outline {
             background: transparent;
             border: 1px solid var(--accent);
             color: var(--accent);
         }
+        .btn-outline:hover, .btn-outline:active { background: rgba(41,98,255,0.1); }
         .btn-danger { background: var(--red); }
-        .btn-danger:active { background: #dc2626; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .trade-form input, .auth-form input, .deposit-input {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 1rem;
-            margin-bottom: 8px;
+        .btn-danger:hover, .btn-danger:active { background: #d50000; }
+        .btn-small {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 0.85rem;
         }
+        .row-buttons { display: flex; gap: 10px; }
+        .row-buttons .btn { flex: 1; }
+        /* Grid */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        /* Fee inline */
+        .fee-info {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        .fee-table {
+            width: 100%;
+            font-size: 0.8rem;
+            margin: 12px 0;
+            color: var(--text-secondary);
+        }
+        .fee-table td { padding: 6px 0; border-bottom: 1px solid var(--border); }
+        .fee-table td:last-child { text-align: right; color: #fff; }
+        /* Log */
         .log {
-            max-height: 300px;
+            max-height: 250px;
             overflow-y: auto;
             font-size: 0.8rem;
         }
@@ -97,159 +175,151 @@
             justify-content: space-between;
             padding: 6px 0;
             border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
         }
-        .win { color: var(--green); }
-        .loss-entry { color: var(--red); }
-        .fee { color: #fbbf24; }
-        .trial-active { color: var(--accent2); }
-        .auth-buttons { display: flex; gap: 8px; }
-        .auth-buttons button { flex: 1; }
+        .log-entry .win { color: var(--green); }
+        .log-entry .loss { color: var(--red); }
+        .log-entry .fee { color: var(--warning); }
+        /* Status pill */
+        .status-pill {
+            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .status-pill.off { background: rgba(255,23,68,0.2); color: var(--red); }
+        .status-pill.running { background: rgba(0,200,83,0.2); color: var(--green); }
+        /* Misc */
+        .note { font-size: 0.7rem; color: var(--text-secondary); margin-top: 6px; }
+        .divider { border-top: 1px solid var(--border); margin: 12px 0; }
         .coming-soon {
-            background: var(--border);
-            color: var(--sub);
-            font-size: 0.7rem;
-            padding: 4px 8px;
-            border-radius: 8px;
             display: inline-block;
+            background: rgba(255,171,0,0.15);
+            color: var(--warning);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-bottom: 8px;
         }
-        .fee-note { color: var(--sub); font-size: 0.7rem; margin-top: 4px; }
+        .error-message { color: var(--red); font-size: 0.8rem; margin-top: 4px; }
     </style>
 </head>
 <body>
+    <!-- HEADER -->
     <div class="header">
-        <!-- NRXTRADER Professional Logo -->
-        <svg class="logo" viewBox="0 0 400 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#00d4ff"/>
-                    <stop offset="100%" stop-color="#0066ff"/>
-                </linearGradient>
-            </defs>
-            <g transform="translate(10, 10)">
-                <rect x="12" y="30" width="6" height="20" rx="1" fill="#4ade80"/>
-                <rect x="20" y="15" width="6" height="35" rx="1" fill="#4ade80"/>
-                <rect x="28" y="22" width="6" height="28" rx="1" fill="#4ade80"/>
-                <line x1="15" y1="10" x2="15" y2="30" stroke="#4ade80" stroke-width="2"/>
-                <line x1="23" y1="5" x2="23" y2="15" stroke="#4ade80" stroke-width="2"/>
-                <line x1="31" y1="15" x2="31" y2="22" stroke="#4ade80" stroke-width="2"/>
-            </g>
-            <text x="55" y="68" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="44" fill="url(#grad)">NRX</text>
-            <text x="153" y="68" font-family="'Segoe UI', Arial, sans-serif" font-weight="700" font-size="44" fill="#e2e8f0">TRADER</text>
-            <rect x="55" y="78" width="300" height="4" fill="url(#grad)" rx="2"/>
-        </svg>
+        <div class="logo">
+            <!-- Simple SVG wordmark -->
+            <svg viewBox="0 0 200 40" fill="none">
+                <text x="0" y="30" font-family="Arial, sans-serif" font-weight="900" font-size="28" fill="#2962ff">NRX</text>
+                <text x="48" y="30" font-family="Arial, sans-serif" font-weight="600" font-size="28" fill="#fff">TRADER</text>
+            </svg>
+        </div>
         <span class="badge">BETA</span>
     </div>
 
-    <!-- 🔐 Account Card -->
+    <!-- ACCOUNT -->
     <div class="card">
-        <h3 style="margin-bottom: 10px;">🔐 Account</h3>
+        <h3>Account</h3>
         <div id="authArea">
-            <div class="auth-form">
-                <input type="text" id="phoneInput" placeholder="Phone (e.g., 0977123456)">
-                <input type="password" id="passwordInput" placeholder="Password">
-                <div class="auth-buttons">
-                    <button class="btn" onclick="handleLogin()">Login</button>
-                    <button class="btn btn-outline" onclick="handleRegister()">Register</button>
+            <div id="authForm">
+                <input type="email" id="emailInput" class="input-field" placeholder="Email address">
+                <input type="text" id="phoneInput" class="input-field" placeholder="Phone (optional, e.g. 0977123456)">
+                <input type="password" id="passwordInput" class="input-field" placeholder="Password">
+                <div id="authError" class="error-message" style="display:none;"></div>
+                <div class="row-buttons">
+                    <button class="btn" id="loginBtn" onclick="handleLogin()">Log In</button>
+                    <button class="btn btn-outline" id="registerBtn" onclick="handleRegister()">Register</button>
                 </div>
+                <div class="note">Email required. Phone optional for mobile money.</div>
             </div>
             <div id="userArea" style="display: none;">
-                <p>👤 <span id="loggedPhone"></span></p>
-                <button class="btn btn-outline" onclick="logout()" style="margin-top: 8px;">Logout</button>
+                <p>Logged in as <strong id="loggedEmail"></strong></p>
+                <button class="btn btn-outline btn-small" onclick="logout()">Log out</button>
             </div>
         </div>
     </div>
 
-    <!-- Balance Card -->
+    <!-- BALANCE -->
     <div class="card">
         <div class="balance-row">
-            <span class="balance-label">💰 Trading Balance (ZMW)</span>
-            <span class="balance-label">Premium <span id="premStatus">❌</span></span>
+            <span class="balance-label">Trading Balance (ZMW)</span>
+            <span class="plan-badge free" id="planBadge"><span class="dot"></span> Free</span>
         </div>
-        <div id="balanceDisplay" class="balance-value profit">5,000.00</div>
-        <div id="feeInfo" style="color: var(--sub); font-size: 0.75rem;">
-            Free plan: 0.3% trade · Deposit 0.5% · Withdraw 1% (min K200)
-        </div>
+        <div id="balanceDisplay" class="balance-value positive">0.00</div>
+        <div class="fee-info" id="feeSummary">Trade 0.3% | Deposit 0.5% | Withdraw 1% (min K200)</div>
     </div>
 
-    <!-- 📱 Mobile Money Deposit (with fee) -->
+    <!-- DEPOSIT -->
     <div class="card">
-        <h3 style="margin-bottom: 4px;">📱 Deposit via Mobile Money</h3>
-        <span class="coming-soon" style="margin-bottom: 10px;">🤖 Smart automated payments coming soon</span>
-        <div style="color: var(--sub); font-size: 0.8rem; margin: 10px 0;">
-            <strong>Minimum deposit: K200</strong>. A <strong>0.5% fee</strong> will be deducted.<br>
-            Example: Deposit K200 → K199 credited.
+        <h3>Deposit via Mobile Money</h3>
+        <span class="coming-soon">Smart automatic payments coming soon</span>
+        <div class="fee-table">
+            <table style="width:100%;">
+                <tr><td>Minimum deposit</td><td>K200</td></tr>
+                <tr><td>Deposit fee</td><td>0.5% (K200 becomes K199)</td></tr>
+                <tr><td>MTN Money</td><td>+260 960 168 307</td></tr>
+                <tr><td>Airtel Money</td><td>Coming soon</td></tr>
+            </table>
         </div>
-        <div style="background: var(--bg); padding: 12px; border-radius: 8px; margin: 8px 0;">
-            <p><strong>MTN Money:</strong> +260 960 168 307</p>
-            <p><strong>Airtel Money:</strong> <span style="color: #94a3b8;">Coming soon</span></p>
-            <p style="color: #fbbf24; font-size: 0.8rem; margin-top: 6px;">⚠️ Use your NRXTRADER phone number as payment reference.</p>
-        </div>
-        <button class="btn" onclick="openWhatsApp()">📤 Send Screenshot via WhatsApp</button>
-        <div class="fee-note">Deposits are verified manually. Your balance will be credited after confirmation.</div>
+        <p class="note">Use your NRXTRADER phone number as reference. After sending, tap below to notify us.</p>
+        <button class="btn" onclick="openWhatsApp()">Send Payment Confirmation via WhatsApp</button>
+        <p class="note">Manually verified — balance updated after confirmation.</p>
     </div>
 
-    <!-- Manual Trade -->
+    <!-- TRADE -->
     <div class="card">
-        <h3 style="margin-bottom: 10px;">📈 Manual Trade</h3>
-        <div class="trade-form">
-            <input type="number" id="tradeAmount" placeholder="Amount (min 100)" value="100" min="100" step="50">
-            <div class="grid-2" style="margin-top: 10px;">
-                <button class="btn" onclick="manualTrade('BUY')">Buy</button>
-                <button class="btn btn-outline" onclick="manualTrade('SELL')">Sell</button>
-            </div>
+        <h3>Manual Trade</h3>
+        <input type="number" id="tradeAmount" class="input-field" placeholder="Amount (min 100)" value="100" min="100" step="50">
+        <div class="grid-2">
+            <button class="btn" onclick="manualTrade('BUY')">Buy</button>
+            <button class="btn btn-outline" onclick="manualTrade('SELL')">Sell</button>
         </div>
-        <div id="manualLimits" style="font-size: 0.7rem; color: var(--sub); margin-top: 6px;">
-            Free max trade: K500 | Pro max: K2,000
-        </div>
+        <div class="note" id="tradeLimitNote">Free plan max K500. Pro max K2,000.</div>
     </div>
 
-    <!-- Smart Trading Tool -->
+    <!-- SMART TOOL -->
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>🤖 Smart Tool (80% win rate)</h3>
-            <span id="smartStatus" style="color: var(--red); font-size: 0.8rem;">Off</span>
+            <h3 style="margin:0;">Smart Trading Tool</h3>
+            <span id="smartStatus" class="status-pill off">OFF</span>
         </div>
-        <div style="color: var(--sub); font-size: 0.75rem; margin: 6px 0;">
-            Automated trades with 0.3% fee. 80% historical accuracy. Use at your own risk.
-        </div>
-        <button id="smartToggleBtn" class="btn" onclick="toggleSmartTool()">▶ Start Smart Tool</button>
-        <div id="smartStats" style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.8rem;">
-            <span>Smart Wins: <span id="smartWins">0</span></span>
-            <span>Smart Losses: <span id="smartLosses">0</span></span>
-            <span>Win Rate: <span id="smartWinRate">0%</span></span>
+        <p class="note">Automated strategy with 80% historical win rate. 0.3% fee per trade.</p>
+        <button id="smartToggleBtn" class="btn" onclick="toggleSmartTool()">Start Smart Tool</button>
+        <div style="display: flex; justify-content: space-between; margin-top: 12px; font-size: 0.8rem;">
+            <span>Wins: <strong id="smartWins">0</strong></span>
+            <span>Losses: <strong id="smartLosses">0</strong></span>
+            <span>Win Rate: <strong id="smartWinRate">0%</strong></span>
         </div>
     </div>
 
-    <!-- Premium Subscription -->
+    <!-- PREMIUM -->
     <div class="card">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <strong>⭐ NRX Pro</strong>
-                <div style="color: var(--sub); font-size: 0.75rem;">K100/month · Cancel anytime</div>
+                <h3 style="margin:0;">NRX Pro</h3>
+                <p class="note">K100/month — cancel anytime</p>
             </div>
-            <button id="premiumBtn" class="btn" style="width: auto; padding: 8px 16px;" onclick="handlePremiumAction()">
-                🎁 Start 7-Day Free Trial
-            </button>
+            <button id="premiumBtn" class="btn btn-small" onclick="handlePremiumAction()">Free Trial</button>
         </div>
-        <div style="margin-top: 10px; font-size: 0.8rem; color: var(--accent2);">
-            ✓ Copy trading signals<br>
-            ✓ Advanced charts<br>
-            ✓ Lower 0.2% trading fee<br>
-            ✓ Lower withdrawal fee (0.8%)<br>
-            ✓ Priority support
+        <div class="fee-table">
+            <table style="width:100%;">
+                <tr><td>Trade fee</td><td>0.2% (instead of 0.3%)</td></tr>
+                <tr><td>Withdrawal fee</td><td>0.8% (instead of 1%)</td></tr>
+                <tr><td>Max trade</td><td>K2,000</td></tr>
+            </table>
         </div>
-        <div id="premiumStatus" style="margin-top: 6px; font-size: 0.75rem; color: var(--sub);">
-            You are on the <strong>Free</strong> plan.
-        </div>
+        <div id="premiumStatusText" class="note" style="margin-top:8px;">You are on the Free plan.</div>
     </div>
 
-    <!-- Withdraw Button -->
-    <button class="btn btn-danger" onclick="withdraw()">🏦 Withdraw (Fee 1%, min K200)</button>
+    <!-- WITHDRAW -->
+    <button class="btn btn-danger" onclick="withdraw()">Withdraw (Fee 1%, min K200)</button>
 
-    <!-- Trade Log -->
+    <!-- ACTIVITY LOG -->
     <div class="card">
-        <h3 style="margin-bottom: 10px;">📋 Recent Activity</h3>
-        <div id="tradeLog" class="log"></div>
+        <h3>Recent Activity</h3>
+        <div id="tradeLog" class="log">
+            <p class="note">No trades yet.</p>
+        </div>
     </div>
 
     <script>
@@ -257,127 +327,104 @@
         const API_BASE = 'https://nrxtrader-api.onrender.com';
         let token = localStorage.getItem('nrxtrader_token') || null;
         let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
-        let balance = user ? user.balance : 5000;
+        let balance = user ? user.balance : 0;
         let premiumActive = user ? user.is_premium : false;
         let trialActive = user ? (user.trial_active || false) : false;
-        let smartActive = false;
-        let smartInterval = null;
+        let smartActive = false, smartInterval = null;
         let smartWins = 0, smartLosses = 0;
 
-        // Fee constants (matching your latest rules)
-        const FREE_TRADE_FEE = 0.003;   // 0.3%
-        const PRO_TRADE_FEE = 0.002;    // 0.2% (Pro discount)
-        const DEPOSIT_FEE = 0.005;      // 0.5% on deposit
-        const FREE_WITHDRAW_FEE = 0.01; // 1% for free users
-        const PRO_WITHDRAW_FEE = 0.008; // 0.8% for Pro (premium benefit)
-        const MIN_DEPOSIT = 200;
-        const MIN_WITHDRAWAL = 200;
-        const PREMIUM_MONTHLY = 100;
-        const SMART_WIN_PROB = 0.8;
-        const SMART_TRADE_AMOUNT = 100;
-        const FREE_MAX_TRADE = 500;
-        const PRO_MAX_TRADE = 2000;
+        const FREE_TRADE_FEE = 0.003, PRO_TRADE_FEE = 0.002;
+        const DEPOSIT_FEE = 0.005;
+        const FREE_WITHDRAW_FEE = 0.01, PRO_WITHDRAW_FEE = 0.008;
+        const MIN_DEPOSIT = 200, MIN_WITHDRAW = 200;
+        const FREE_MAX_TRADE = 500, PRO_MAX_TRADE = 2000;
+        const SMART_AMOUNT = 100, SMART_PROB = 0.8;
 
-        // DOM
+        // DOM refs
         const balanceEl = document.getElementById('balanceDisplay');
-        const premStatusEl = document.getElementById('premStatus');
+        const planBadgeEl = document.getElementById('planBadge');
+        const feeSummaryEl = document.getElementById('feeSummary');
+        const tradeLimitNote = document.getElementById('tradeLimitNote');
         const premiumBtn = document.getElementById('premiumBtn');
-        const premiumStatusEl = document.getElementById('premiumStatus');
-        const feeInfoEl = document.getElementById('feeInfo');
+        const premiumStatusText = document.getElementById('premiumStatusText');
         const smartStatus = document.getElementById('smartStatus');
         const smartToggleBtn = document.getElementById('smartToggleBtn');
         const smartWinsEl = document.getElementById('smartWins');
         const smartLossesEl = document.getElementById('smartLosses');
         const smartWinRateEl = document.getElementById('smartWinRate');
         const tradeLogEl = document.getElementById('tradeLog');
-        const loggedPhone = document.getElementById('loggedPhone');
-        const phoneInput = document.getElementById('phoneInput');
-        const passwordInput = document.getElementById('passwordInput');
-        const authFormDiv = document.querySelector('.auth-form');
-        const userAreaDiv = document.getElementById('userArea');
+        const authErrorEl = document.getElementById('authError');
 
-        // ---------- UI ----------
-        function updateBalanceDisplay() {
-            balanceEl.textContent = balance.toLocaleString(undefined, {minimumFractionDigits: 2});
-            balanceEl.className = balance >= 5000 ? 'balance-value profit' : 'balance-value loss';
-        }
-
-        function updateFeeDisplay() {
+        function updateUI() {
+            // Balance
+            balanceEl.textContent = balance.toLocaleString(undefined, {minimumFractionDigits:2});
+            balanceEl.className = `balance-value ${balance >= 0 ? 'positive' : 'negative'}`;
+            // Plan badge
+            if (premiumActive && trialActive) {
+                planBadgeEl.innerHTML = '<span class="dot" style="background:#ffab00;"></span> Trial';
+                planBadgeEl.className = 'plan-badge trial';
+            } else if (premiumActive) {
+                planBadgeEl.innerHTML = '<span class="dot" style="background:#2962ff;"></span> Pro';
+                planBadgeEl.className = 'plan-badge pro';
+            } else {
+                planBadgeEl.innerHTML = '<span class="dot" style="background:#8a919d;"></span> Free';
+                planBadgeEl.className = 'plan-badge free';
+            }
+            // Fee summary
             const tradeFee = premiumActive ? '0.2%' : '0.3%';
             const wFee = premiumActive ? '0.8%' : '1%';
-            feeInfoEl.innerHTML = `${premiumActive ? 'NRX Pro' : 'Free'}: ${tradeFee} trade · Deposit 0.5% · Withdraw ${wFee} (min K200)`;
-        }
-
-        function updatePremiumUI() {
+            feeSummaryEl.textContent = `Trade ${tradeFee} | Deposit 0.5% | Withdraw ${wFee} (min K200)`;
+            // Trade limit note
+            tradeLimitNote.textContent = `${premiumActive ? 'Pro' : 'Free'} plan max trade: K${premiumActive ? PRO_MAX_TRADE : FREE_MAX_TRADE}.`;
+            // Premium button/status
             if (premiumActive && trialActive) {
-                premStatusEl.textContent = '🕒';
-                premiumStatusEl.innerHTML = '<span class="trial-active">🕒 7-day free trial</span> – NRX Pro unlocked.';
-                premiumBtn.textContent = '✅ Trial Active';
+                premiumBtn.textContent = 'Trial Active';
                 premiumBtn.disabled = true;
-                premiumBtn.style.opacity = '0.6';
-            } else if (premiumActive && !trialActive) {
-                premStatusEl.textContent = '⭐';
-                premiumStatusEl.innerHTML = '<strong>NRX Pro</strong> – Subscribed';
-                premiumBtn.textContent = '✅ Subscribed';
+                premiumStatusText.textContent = '7-day free trial active. Enjoy Pro features.';
+            } else if (premiumActive) {
+                premiumBtn.textContent = 'Subscribed';
                 premiumBtn.disabled = true;
-                premiumBtn.style.opacity = '0.6';
+                premiumStatusText.textContent = 'NRX Pro member.';
             } else {
-                premStatusEl.textContent = '❌';
-                premiumStatusEl.innerHTML = 'You are on the <strong>Free</strong> plan.';
-                premiumBtn.textContent = '🎁 Start 7-Day Free Trial';
+                premiumBtn.textContent = 'Start Free Trial';
                 premiumBtn.disabled = false;
-                premiumBtn.style.opacity = '1';
+                premiumStatusText.textContent = 'You are on the Free plan.';
             }
-            updateFeeDisplay();
         }
 
-        function addLog(entry, type = 'info') {
+        function addLog(entry, type='info') {
             const div = document.createElement('div');
             div.className = 'log-entry';
-            const color = type === 'win' ? 'win' : type === 'loss' ? 'loss-entry' : 'fee';
-            div.innerHTML = `<span>${new Date().toLocaleTimeString()} ${entry}</span><span class="${color}">${type}</span>`;
+            const cls = type === 'win' ? 'win' : (type === 'loss' ? 'loss' : 'fee');
+            div.innerHTML = `<span>${new Date().toLocaleTimeString()} ${entry}</span><span class="${cls}">${type}</span>`;
             tradeLogEl.prepend(div);
             if (tradeLogEl.children.length > 30) tradeLogEl.lastChild.remove();
         }
 
-        function updateAuthUI() {
-            if (token && user) {
-                if (authFormDiv) authFormDiv.style.display = 'none';
-                if (userAreaDiv) userAreaDiv.style.display = 'block';
-                loggedPhone.textContent = user.phone;
-                fetchBalance();
-            } else {
-                if (authFormDiv) authFormDiv.style.display = 'block';
-                if (userAreaDiv) userAreaDiv.style.display = 'none';
-                balance = 5000;
-                premiumActive = false;
-                trialActive = false;
-                updateBalanceDisplay();
-                updatePremiumUI();
-            }
+        function showAuthError(msg) {
+            authErrorEl.style.display = 'block';
+            authErrorEl.textContent = msg;
         }
+        function hideAuthError() { authErrorEl.style.display = 'none'; }
 
-        // ---------- API Helper ----------
-        async function apiCall(method, endpoint, body = null) {
+        // ---------- API ----------
+        async function apiCall(method, endpoint, body=null) {
             const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
-            const res = await fetch(`${API_BASE}${endpoint}`, {
-                method,
-                headers,
-                body: body ? JSON.stringify(body) : null
-            });
+            const res = await fetch(API_BASE + endpoint, { method, headers, body: body ? JSON.stringify(body) : null });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Request failed');
             return data;
         }
 
-        // ---------- Auth ----------
+        // ---------- AUTH ----------
         async function handleLogin() {
-            const phone = phoneInput.value.trim();
-            const password = passwordInput.value.trim();
-            if (!phone || !password) return alert('Phone and password required');
+            hideAuthError();
+            const email = document.getElementById('emailInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+            if (!email || !password) return showAuthError('Email and password required.');
             try {
-                const data = await apiCall('POST', '/api/auth/login', { phone, password });
+                const data = await apiCall('POST', '/api/auth/login', { email, password });
                 token = data.token;
                 user = data.user;
                 balance = user.balance;
@@ -385,195 +432,159 @@
                 trialActive = user.trial_active || false;
                 localStorage.setItem('nrxtrader_token', token);
                 localStorage.setItem('nrxtrader_user', JSON.stringify(user));
-                updateBalanceDisplay();
-                updatePremiumUI();
-                updateAuthUI();
-                addLog('Logged in successfully', 'win');
+                updateUI();
+                document.getElementById('authForm').style.display = 'none';
+                document.getElementById('userArea').style.display = 'block';
+                document.getElementById('loggedEmail').textContent = user.email;
+                addLog('Logged in', 'fee');
             } catch (err) {
-                alert('Login failed: ' + err.message);
+                showAuthError(err.message);
             }
         }
 
         async function handleRegister() {
-            const phone = phoneInput.value.trim();
-            const password = passwordInput.value.trim();
-            if (!phone || !password) return alert('Phone and password required');
+            hideAuthError();
+            const email = document.getElementById('emailInput').value.trim();
+            const phone = document.getElementById('phoneInput').value.trim();
+            const password = document.getElementById('passwordInput').value.trim();
+            if (!email || !password) return showAuthError('Email and password required.');
             try {
-                await apiCall('POST', '/api/auth/register', { phone, password });
-                addLog('Registration successful! Please login.', 'win');
-                alert('Account created! Now login.');
+                await apiCall('POST', '/api/auth/register', { email, password, phone: phone || undefined });
+                addLog('Registration successful — you can now log in.', 'fee');
+                showAuthError('Account created. Please log in.'); // reuse error area for success
             } catch (err) {
-                alert('Registration failed: ' + err.message);
+                showAuthError(err.message);
             }
         }
 
         function logout() {
             token = null;
             user = null;
-            localStorage.removeItem('nrxtrader_token');
-            localStorage.removeItem('nrxtrader_user');
-            balance = 5000;
+            balance = 0;
             premiumActive = false;
             trialActive = false;
-            updateBalanceDisplay();
-            updatePremiumUI();
-            updateAuthUI();
+            localStorage.clear();
+            document.getElementById('authForm').style.display = 'block';
+            document.getElementById('userArea').style.display = 'none';
+            updateUI();
             addLog('Logged out', 'fee');
         }
 
+        // ---------- BALANCE ----------
         async function fetchBalance() {
             if (!token) return;
             try {
                 const data = await apiCall('GET', '/api/wallet/balance');
                 balance = data.balance_zmw;
                 premiumActive = data.is_premium;
-                updateBalanceDisplay();
-                updatePremiumUI();
+                trialActive = (user && user.trial_active) || false;
+                updateUI();
             } catch (err) {
-                addLog('Could not fetch balance: ' + err.message, 'loss');
+                addLog('Balance fetch failed', 'loss');
             }
         }
 
-        // ---------- Mobile Money Deposit ----------
+        // ---------- DEPOSIT (WhatsApp) ----------
         function openWhatsApp() {
-            const adminPhone = '260772566084';  // 0772566084
-            const userPhone = user ? user.phone : 'unknown';
-            const message = `Hi NRXTRADER, I've made a mobile money deposit.\nMy phone: ${userPhone}\nPlease find the screenshot attached.`;
+            const adminPhone = '260772566084';
+            const userIdentifier = user ? (user.phone || user.email) : 'unknown';
+            const message = `Hi NRXTRADER,\nI've made a mobile money deposit.\nMy account: ${userIdentifier}\nScreenshot attached.`;
             window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`, '_blank');
         }
 
-        // ---------- Trades ----------
-        function getTradeFeeRate() { return premiumActive ? PRO_TRADE_FEE : FREE_TRADE_FEE; }
-        function getMaxTrade() { return premiumActive ? PRO_MAX_TRADE : FREE_MAX_TRADE; }
+        // ---------- TRADING ----------
+        const getTradeFee = () => premiumActive ? PRO_TRADE_FEE : FREE_TRADE_FEE;
+        const getMaxTrade = () => premiumActive ? PRO_MAX_TRADE : FREE_MAX_TRADE;
 
         async function manualTrade(direction) {
             if (!token) return alert('Please log in first.');
             const amount = parseInt(document.getElementById('tradeAmount').value);
-            if (isNaN(amount) || amount < 100) return alert('Min trade amount is K100.');
-            const max = getMaxTrade();
-            if (amount > max) return alert(`Your plan allows max K${max}.`);
+            if (isNaN(amount) || amount < 100) return alert('Minimum trade K100.');
+            if (amount > getMaxTrade()) return alert(`Max trade for your plan is K${getMaxTrade()}.`);
             try {
-                const data = await apiCall('POST', '/api/trades/manual', {
-                    symbol: 'BTCUSDT',
-                    direction,
-                    amount
-                });
+                const data = await apiCall('POST', '/api/trades/manual', { symbol:'BTCUSDT', direction, amount });
                 balance = data.new_balance;
-                updateBalanceDisplay();
-                addLog(`Manual ${direction}: ${amount} ZMW (${data.win ? 'WIN' : 'LOSS'}) Fee: ${data.fee.toFixed(2)}`, data.win ? 'win' : 'loss');
-            } catch (err) {
-                alert(err.message);
-            }
+                updateUI();
+                addLog(`${direction} ${amount} ZMW — ${data.win ? 'WIN' : 'LOSS'} fee K${data.fee.toFixed(2)}`, data.win?'win':'loss');
+            } catch (err) { alert(err.message); }
         }
 
-        // Smart tool (client-side simulation)
+        // Smart tool (simulated)
         function smartTrade() {
             if (!smartActive) return;
-            if (balance < SMART_TRADE_AMOUNT) {
-                stopSmartTool();
-                addLog('Smart Tool stopped: insufficient funds.', 'loss');
-                return;
-            }
-            const fee = SMART_TRADE_AMOUNT * getTradeFeeRate();
-            const win = Math.random() < SMART_WIN_PROB;
-            const gross = win ? SMART_TRADE_AMOUNT * 0.03 : -SMART_TRADE_AMOUNT * 0.03;
+            if (balance < SMART_AMOUNT) { stopSmartTool(); addLog('Smart tool: insufficient funds', 'loss'); return; }
+            const fee = SMART_AMOUNT * getTradeFee();
+            const win = Math.random() < SMART_PROB;
+            const gross = SMART_AMOUNT * (win ? 0.03 : -0.03);
             const net = gross - fee;
             balance += net;
             if (win) smartWins++; else smartLosses++;
-            addLog(`Smart: ${win ? 'WIN' : 'LOSS'} ${Math.abs(gross).toFixed(2)} ZMW, fee ${fee.toFixed(2)}`, win ? 'win' : 'loss');
-            updateBalanceDisplay();
-            updateSmartStats();
-        }
-
-        function updateSmartStats() {
+            addLog(`Smart trade — ${win?'WIN':'LOSS'} ${Math.abs(gross).toFixed(2)} ZMW fee ${fee.toFixed(2)}`, win?'win':'loss');
+            updateUI();
             smartWinsEl.textContent = smartWins;
             smartLossesEl.textContent = smartLosses;
             const total = smartWins + smartLosses;
-            smartWinRateEl.textContent = (total ? ((smartWins / total) * 100).toFixed(1) : 0) + '%';
+            smartWinRateEl.textContent = total ? ((smartWins/total)*100).toFixed(1)+'%' : '0%';
         }
-
         function startSmartTool() {
             smartActive = true;
-            smartStatus.textContent = 'Running';
-            smartStatus.style.color = 'var(--green)';
-            smartToggleBtn.textContent = '⏹ Stop Smart Tool';
-            smartToggleBtn.classList.add('btn-danger');
+            smartStatus.textContent = 'RUNNING';
+            smartStatus.className = 'status-pill running';
+            smartToggleBtn.textContent = 'Stop Smart Tool';
             smartInterval = setInterval(smartTrade, 3000);
         }
-
         function stopSmartTool() {
             smartActive = false;
-            smartStatus.textContent = 'Off';
-            smartStatus.style.color = 'var(--red)';
-            smartToggleBtn.textContent = '▶ Start Smart Tool';
-            smartToggleBtn.classList.remove('btn-danger');
+            smartStatus.textContent = 'OFF';
+            smartStatus.className = 'status-pill off';
+            smartToggleBtn.textContent = 'Start Smart Tool';
             if (smartInterval) clearInterval(smartInterval);
         }
+        function toggleSmartTool() { smartActive ? stopSmartTool() : startSmartTool(); }
 
-        function toggleSmartTool() {
-            smartActive ? stopSmartTool() : startSmartTool();
-        }
-
-        // ---------- Premium ----------
+        // ---------- PREMIUM ----------
         async function handlePremiumAction() {
-            if (!token) return alert('Please log in first.');
+            if (!token) return alert('Log in first.');
             if (premiumActive) return;
             try {
                 await apiCall('POST', '/api/premium/trial');
                 trialActive = true;
                 premiumActive = true;
-                updatePremiumUI();
-                addLog('🎁 7-day free trial started!', 'trial-active');
-            } catch (err) {
-                alert(err.message);
-            }
+                updateUI();
+                addLog('7-day Pro trial activated', 'fee');
+            } catch (err) { alert(err.message); }
         }
 
-        async function subscribeNow() {
-            if (!token) return alert('Please log in first.');
-            try {
-                await apiCall('POST', '/api/premium/subscribe');
-                balance -= PREMIUM_MONTHLY;
-                premiumActive = true;
-                trialActive = false;
-                updateBalanceDisplay();
-                updatePremiumUI();
-                addLog(`NRX Pro activated: -K${PREMIUM_MONTHLY}/month`, 'fee');
-            } catch (err) {
-                alert(err.message);
-            }
-        }
-
-        // ---------- Withdraw (new 1% fee, min K200) ----------
+        // ---------- WITHDRAW ----------
         async function withdraw() {
-            if (!token) return alert('Please log in first.');
+            if (!token) return alert('Log in first.');
             const feeRate = premiumActive ? PRO_WITHDRAW_FEE : FREE_WITHDRAW_FEE;
-            const feePercent = (feeRate * 100).toFixed(1);
-            const amount = prompt(`Enter withdrawal amount (min K200). Fee: ${feePercent}%\nExample: K200 → K${(200 - 200*feeRate).toFixed(0)} credited.`);
+            const feePct = (feeRate*100).toFixed(1);
+            const amount = prompt(`Minimum K200. Fee: ${feePct}%.\nEnter amount:`);
             const amt = parseFloat(amount);
-            if (isNaN(amt) || amt < MIN_WITHDRAWAL) return alert(`Minimum withdrawal is K${MIN_WITHDRAWAL}.`);
-            const feeDeduction = amt * feeRate;
-            const totalDeduction = amt + feeDeduction;
-            if (balance < totalDeduction) return alert('Insufficient balance (including fee).');
+            if (isNaN(amt) || amt < MIN_WITHDRAW) return alert(`Minimum withdrawal is K${MIN_WITHDRAW}.`);
+            const total = amt + (amt*feeRate);
+            if (balance < total) return alert('Insufficient balance (including fee).');
             try {
                 const data = await apiCall('POST', '/api/wallet/withdraw', { amount: amt });
                 balance = data.new_balance;
-                updateBalanceDisplay();
-                addLog(`Withdrawal: ${amt} ZMW – fee ${feeDeduction.toFixed(2)} (${feePercent}%)`, 'fee');
-            } catch (err) {
-                alert(err.message);
-            }
+                updateUI();
+                addLog(`Withdrawal: K${amt} — fee K${(amt*feeRate).toFixed(2)}`, 'fee');
+            } catch (err) { alert(err.message); }
         }
 
-        // ---------- Init ----------
-        updateBalanceDisplay();
-        updatePremiumUI();
-        updateAuthUI();
-
-        window.login = handleLogin;
-        window.register = handleRegister;
-        window.logout = logout;
-        window.subscribeNow = subscribeNow;
+        // ---------- INIT ----------
+        updateUI();
+        // On page load, if token exists, try to auto-login by fetching balance
+        if (token) {
+            fetchBalance().then(() => {
+                if (user) {
+                    document.getElementById('authForm').style.display = 'none';
+                    document.getElementById('userArea').style.display = 'block';
+                    document.getElementById('loggedEmail').textContent = user.email || user.phone;
+                }
+            }).catch(() => { logout(); });
+        }
     </script>
 </body>
 </html>
