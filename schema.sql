@@ -1,12 +1,3 @@
--- Add email column if missing
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;
-
--- Make phone optional
-ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
-
--- If you need to create the table from scratch (only for fresh databases),
--- you can use the full CREATE TABLE below. Otherwise, ignore this part.
-/*
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -58,4 +49,3 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     ended_at TIMESTAMP,
     status VARCHAR DEFAULT 'active'
 );
-*/
