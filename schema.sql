@@ -1,9 +1,18 @@
--- Users & authentication
-CREATE TABLE users (
+-- NRXTRADER Database Schema (PostgreSQL)
+-- Updated: email-based authentication, phone optional
+
+-- Drop old tables if you need to recreate (only for fresh start)
+-- DROP TABLE IF EXISTS subscriptions CASCADE;
+-- DROP TABLE IF EXISTS ledger CASCADE;
+-- DROP TABLE IF EXISTS trades CASCADE;
+-- DROP TABLE IF EXISTS users CASCADE;
+
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone VARCHAR UNIQUE NOT NULL,
-    email VARCHAR UNIQUE,
-    password_hash VARCHAR NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(20) UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
     balance_zmw DECIMAL(12,2) DEFAULT 0,
     usdt_balance DECIMAL(12,8) DEFAULT 0,
     is_premium BOOLEAN DEFAULT false,
@@ -13,15 +22,15 @@ CREATE TABLE users (
 );
 
 -- Trades (manual & smart tool)
-CREATE TABLE trades (
+CREATE TABLE IF NOT EXISTS trades (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     symbol VARCHAR NOT NULL,
     direction VARCHAR CHECK (direction IN ('LONG','SHORT','BUY','SELL')),
     entry_price DECIMAL(18,8),
     exit_price DECIMAL(18,8),
     quantity DECIMAL(18,8),
-    status VARCHAR CHECK (status IN ('OPEN','CLOSED','CANCELLED')),
+    status VARCHAR CHECK (status IN ('OPEN','CLOSED','CANCELLED')) DEFAULT 'OPEN',
     opened_at TIMESTAMP DEFAULT NOW(),
     closed_at TIMESTAMP,
     pnl DECIMAL(18,8),
@@ -32,10 +41,10 @@ CREATE TABLE trades (
 );
 
 -- Financial ledger (every balance change)
-CREATE TABLE ledger (
+CREATE TABLE IF NOT EXISTS ledger (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
-    trade_id UUID REFERENCES trades(id),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    trade_id UUID REFERENCES trades(id) ON DELETE SET NULL,
     entry_type VARCHAR CHECK (entry_type IN ('DEPOSIT','WITHDRAWAL','FEE','PROFIT','LOSS','SUBSCRIPTION')),
     amount DECIMAL(18,8),
     balance_after DECIMAL(18,8),
@@ -44,9 +53,9 @@ CREATE TABLE ledger (
 );
 
 -- Premium subscriptions log
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     plan VARCHAR DEFAULT 'pro_monthly',
     amount DECIMAL(10,2) DEFAULT 100,
     started_at TIMESTAMP DEFAULT NOW(),
