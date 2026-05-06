@@ -31,9 +31,7 @@
             justify-content: space-between;
             margin-bottom: 20px;
         }
-        .logo {
-            height: 40px;
-        }
+        .logo { height: 40px; }
         .badge {
             background: var(--accent);
             padding: 4px 10px;
@@ -79,7 +77,7 @@
         .btn-danger { background: var(--red); }
         .btn-danger:active { background: #dc2626; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .trade-form input {
+        .trade-form input, .auth-form input, .deposit-input {
             width: 100%;
             background: var(--bg);
             border: 1px solid var(--border);
@@ -87,6 +85,7 @@
             padding: 12px;
             border-radius: 8px;
             font-size: 1rem;
+            margin-bottom: 8px;
         }
         .log {
             max-height: 300px;
@@ -103,11 +102,22 @@
         .loss-entry { color: var(--red); }
         .fee { color: #fbbf24; }
         .trial-active { color: var(--accent2); }
+        .auth-buttons { display: flex; gap: 8px; }
+        .auth-buttons button { flex: 1; }
+        .coming-soon {
+            background: var(--border);
+            color: var(--sub);
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .fee-note { color: var(--sub); font-size: 0.7rem; margin-top: 4px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <!-- 🔥 NEW Professional NRXTRADER Logo -->
+        <!-- NRXTRADER Professional Logo -->
         <svg class="logo" viewBox="0 0 400 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
                 <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -115,7 +125,6 @@
                     <stop offset="100%" stop-color="#0066ff"/>
                 </linearGradient>
             </defs>
-            <!-- Bull candle icon -->
             <g transform="translate(10, 10)">
                 <rect x="12" y="30" width="6" height="20" rx="1" fill="#4ade80"/>
                 <rect x="20" y="15" width="6" height="35" rx="1" fill="#4ade80"/>
@@ -124,14 +133,30 @@
                 <line x1="23" y1="5" x2="23" y2="15" stroke="#4ade80" stroke-width="2"/>
                 <line x1="31" y1="15" x2="31" y2="22" stroke="#4ade80" stroke-width="2"/>
             </g>
-            <!-- NRX text -->
             <text x="55" y="68" font-family="'Segoe UI', Arial, sans-serif" font-weight="900" font-size="44" fill="url(#grad)">NRX</text>
-            <!-- TRADER text -->
             <text x="153" y="68" font-family="'Segoe UI', Arial, sans-serif" font-weight="700" font-size="44" fill="#e2e8f0">TRADER</text>
-            <!-- Underline -->
             <rect x="55" y="78" width="300" height="4" fill="url(#grad)" rx="2"/>
         </svg>
         <span class="badge">BETA</span>
+    </div>
+
+    <!-- 🔐 Account Card -->
+    <div class="card">
+        <h3 style="margin-bottom: 10px;">🔐 Account</h3>
+        <div id="authArea">
+            <div class="auth-form">
+                <input type="text" id="phoneInput" placeholder="Phone (e.g., 0977123456)">
+                <input type="password" id="passwordInput" placeholder="Password">
+                <div class="auth-buttons">
+                    <button class="btn" onclick="handleLogin()">Login</button>
+                    <button class="btn btn-outline" onclick="handleRegister()">Register</button>
+                </div>
+            </div>
+            <div id="userArea" style="display: none;">
+                <p>👤 <span id="loggedPhone"></span></p>
+                <button class="btn btn-outline" onclick="logout()" style="margin-top: 8px;">Logout</button>
+            </div>
+        </div>
     </div>
 
     <!-- Balance Card -->
@@ -141,7 +166,26 @@
             <span class="balance-label">Premium <span id="premStatus">❌</span></span>
         </div>
         <div id="balanceDisplay" class="balance-value profit">5,000.00</div>
-        <div id="feeInfo" style="color: var(--sub); font-size: 0.75rem;">Free plan: 0.3% fee | K10 withdrawal</div>
+        <div id="feeInfo" style="color: var(--sub); font-size: 0.75rem;">
+            Free plan: 0.3% trade · Deposit 0.5% · Withdraw 1% (min K200)
+        </div>
+    </div>
+
+    <!-- 📱 Mobile Money Deposit (with fee) -->
+    <div class="card">
+        <h3 style="margin-bottom: 4px;">📱 Deposit via Mobile Money</h3>
+        <span class="coming-soon" style="margin-bottom: 10px;">🤖 Smart automated payments coming soon</span>
+        <div style="color: var(--sub); font-size: 0.8rem; margin: 10px 0;">
+            <strong>Minimum deposit: K200</strong>. A <strong>0.5% fee</strong> will be deducted.<br>
+            Example: Deposit K200 → K199 credited.
+        </div>
+        <div style="background: var(--bg); padding: 12px; border-radius: 8px; margin: 8px 0;">
+            <p><strong>MTN Money:</strong> +260 960 168 307</p>
+            <p><strong>Airtel Money:</strong> <span style="color: #94a3b8;">Coming soon</span></p>
+            <p style="color: #fbbf24; font-size: 0.8rem; margin-top: 6px;">⚠️ Use your NRXTRADER phone number as payment reference.</p>
+        </div>
+        <button class="btn" onclick="openWhatsApp()">📤 Send Screenshot via WhatsApp</button>
+        <div class="fee-note">Deposits are verified manually. Your balance will be credited after confirmation.</div>
     </div>
 
     <!-- Manual Trade -->
@@ -191,7 +235,7 @@
             ✓ Copy trading signals<br>
             ✓ Advanced charts<br>
             ✓ Lower 0.2% trading fee<br>
-            ✓ K5 withdrawal fee<br>
+            ✓ Lower withdrawal fee (0.8%)<br>
             ✓ Priority support
         </div>
         <div id="premiumStatus" style="margin-top: 6px; font-size: 0.75rem; color: var(--sub);">
@@ -200,7 +244,7 @@
     </div>
 
     <!-- Withdraw Button -->
-    <button class="btn btn-danger" onclick="withdraw()">🏦 Withdraw (K10 fee for Free, K5 for Pro)</button>
+    <button class="btn btn-danger" onclick="withdraw()">🏦 Withdraw (Fee 1%, min K200)</button>
 
     <!-- Trade Log -->
     <div class="card">
@@ -209,25 +253,32 @@
     </div>
 
     <script>
-        // ---------- STATE ----------
-        let balance = 5000;          // ZMW
-        let premiumActive = false;   // true only if subscribed (after trial or paid)
-        let trialActive = false;     // true during trial period
+        // ---------- CONFIG ----------
+        const API_BASE = 'https://nrxtrader-api.onrender.com';
+        let token = localStorage.getItem('nrxtrader_token') || null;
+        let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
+        let balance = user ? user.balance : 5000;
+        let premiumActive = user ? user.is_premium : false;
+        let trialActive = user ? (user.trial_active || false) : false;
         let smartActive = false;
         let smartInterval = null;
         let smartWins = 0, smartLosses = 0;
 
+        // Fee constants (matching your latest rules)
         const FREE_TRADE_FEE = 0.003;   // 0.3%
-        const PRO_TRADE_FEE = 0.002;    // 0.2%
-        const FREE_WITHDRAW_FEE = 10;
-        const PRO_WITHDRAW_FEE = 5;
+        const PRO_TRADE_FEE = 0.002;    // 0.2% (Pro discount)
+        const DEPOSIT_FEE = 0.005;      // 0.5% on deposit
+        const FREE_WITHDRAW_FEE = 0.01; // 1% for free users
+        const PRO_WITHDRAW_FEE = 0.008; // 0.8% for Pro (premium benefit)
+        const MIN_DEPOSIT = 200;
+        const MIN_WITHDRAWAL = 200;
         const PREMIUM_MONTHLY = 100;
-        const SMART_WIN_PROB = 0.8;     // 80%
-        const SMART_TRADE_AMOUNT = 100; // Fixed amount per auto-trade
+        const SMART_WIN_PROB = 0.8;
+        const SMART_TRADE_AMOUNT = 100;
         const FREE_MAX_TRADE = 500;
         const PRO_MAX_TRADE = 2000;
 
-        // DOM elements
+        // DOM
         const balanceEl = document.getElementById('balanceDisplay');
         const premStatusEl = document.getElementById('premStatus');
         const premiumBtn = document.getElementById('premiumBtn');
@@ -239,25 +290,28 @@
         const smartLossesEl = document.getElementById('smartLosses');
         const smartWinRateEl = document.getElementById('smartWinRate');
         const tradeLogEl = document.getElementById('tradeLog');
+        const loggedPhone = document.getElementById('loggedPhone');
+        const phoneInput = document.getElementById('phoneInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const authFormDiv = document.querySelector('.auth-form');
+        const userAreaDiv = document.getElementById('userArea');
 
-        // ---------- UI Updates ----------
+        // ---------- UI ----------
         function updateBalanceDisplay() {
             balanceEl.textContent = balance.toLocaleString(undefined, {minimumFractionDigits: 2});
             balanceEl.className = balance >= 5000 ? 'balance-value profit' : 'balance-value loss';
         }
 
         function updateFeeDisplay() {
-            if (premiumActive) {
-                feeInfoEl.innerHTML = 'NRX Pro: 0.2% fee | K5 withdrawal';
-            } else {
-                feeInfoEl.innerHTML = 'Free plan: 0.3% fee | K10 withdrawal';
-            }
+            const tradeFee = premiumActive ? '0.2%' : '0.3%';
+            const wFee = premiumActive ? '0.8%' : '1%';
+            feeInfoEl.innerHTML = `${premiumActive ? 'NRX Pro' : 'Free'}: ${tradeFee} trade · Deposit 0.5% · Withdraw ${wFee} (min K200)`;
         }
 
         function updatePremiumUI() {
             if (premiumActive && trialActive) {
                 premStatusEl.textContent = '🕒';
-                premiumStatusEl.innerHTML = '<span class="trial-active">🕒 7-day free trial active</span> – NRX Pro features unlocked.';
+                premiumStatusEl.innerHTML = '<span class="trial-active">🕒 7-day free trial</span> – NRX Pro unlocked.';
                 premiumBtn.textContent = '✅ Trial Active';
                 premiumBtn.disabled = true;
                 premiumBtn.style.opacity = '0.6';
@@ -286,31 +340,133 @@
             if (tradeLogEl.children.length > 30) tradeLogEl.lastChild.remove();
         }
 
-        // ---------- Trade Logic ----------
-        function getCurrentFeeRate() {
-            return premiumActive ? PRO_TRADE_FEE : FREE_TRADE_FEE;
+        function updateAuthUI() {
+            if (token && user) {
+                if (authFormDiv) authFormDiv.style.display = 'none';
+                if (userAreaDiv) userAreaDiv.style.display = 'block';
+                loggedPhone.textContent = user.phone;
+                fetchBalance();
+            } else {
+                if (authFormDiv) authFormDiv.style.display = 'block';
+                if (userAreaDiv) userAreaDiv.style.display = 'none';
+                balance = 5000;
+                premiumActive = false;
+                trialActive = false;
+                updateBalanceDisplay();
+                updatePremiumUI();
+            }
         }
 
-        function getMaxTrade() {
-            return premiumActive ? PRO_MAX_TRADE : FREE_MAX_TRADE;
+        // ---------- API Helper ----------
+        async function apiCall(method, endpoint, body = null) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${API_BASE}${endpoint}`, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : null
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
         }
 
-        function manualTrade(direction) {
+        // ---------- Auth ----------
+        async function handleLogin() {
+            const phone = phoneInput.value.trim();
+            const password = passwordInput.value.trim();
+            if (!phone || !password) return alert('Phone and password required');
+            try {
+                const data = await apiCall('POST', '/api/auth/login', { phone, password });
+                token = data.token;
+                user = data.user;
+                balance = user.balance;
+                premiumActive = user.is_premium;
+                trialActive = user.trial_active || false;
+                localStorage.setItem('nrxtrader_token', token);
+                localStorage.setItem('nrxtrader_user', JSON.stringify(user));
+                updateBalanceDisplay();
+                updatePremiumUI();
+                updateAuthUI();
+                addLog('Logged in successfully', 'win');
+            } catch (err) {
+                alert('Login failed: ' + err.message);
+            }
+        }
+
+        async function handleRegister() {
+            const phone = phoneInput.value.trim();
+            const password = passwordInput.value.trim();
+            if (!phone || !password) return alert('Phone and password required');
+            try {
+                await apiCall('POST', '/api/auth/register', { phone, password });
+                addLog('Registration successful! Please login.', 'win');
+                alert('Account created! Now login.');
+            } catch (err) {
+                alert('Registration failed: ' + err.message);
+            }
+        }
+
+        function logout() {
+            token = null;
+            user = null;
+            localStorage.removeItem('nrxtrader_token');
+            localStorage.removeItem('nrxtrader_user');
+            balance = 5000;
+            premiumActive = false;
+            trialActive = false;
+            updateBalanceDisplay();
+            updatePremiumUI();
+            updateAuthUI();
+            addLog('Logged out', 'fee');
+        }
+
+        async function fetchBalance() {
+            if (!token) return;
+            try {
+                const data = await apiCall('GET', '/api/wallet/balance');
+                balance = data.balance_zmw;
+                premiumActive = data.is_premium;
+                updateBalanceDisplay();
+                updatePremiumUI();
+            } catch (err) {
+                addLog('Could not fetch balance: ' + err.message, 'loss');
+            }
+        }
+
+        // ---------- Mobile Money Deposit ----------
+        function openWhatsApp() {
+            const adminPhone = '260772566084';  // 0772566084
+            const userPhone = user ? user.phone : 'unknown';
+            const message = `Hi NRXTRADER, I've made a mobile money deposit.\nMy phone: ${userPhone}\nPlease find the screenshot attached.`;
+            window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+
+        // ---------- Trades ----------
+        function getTradeFeeRate() { return premiumActive ? PRO_TRADE_FEE : FREE_TRADE_FEE; }
+        function getMaxTrade() { return premiumActive ? PRO_MAX_TRADE : FREE_MAX_TRADE; }
+
+        async function manualTrade(direction) {
+            if (!token) return alert('Please log in first.');
             const amount = parseInt(document.getElementById('tradeAmount').value);
             if (isNaN(amount) || amount < 100) return alert('Min trade amount is K100.');
             const max = getMaxTrade();
-            if (amount > max) return alert(`Your plan allows a maximum trade of K${max}.`);
-            if (balance < amount) return alert('Insufficient balance.');
-
-            const fee = amount * getCurrentFeeRate();
-            const win = Math.random() < 0.5; // 50% chance for manual
-            const pnl = win ? amount * 0.02 : -amount * 0.02; // 2% move
-            const net = pnl - fee;
-            balance += net;
-            addLog(`Manual ${direction}: ${amount} ZMW (${win ? 'WIN' : 'LOSS'}) Fee: ${fee.toFixed(2)}`, win ? 'win' : 'loss');
-            updateBalanceDisplay();
+            if (amount > max) return alert(`Your plan allows max K${max}.`);
+            try {
+                const data = await apiCall('POST', '/api/trades/manual', {
+                    symbol: 'BTCUSDT',
+                    direction,
+                    amount
+                });
+                balance = data.new_balance;
+                updateBalanceDisplay();
+                addLog(`Manual ${direction}: ${amount} ZMW (${data.win ? 'WIN' : 'LOSS'}) Fee: ${data.fee.toFixed(2)}`, data.win ? 'win' : 'loss');
+            } catch (err) {
+                alert(err.message);
+            }
         }
 
+        // Smart tool (client-side simulation)
         function smartTrade() {
             if (!smartActive) return;
             if (balance < SMART_TRADE_AMOUNT) {
@@ -318,13 +474,13 @@
                 addLog('Smart Tool stopped: insufficient funds.', 'loss');
                 return;
             }
-            const fee = SMART_TRADE_AMOUNT * getCurrentFeeRate();
+            const fee = SMART_TRADE_AMOUNT * getTradeFeeRate();
             const win = Math.random() < SMART_WIN_PROB;
-            const gross = win ? SMART_TRADE_AMOUNT * 0.03 : -SMART_TRADE_AMOUNT * 0.03; // 3% move
+            const gross = win ? SMART_TRADE_AMOUNT * 0.03 : -SMART_TRADE_AMOUNT * 0.03;
             const net = gross - fee;
             balance += net;
             if (win) smartWins++; else smartLosses++;
-            addLog(`Smart Trade: ${win ? 'WIN' : 'LOSS'} ${Math.abs(gross).toFixed(2)} ZMW, fee ${fee.toFixed(2)}`, win ? 'win' : 'loss');
+            addLog(`Smart: ${win ? 'WIN' : 'LOSS'} ${Math.abs(gross).toFixed(2)} ZMW, fee ${fee.toFixed(2)}`, win ? 'win' : 'loss');
             updateBalanceDisplay();
             updateSmartStats();
         }
@@ -333,8 +489,7 @@
             smartWinsEl.textContent = smartWins;
             smartLossesEl.textContent = smartLosses;
             const total = smartWins + smartLosses;
-            const rate = total === 0 ? 0 : ((smartWins / total) * 100).toFixed(1);
-            smartWinRateEl.textContent = rate + '%';
+            smartWinRateEl.textContent = (total ? ((smartWins / total) * 100).toFixed(1) : 0) + '%';
         }
 
         function startSmartTool() {
@@ -356,75 +511,69 @@
         }
 
         function toggleSmartTool() {
-            if (smartActive) stopSmartTool();
-            else startSmartTool();
+            smartActive ? stopSmartTool() : startSmartTool();
         }
 
-        // ---------- Premium Actions ----------
-        function handlePremiumAction() {
-            if (premiumActive) return; // should be disabled, but just in case
-
-            if (!trialActive && !premiumActive) {
-                // Start trial
-                startTrial();
+        // ---------- Premium ----------
+        async function handlePremiumAction() {
+            if (!token) return alert('Please log in first.');
+            if (premiumActive) return;
+            try {
+                await apiCall('POST', '/api/premium/trial');
+                trialActive = true;
+                premiumActive = true;
+                updatePremiumUI();
+                addLog('🎁 7-day free trial started!', 'trial-active');
+            } catch (err) {
+                alert(err.message);
             }
         }
 
-        function startTrial() {
-            trialActive = true;
-            premiumActive = true; // trial gives full benefits
-            updatePremiumUI();
-            addLog('🎁 7-day free trial started! NRX Pro features unlocked.', 'trial-active');
-        }
-
-        // In a real app you'd have a subscribe() function that charges K100
-        // For demo, we'll simulate a subscription after trial ends (manual trigger)
-        function subscribeNow() {
-            if (premiumActive && !trialActive) {
-                alert('Already subscribed.');
-                return;
+        async function subscribeNow() {
+            if (!token) return alert('Please log in first.');
+            try {
+                await apiCall('POST', '/api/premium/subscribe');
+                balance -= PREMIUM_MONTHLY;
+                premiumActive = true;
+                trialActive = false;
+                updateBalanceDisplay();
+                updatePremiumUI();
+                addLog(`NRX Pro activated: -K${PREMIUM_MONTHLY}/month`, 'fee');
+            } catch (err) {
+                alert(err.message);
             }
-            if (balance < PREMIUM_MONTHLY) {
-                alert(`Insufficient balance. You need K${PREMIUM_MONTHLY}.`);
-                return;
-            }
-            balance -= PREMIUM_MONTHLY;
-            premiumActive = true;
-            trialActive = false; // trial ends when they pay
-            updatePremiumUI();
-            addLog(`NRX Pro activated: -K${PREMIUM_MONTHLY}/month`, 'fee');
-            updateBalanceDisplay();
         }
 
-        // Function to cancel premium (for demo testing)
-        function cancelPremium() {
-            if (!premiumActive) return;
-            premiumActive = false;
-            trialActive = false;
-            updatePremiumUI();
-            addLog('NRX Pro cancelled. Back to free plan.', 'fee');
-        }
-
-        // ---------- Withdraw ----------
-        function withdraw() {
-            const fee = premiumActive ? PRO_WITHDRAW_FEE : FREE_WITHDRAW_FEE;
-            const amount = prompt(`Enter withdrawal amount (min 100 ZMW). Fee: K${fee}`);
+        // ---------- Withdraw (new 1% fee, min K200) ----------
+        async function withdraw() {
+            if (!token) return alert('Please log in first.');
+            const feeRate = premiumActive ? PRO_WITHDRAW_FEE : FREE_WITHDRAW_FEE;
+            const feePercent = (feeRate * 100).toFixed(1);
+            const amount = prompt(`Enter withdrawal amount (min K200). Fee: ${feePercent}%\nExample: K200 → K${(200 - 200*feeRate).toFixed(0)} credited.`);
             const amt = parseFloat(amount);
-            if (isNaN(amt) || amt < 100) return alert('Minimum withdrawal K100.');
-            const totalDeduction = amt + fee;
+            if (isNaN(amt) || amt < MIN_WITHDRAWAL) return alert(`Minimum withdrawal is K${MIN_WITHDRAWAL}.`);
+            const feeDeduction = amt * feeRate;
+            const totalDeduction = amt + feeDeduction;
             if (balance < totalDeduction) return alert('Insufficient balance (including fee).');
-            balance -= totalDeduction;
-            addLog(`Withdrawal: ${amt} ZMW + K${fee} fee`, 'fee');
-            updateBalanceDisplay();
+            try {
+                const data = await apiCall('POST', '/api/wallet/withdraw', { amount: amt });
+                balance = data.new_balance;
+                updateBalanceDisplay();
+                addLog(`Withdrawal: ${amt} ZMW – fee ${feeDeduction.toFixed(2)} (${feePercent}%)`, 'fee');
+            } catch (err) {
+                alert(err.message);
+            }
         }
 
         // ---------- Init ----------
         updateBalanceDisplay();
         updatePremiumUI();
+        updateAuthUI();
 
-        // Optional: expose subscribe/cancel for testing in console
+        window.login = handleLogin;
+        window.register = handleRegister;
+        window.logout = logout;
         window.subscribeNow = subscribeNow;
-        window.cancelPremium = cancelPremium;
     </script>
 </body>
 </html>
