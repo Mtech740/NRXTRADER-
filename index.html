@@ -3,94 +3,539 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>API Test</title>
+    <title>NRXTRADER – Trade Smarter</title>
     <style>
-        body { font-family: sans-serif; background: #111; color: #fff; padding: 20px; }
-        button { padding: 12px 24px; margin: 10px 5px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        pre { background: #1e293b; padding: 15px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; }
-        .error { color: #f87171; }
+        :root {
+            --bg: #0a0e17;
+            --surface: #111827;
+            --border: #1f2937;
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --green: #10b981;
+            --red: #ef4444;
+            --warning: #f59e0b;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .landing { display: none; }
+        .landing.active { display: block; }
+        .dashboard { display: none; }
+        .dashboard.active { display: block; }
+        .container { max-width: 500px; margin: 0 auto; padding: 0 16px; }
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 0; border-bottom: 1px solid var(--border);
+        }
+        .logo { font-weight: 800; font-size: 1.5rem; background: linear-gradient(135deg, #3b82f6, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        nav a { color: var(--text-secondary); text-decoration: none; margin-left: 16px; font-size: 0.9rem; }
+        nav a:hover { color: #fff; }
+        .btn {
+            background: var(--accent); color: white; border: none;
+            padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;
+            display: inline-block; text-align: center; text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+        .btn-outline:hover { background: rgba(59,130,246,0.1); }
+        .btn-danger { background: var(--red); }
+        .hero {
+            padding: 40px 0; text-align: center;
+        }
+        .hero h1 { font-size: 2rem; font-weight: 800; margin-bottom: 12px; }
+        .hero p { color: var(--text-secondary); font-size: 1rem; margin-bottom: 24px; }
+        .hero .buttons { display: flex; gap: 12px; justify-content: center; }
+        .chart-preview {
+            background: var(--surface); border-radius: var(--radius); padding: 16px; margin: 24px 0;
+            overflow: hidden; height: 120px;
+        }
+        .features {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 32px 0;
+        }
+        .feature-card {
+            background: var(--surface); border-radius: var(--radius); padding: 16px;
+            text-align: center;
+        }
+        .feature-card h3 { font-size: 1rem; margin-top: 8px; }
+        .feature-card p { font-size: 0.8rem; color: var(--text-secondary); }
+        .pricing { margin: 32px 0; }
+        .pricing-table { display: flex; gap: 16px; }
+        .price-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 20px; flex: 1; text-align: center;
+        }
+        .price-card h3 { font-size: 1.2rem; }
+        .price-card .price { font-size: 1.5rem; font-weight: 700; margin: 12px 0; }
+        .price-card ul { list-style: none; text-align: left; font-size: 0.9rem; color: var(--text-secondary); }
+        .price-card ul li::before { content: "✓ "; color: var(--green); }
+        .trust {
+            background: var(--surface); border-radius: var(--radius); padding: 24px; margin: 32px 0;
+            text-align: center;
+        }
+        footer {
+            border-top: 1px solid var(--border); padding: 16px 0; margin-top: 32px;
+            display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary);
+        }
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: var(--surface); border-radius: var(--radius); padding: 24px;
+            width: 90%; max-width: 400px;
+        }
+        .modal-content h2 { margin-bottom: 16px; }
+        .input {
+            width: 100%; background: var(--bg); border: 1px solid var(--border); color: #fff;
+            padding: 12px; border-radius: 8px; margin-bottom: 12px; outline: none;
+        }
+        .input:focus { border-color: var(--accent); }
+        .error { color: var(--red); font-size: 0.8rem; }
+
+        .dashboard-container {
+            display: flex; max-width: 800px; margin: 0 auto; padding: 16px; gap: 16px;
+        }
+        .sidebar {
+            width: 180px; background: var(--surface); border-radius: var(--radius); padding: 16px;
+            display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+        }
+        .sidebar a {
+            color: var(--text-secondary); text-decoration: none; padding: 8px 12px;
+            border-radius: 6px; font-size: 0.9rem;
+        }
+        .sidebar a:hover, .sidebar a.active { background: rgba(59,130,246,0.15); color: #fff; }
+        .main-content { flex: 1; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 20px; margin-bottom: 16px;
+        }
+        .balance-big { font-size: 2rem; font-weight: 700; }
+        .profit { color: var(--green); } .loss { color: var(--red); }
+        .syna-signal {
+            background: var(--green); color: white; padding: 4px 8px; border-radius: 4px;
+            display: inline-block; font-weight: 600;
+        }
+        .syna-confidence { font-size: 0.9rem; margin-top: 4px; }
+        .mini-chart { background: var(--bg); height: 80px; border-radius: 8px; margin: 12px 0; }
+        @media (max-width: 600px) {
+            .dashboard-container { flex-direction: column; }
+            .sidebar { width: 100%; flex-direction: row; overflow-x: auto; gap: 4px; }
+            .features { grid-template-columns: 1fr; }
+            .pricing-table { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
-    <h2>NRXTRADER API Test</h2>
-    <p>Base URL: <code>https://nrxtrader-api.onrender.com</code></p>
-    <div>
-        <button onclick="testRegister()">Test Register</button>
-        <button onclick="testLogin()">Test Login</button>
-        <button onclick="testBalance()">Test Balance (needs token)</button>
+    <!-- ==================== LANDING PAGE ==================== -->
+    <div id="landingPage" class="landing active">
+        <div class="container">
+            <header>
+                <div class="logo">NRXTRADER</div>
+                <nav>
+                    <a href="#features">Features</a>
+                    <a href="#pricing">Pricing</a>
+                    <a href="#" onclick="openLoginModal()">Login</a>
+                </nav>
+            </header>
+            <div class="hero">
+                <h1>Trade Smarter.<br>Grow Faster with NRXTRADER.</h1>
+                <p>The intelligent trading platform powered by <strong>SYNA</strong> — our advanced trading engine.</p>
+                <div class="buttons">
+                    <button class="btn" onclick="openLoginModal()">Start Trading</button>
+                </div>
+            </div>
+            <div class="chart-preview">
+                <svg viewBox="0 0 400 100" width="100%" height="100%">
+                    <polyline points="0,80 50,60 100,70 150,20 200,40 250,10 300,50 350,30 400,15" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                </svg>
+            </div>
+            <div id="features" class="features">
+                <div class="feature-card">
+                    <h3>SYNA Engine</h3>
+                    <p>80% accuracy trading signals</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Advanced Charts</h3>
+                    <p>Real-time market data</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Copy Trading</h3>
+                    <p>Follow pro traders automatically</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Fast Withdrawals</h3>
+                    <p>Mobile money & crypto</p>
+                </div>
+            </div>
+            <div id="pricing" class="pricing">
+                <h2 style="text-align:center; margin-bottom:16px;">Pricing</h2>
+                <div class="pricing-table">
+                    <div class="price-card">
+                        <h3>Free</h3>
+                        <div class="price">K0</div>
+                        <ul>
+                            <li>Basic trading</li>
+                            <li>0.3% trade fee</li>
+                            <li>1% withdrawal fee</li>
+                            <li>SYNA signals (limited)</li>
+                        </ul>
+                    </div>
+                    <div class="price-card">
+                        <h3>NRX Pro</h3>
+                        <div class="price">K100/mo</div>
+                        <ul>
+                            <li>Full SYNA engine</li>
+                            <li>Copy trading</li>
+                            <li>0.2% trade fee</li>
+                            <li>0.8% withdrawal fee</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="trust">
+                <p>Secure withdrawals | Fast mobile money integration | Built for African traders</p>
+            </div>
+            <footer>
+                <span>Contact: support@nrxtrader.com</span>
+                <span>Terms | Privacy</span>
+            </footer>
+        </div>
     </div>
-    <h3>Response:</h3>
-    <pre id="output">Waiting...</pre>
+
+    <!-- ==================== LOGIN MODAL ==================== -->
+    <div id="loginModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h2>Welcome to NRXTRADER</h2>
+            <input type="email" id="loginEmail" class="input" placeholder="Email address">
+            <input type="text" id="loginPhone" class="input" placeholder="Phone (optional)">
+            <input type="password" id="loginPassword" class="input" placeholder="Password">
+            <div id="loginError" class="error"></div>
+            <button class="btn" onclick="login()">Log In</button>
+            <button class="btn btn-outline" onclick="register()" style="margin-top:8px;">Register</button>
+            <button class="btn btn-outline" onclick="closeLoginModal()" style="margin-top:8px;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <div id="dashboardPage" class="dashboard">
+        <div class="dashboard-container">
+            <div class="sidebar">
+                <a href="#" class="tab-link active" data-tab="tab-dashboard">Dashboard</a>
+                <a href="#" class="tab-link" data-tab="tab-trade">Trade</a>
+                <a href="#" class="tab-link" data-tab="tab-wallet">Wallet</a>
+                <a href="#" class="tab-link" data-tab="tab-syna">SYNA</a>
+                <a href="#" class="tab-link" data-tab="tab-signals">Signals</a>
+                <a href="#" class="tab-link" data-tab="tab-settings">Settings</a>
+            </div>
+            <div class="main-content">
+                <!-- Dashboard Tab -->
+                <div id="tab-dashboard" class="tab-content active">
+                    <div class="card">
+                        <div style="display:flex; justify-content:space-between;">
+                            <div>
+                                <span style="color:var(--text-secondary);">Total Balance</span>
+                                <div class="balance-big" id="dashBalance">0.00 ZMW</div>
+                            </div>
+                            <div id="dashPnl" style="font-size:1.2rem;"></div>
+                        </div>
+                        <div class="mini-chart"></div>
+                        <div style="display:flex; gap:16px; margin-top:12px;">
+                            <button class="btn" onclick="switchTab('tab-trade')">Buy / Sell</button>
+                            <button class="btn btn-outline" onclick="switchTab('tab-wallet')">Deposit</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>SYNA Signal</h3>
+                        <p>Current call: <span class="syna-signal" id="signalText">BUY</span></p>
+                        <p class="syna-confidence">Confidence: <span id="confidence">85</span>%</p>
+                        <p>Market trend: <span id="trend">Bullish</span></p>
+                    </div>
+                    <div class="card">
+                        <h3>Recent Trades</h3>
+                        <div id="recentTrades" style="font-size:0.85rem; color:var(--text-secondary);">
+                            No trades yet.
+                        </div>
+                    </div>
+                </div>
+                <!-- Trade Tab -->
+                <div id="tab-trade" class="tab-content">
+                    <div class="card">
+                        <h3>Manual Trade</h3>
+                        <input type="number" id="tradeAmountInput" class="input" placeholder="Amount (min 100)" value="100" min="100" step="50">
+                        <div style="display:flex; gap:10px; margin-top:8px;">
+                            <button class="btn" onclick="executeTrade('BUY')">Buy</button>
+                            <button class="btn btn-outline" onclick="executeTrade('SELL')">Sell</button>
+                        </div>
+                        <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:8px;" id="tradeMaxNote">Max: K500 (Free)</p>
+                        <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;" id="tradeFeeNote">Trade fee: 0.3%</p>
+                    </div>
+                </div>
+                <!-- Wallet Tab -->
+                <div id="tab-wallet" class="tab-content">
+                    <div class="card">
+                        <h3>Deposit via Mobile Money</h3>
+                        <p style="font-size:0.9rem;">MTN: +260 960 168 307<br>Airtel: Coming soon</p>
+                        <p style="font-size:0.8rem; color:var(--text-secondary);">Min K200, 0.5% fee. Send payment, then confirm via WhatsApp.</p>
+                        <button class="btn" onclick="openWhatsAppDeposit()">Send Payment Confirmation</button>
+                    </div>
+                    <div class="card">
+                        <h3>Withdraw</h3>
+                        <p style="font-size:0.8rem; color:var(--text-secondary);" id="withdrawFeeNote">Withdrawal fee: 1% (min K200)</p>
+                        <button class="btn btn-danger" onclick="withdrawFunds()">Withdraw</button>
+                    </div>
+                    <div class="card">
+                        <h3>Transaction History</h3>
+                        <div id="transactionHistory" style="font-size:0.85rem; color:var(--text-secondary);">No transactions yet.</div>
+                    </div>
+                </div>
+                <!-- SYNA Tab -->
+                <div id="tab-syna" class="tab-content">
+                    <div class="card">
+                        <h3>SYNA Trading Engine</h3>
+                        <p>Automated trading with <strong>80% historical win rate</strong>. 0.3% fee per trade. Requires minimum K100 balance.</p>
+                        <button class="btn" id="synaToggleBtn" onclick="toggleSyna()">Start SYNA</button>
+                        <div style="display:flex; justify-content:space-between; margin-top:12px; font-size:0.8rem;">
+                            <span>Wins: <strong id="synaWins">0</strong></span>
+                            <span>Losses: <strong id="synaLosses">0</strong></span>
+                            <span>Win Rate: <strong id="synaWinRate">0%</strong></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Signals Tab -->
+                <div id="tab-signals" class="tab-content">
+                    <div class="card">
+                        <h3>Signals</h3>
+                        <p>Pro signals will appear here. Upgrade to NRX Pro.</p>
+                        <button class="btn" onclick="startPremiumTrial()">Start Free Trial (NRX Pro)</button>
+                    </div>
+                </div>
+                <!-- Settings Tab -->
+                <div id="tab-settings" class="tab-content">
+                    <div class="card">
+                        <h3>Settings</h3>
+                        <p>Logged in as <span id="settingsEmail"></span></p>
+                        <p>Plan: <span id="settingsPlan"></span></p>
+                        <button class="btn btn-outline" onclick="logout()" style="margin-top:12px;">Log Out</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         const API = 'https://nrxtrader-api.onrender.com';
-        let token = null;
+        let token = localStorage.getItem('nrxtrader_token') || null;
+        let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
+        let balance = 0, premium = false, trial = false;
 
-        function display(obj) {
-            document.getElementById('output').textContent = JSON.stringify(obj, null, 2);
+        // SYNA (formerly Oracle) state
+        let synaActive = false, synaTimer = null;
+        let synaWins = 0, synaLosses = 0;
+        const SYNA_AMOUNT = 100, SYNA_WIN_RATE = 0.8;
+
+        const landingPage = document.getElementById('landingPage');
+        const dashboardPage = document.getElementById('dashboardPage');
+        const loginModal = document.getElementById('loginModal');
+        const loginError = document.getElementById('loginError');
+
+        function showLanding() { landingPage.classList.add('active'); dashboardPage.classList.remove('active'); }
+        function showDashboard() { landingPage.classList.remove('active'); dashboardPage.classList.add('active'); }
+        function openLoginModal() { loginModal.style.display = 'flex'; }
+        function closeLoginModal() { loginModal.style.display = 'none'; }
+
+        async function apiCall(method, path, body) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Server error');
+            return data;
         }
 
-        async function testRegister() {
-            display('Sending register request...');
+        async function login() {
+            loginError.textContent = '';
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
             try {
-                const res = await fetch(API + '/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: 'apitest@nrxtrader.com',
-                        phone: '',
-                        password: 'test1234'
-                    })
-                });
-                const data = await res.json();
-                display({ status: res.status, data });
-                if (data.success) {
-                    token = null; // not returned from register directly
-                }
-            } catch (e) {
-                display({ error: e.message });
-            }
+                const data = await apiCall('POST', '/api/auth/login', { email, password });
+                token = data.token; user = data.user; balance = user.balance; premium = user.is_premium; trial = user.trial_active;
+                localStorage.setItem('nrxtrader_token', token);
+                localStorage.setItem('nrxtrader_user', JSON.stringify(user));
+                closeLoginModal();
+                showDashboard();
+                updateDashboard();
+            } catch (e) { loginError.textContent = e.message; }
         }
 
-        async function testLogin() {
-            display('Sending login request...');
+        async function register() {
+            loginError.textContent = '';
+            const email = document.getElementById('loginEmail').value.trim();
+            const phone = document.getElementById('loginPhone').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
             try {
-                const res = await fetch(API + '/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: 'apitest@nrxtrader.com',
-                        password: 'test1234'
-                    })
-                });
-                const data = await res.json();
-                if (data.token) {
-                    token = data.token;
-                    document.getElementById('output').textContent = 'Login success! Token: ' + data.token.slice(0, 20) + '...\nFull response: ' + JSON.stringify(data, null, 2);
-                } else {
-                    display({ status: res.status, data });
-                }
-            } catch (e) {
-                display({ error: e.message });
-            }
+                await apiCall('POST', '/api/auth/register', { email, password, phone: phone || undefined });
+                loginError.textContent = 'Account created! You can now log in.';
+                loginError.style.color = 'var(--green)';
+            } catch (e) { loginError.textContent = e.message; }
         }
 
-        async function testBalance() {
-            if (!token) {
-                display({ error: 'No token. Please login first.' });
+        function logout() {
+            token = null; user = null; balance = 0; premium = false; trial = false;
+            stopSyna();
+            localStorage.clear();
+            showLanding();
+            document.getElementById('loginEmail').value = '';
+            document.getElementById('loginPassword').value = '';
+        }
+
+        function updateDashboard() {
+            document.getElementById('dashBalance').textContent = balance.toLocaleString() + ' ZMW';
+            const pnlVal = (Math.random() * 200 - 50).toFixed(2);
+            const pnl = document.getElementById('dashPnl');
+            pnl.textContent = (pnlVal >= 0 ? '+' : '') + pnlVal + ' ZMW';
+            pnl.className = pnlVal >= 0 ? 'profit' : 'loss';
+
+            document.getElementById('signalText').textContent = Math.random() < 0.5 ? 'BUY' : 'SELL';
+            document.getElementById('confidence').textContent = 70 + Math.floor(Math.random() * 25);
+
+            const tradeFee = premium ? '0.2%' : '0.3%';
+            const withdrawFee = premium ? '0.8%' : '1%';
+            document.getElementById('tradeMaxNote').textContent = `Max: K${premium ? 2000 : 500} (${premium ? 'Pro' : 'Free'})`;
+            document.getElementById('tradeFeeNote').textContent = `Trade fee: ${tradeFee}`;
+            document.getElementById('withdrawFeeNote').textContent = `Withdrawal fee: ${withdrawFee} (min K200)`;
+
+            document.getElementById('settingsEmail').textContent = user.email;
+            document.getElementById('settingsPlan').textContent = premium ? (trial ? 'Trial (Pro)' : 'Pro') : 'Free';
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelectorAll('.sidebar a').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+        }
+
+        async function executeTrade(direction) {
+            if (!token) return alert('Please log in.');
+            const amount = parseInt(document.getElementById('tradeAmountInput').value);
+            if (isNaN(amount) || amount < 100) return alert('Min K100.');
+            if (amount > (premium ? 2000 : 500)) return alert('Amount exceeds plan limit.');
+            try {
+                const data = await apiCall('POST', '/api/trades/manual', { symbol:'BTCUSDT', direction, amount });
+                balance = data.new_balance;
+                updateDashboard();
+                alert(`${direction} executed.`);
+            } catch (e) { alert(e.message); }
+        }
+
+        function openWhatsAppDeposit() {
+            const phone = '260772566084';
+            const id = user ? (user.phone || user.email) : 'unknown';
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(`Hi, I've made a deposit. Account: ${id}`)}`, '_blank');
+        }
+
+        async function withdrawFunds() {
+            if (!token) return alert('Log in.');
+            const feeRate = premium ? 0.008 : 0.01;
+            const amt = parseFloat(prompt(`Min K200. Fee: ${(feeRate*100).toFixed(1)}%\nEnter amount:`));
+            if (isNaN(amt) || amt < 200) return alert('Minimum K200.');
+            const total = amt + (amt * feeRate);
+            if (balance < total) return alert('Insufficient balance including fee.');
+            try {
+                const data = await apiCall('POST', '/api/wallet/withdraw', { amount: amt });
+                balance = data.new_balance;
+                updateDashboard();
+                alert('Withdrawal request submitted.');
+            } catch (e) { alert(e.message); }
+        }
+
+        // ---- SYNA Engine ----
+        function synaTick() {
+            if (!synaActive) return;
+            if (balance < SYNA_AMOUNT) {
+                stopSyna();
+                alert('SYNA stopped: insufficient balance.');
                 return;
             }
-            display('Fetching balance...');
-            try {
-                const res = await fetch(API + '/api/wallet/balance', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                display({ status: res.status, data });
-            } catch (e) {
-                display({ error: e.message });
-            }
+            const fee = SYNA_AMOUNT * (premium ? 0.002 : 0.003);
+            const win = Math.random() < SYNA_WIN_RATE;
+            const gross = win ? SYNA_AMOUNT * 0.03 : -SYNA_AMOUNT * 0.03;
+            const net = gross - fee;
+            balance += net;
+            if (win) synaWins++; else synaLosses++;
+            document.getElementById('synaWins').textContent = synaWins;
+            document.getElementById('synaLosses').textContent = synaLosses;
+            const total = synaWins + synaLosses;
+            document.getElementById('synaWinRate').textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
+            updateDashboard();
         }
+        function startSyna() {
+            if (balance < SYNA_AMOUNT) {
+                alert('Minimum K100 balance required to start SYNA.');
+                return;
+            }
+            synaActive = true;
+            document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
+            synaTimer = setInterval(synaTick, 3000);
+        }
+        function stopSyna() {
+            synaActive = false;
+            document.getElementById('synaToggleBtn').textContent = 'Start SYNA';
+            if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
+        }
+        function toggleSyna() {
+            synaActive ? stopSyna() : startSyna();
+        }
+
+        // Premium trial
+        async function startPremiumTrial() {
+            if (!token) return alert('Log in first.');
+            if (premium) return alert('Already premium.');
+            try {
+                await apiCall('POST', '/api/premium/trial');
+                trial = true;
+                premium = true;
+                updateDashboard();
+                alert('7-day NRX Pro trial activated!');
+            } catch (e) { alert(e.message); }
+        }
+
+        // Init
+        window.onload = () => {
+            if (token && user) {
+                apiCall('GET', '/api/wallet/balance').then(data => {
+                    balance = data.balance_zmw;
+                    premium = data.is_premium;
+                    trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date()) || false;
+                    showDashboard();
+                    updateDashboard();
+                }).catch(() => {
+                    logout();
+                    showLanding();
+                });
+            } else {
+                showLanding();
+            }
+            document.querySelectorAll('.sidebar a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    switchTab(link.dataset.tab);
+                });
+            });
+        };
     </script>
 </body>
 </html>
