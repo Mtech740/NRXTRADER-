@@ -15,8 +15,8 @@ router.post('/register', async (req, res) => {
         );
         res.json({ success: true, user: result.rows[0] });
     } catch (err) {
-        // SEND REAL ERROR to frontend (temporarily)
-        res.status(500).json({ error: err.message || 'Server error', detail: err.detail || '', code: err.code || '' });
+        if (err.code === '23505') return res.status(400).json({ error: 'Email already registered' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
@@ -42,7 +42,7 @@ router.post('/login', async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message || 'Server error', detail: err.detail || '', code: err.code || '' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
