@@ -79,18 +79,7 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
     font-size:14px; outline:none;
 }
 .chart{
-    height:320px; border-radius:14px;
-    background: linear-gradient(180deg, rgba(108,92,231,0.2), rgba(0,200,83,0.05)), #0f172a;
-    position:relative; overflow:hidden;
-}
-.chart::before{
-    content:''; position:absolute; width:100%; height:100%;
-    background: linear-gradient(to right, transparent 0%, transparent 10%, rgba(255,255,255,0.03) 10%, rgba(255,255,255,0.03) 11%);
-    background-size:60px 60px;
-}
-.chart-line{
-    position:absolute; width:90%; height:3px; background:#00C853; top:55%; left:5%;
-    transform:skewY(-10deg); box-shadow:0 0 15px #00C853;
+    border-radius:14px; overflow:hidden; height:320px;
 }
 
 .trade-panel{ background:#111827; padding:20px; border-radius:18px; }
@@ -129,7 +118,7 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
 .no-trades{ color:#64748b; text-align:center; padding:30px 0; }
 
 /* Modals */
-.markets-modal, .wallet-modal, .settings-modal{
+.markets-modal, .wallet-modal, .settings-modal, .signals-modal{
     position:fixed; top:0; left:0; width:100%; height:100%;
     background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center;
     z-index:999; display:none;
@@ -157,6 +146,7 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
     font-size:12px; color:#f59e0b; margin:10px 0; padding:10px; background:rgba(245,158,11,0.1);
     border-radius:8px;
 }
+.signal-item{ padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
 
 @media(max-width:1100px){
     .cards{ grid-template-columns:repeat(2,1fr); }
@@ -216,7 +206,7 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
         <p style="font-size:14px; color:#94a3b8;">Airtel: Coming soon</p>
         <p style="font-size:12px; color:#64748b;">Min K200 | Fee: 0.5%</p>
         <div class="notice">
-            Smart automated payments coming soon. Currently manual verification — your deposit will be credited after confirmation. We're working on a fully automated system.
+            Smart automated payments coming soon. Currently manual verification — your deposit will be credited after confirmation.
         </div>
         <label for="screenshotUpload" class="file-upload">
             Tap to upload payment screenshot
@@ -248,6 +238,24 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
     </div>
 </div>
 
+<!-- SIGNALS MODAL -->
+<div id="signalsModal" class="signals-modal">
+    <div class="modal-content">
+        <h3>SYNA Trading Signals</h3>
+        <p class="green" id="signalCurrent">Current: BUY BTC/USDT</p>
+        <p>Confidence: <span id="signalConf">85</span>%</p>
+        <p>Trend: <span id="signalTrend">Bullish</span></p>
+        <hr style="border-color:rgba(255,255,255,0.05); margin:15px 0;">
+        <h4>Recent Signals</h4>
+        <div id="signalList">
+            <div class="signal-item">BUY BTC/USDT - 87%</div>
+            <div class="signal-item">SELL ETH/USDT - 78%</div>
+            <div class="signal-item">BUY XAUUSD - 82%</div>
+        </div>
+        <button class="close-btn" onclick="closeSignals()">Close</button>
+    </div>
+</div>
+
 <!-- DASHBOARD CONTAINER -->
 <div class="container" id="dashboardContainer" style="display:none;">
     <div class="sidebar">
@@ -258,6 +266,7 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
             <li data-tab="markets">Markets</li>
             <li data-tab="copy">Copy Trading</li>
             <li data-tab="syna">S.Y.N.A</li>
+            <li data-tab="signals">Signals</li>
             <li data-tab="wallet">Wallet</li>
             <li data-tab="settings">Settings</li>
         </ul>
@@ -302,8 +311,8 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
                         <option value="XAU/USD">XAU/USD (Gold)</option>
                     </select>
                 </div>
-                <div class="chart">
-                    <div class="chart-line"></div>
+                <div class="chart" id="chartContainer">
+                    <!-- TradingView widget will be inserted here -->
                 </div>
             </div>
 
@@ -329,8 +338,7 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
                     <br>
                     <p>Confidence Level: <span id="synaConf">86</span>%</p>
                     <br>
-                    <p style="font-size:13px; color:#94a3b8;" id="synaDescription">AI detects strong upward momentum.</p>
-                    <br>
+                    <!-- Removed the AI description text -->
                     <div class="syna-stats">
                         <span>Wins: <strong id="synaWins">0</strong></span>
                         <span>Losses: <strong id="synaLosses">0</strong></span>
@@ -351,6 +359,8 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
     </div>
 </div>
 
+<!-- TradingView widget library -->
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <script>
 const API = 'https://nrxtrader-api.onrender.com';
 let token = localStorage.getItem('nrxtrader_token') || null;
@@ -381,7 +391,6 @@ const planBadge = document.getElementById('planBadge');
 const tradeFeeDisplay = document.getElementById('tradeFeeDisplay');
 const synaTrend = document.getElementById('synaTrend');
 const synaConf = document.getElementById('synaConf');
-const synaDescription = document.getElementById('synaDescription');
 const synaWinsEl = document.getElementById('synaWins');
 const synaLossesEl = document.getElementById('synaLosses');
 const synaWinRateEl = document.getElementById('synaWinRate');
@@ -396,6 +405,45 @@ const withdrawFee = document.getElementById('withdrawFee');
 const settingsEmail = document.getElementById('settingsEmail');
 const settingsPlan = document.getElementById('settingsPlan');
 const settingsBalance = document.getElementById('settingsBalance');
+const chartContainer = document.getElementById('chartContainer');
+
+// Map our market pairs to TradingView symbols
+const symbolMap = {
+    'BTC/USDT': 'BINANCE:BTCUSDT',
+    'ETH/USDT': 'BINANCE:ETHUSDT',
+    'XRP/USDT': 'BINANCE:XRPUSDT',
+    'EUR/USD': 'FX:EURUSD',
+    'GBP/USD': 'FX:GBPUSD',
+    'XAU/USD': 'OANDA:XAUUSD'
+};
+
+let tvWidget = null;
+
+function loadChart(symbol) {
+    if (tvWidget) {
+        tvWidget.remove();
+    }
+    if (!symbolMap[symbol]) return;
+    tvWidget = new TradingView.widget({
+        "container_id": "chartContainer",
+        "autosize": true,
+        "symbol": symbolMap[symbol],
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#f1f3f6",
+        "enable_publishing": false,
+        "allow_symbol_change": false,
+        "save_image": false,
+        "hide_side_toolbar": false,
+        "details": false,
+        "hotlist": false,
+        "calendar": false,
+        "studies": []
+    });
+}
 
 async function apiCall(method, path, body) {
     const headers = { 'Content-Type': 'application/json' };
@@ -428,15 +476,15 @@ function refreshUI() {
 
     synaConf.textContent = 70 + Math.floor(Math.random() * 25);
     const trends = ['BULLISH', 'BEARISH', 'SIDEWAYS'];
-    const descriptions = [
-        'AI detects strong upward momentum with increased buyer activity.',
-        'AI detects downward pressure with seller dominance.',
-        'AI detects market consolidation. Wait for breakout.'
-    ];
     const idx = Math.floor(Math.random() * 3);
     synaTrend.textContent = 'TREND: ' + trends[idx];
-    synaDescription.textContent = descriptions[idx];
     synaTrend.className = trends[idx] === 'BULLISH' ? 'green' : (trends[idx] === 'BEARISH' ? 'red-text' : '');
+
+    // Update signals modal
+    document.getElementById('signalCurrent').textContent = `Current: ${trends[idx] === 'BULLISH' ? 'BUY' : (trends[idx] === 'BEARISH' ? 'SELL' : 'HOLD')} ${selectedMarketPair}`;
+    document.getElementById('signalConf').textContent = synaConf.textContent;
+    document.getElementById('signalTrend').textContent = trends[idx];
+    document.getElementById('signalTrend').className = trends[idx] === 'BULLISH' ? 'green' : (trends[idx] === 'BEARISH' ? 'red-text' : '');
 }
 
 async function handleLogin() {
@@ -456,6 +504,7 @@ async function handleLogin() {
         loginOverlay.style.display = 'none';
         dashboardContainer.style.display = 'flex';
         refreshUI();
+        loadChart(selectedMarketPair);
     } catch (e) { loginError.textContent = e.message; }
 }
 
@@ -475,6 +524,7 @@ async function handleRegister() {
 function logout() {
     token = null; user = null;
     stopSyna();
+    if (tvWidget) tvWidget.remove();
     localStorage.clear();
     balance = 0; premium = false; trial = false; totalTrades = 0; totalProfitAccum = 0;
     loginOverlay.style.display = 'flex';
@@ -483,9 +533,7 @@ function logout() {
     document.getElementById('loginPassword').value = '';
     document.getElementById('loginPhone').value = '';
     recentTradesList.innerHTML = '<div class="no-trades">No trades yet</div>';
-    closeSettings();
-    closeWallet();
-    closeMarkets();
+    closeSettings(); closeWallet(); closeMarkets(); closeSignals();
 }
 
 function setTradeDirection(dir) {
@@ -506,9 +554,11 @@ async function executeTrade() {
     const max = premium ? 2000 : 500;
     if (amount > max) return alert(`Maximum trade for your plan is K${max}.`);
     if (balance < amount) return alert('Insufficient balance. Please deposit funds.');
+
+    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
-            symbol: selectedMarketPair.replace(' ', ''),
+            symbol: symbol,
             direction: tradeDirection.toUpperCase(),
             amount: amount
         });
@@ -524,7 +574,9 @@ async function executeTrade() {
         recentTradesList.prepend(tradeItem);
         if (recentTradesList.querySelector('.no-trades')) recentTradesList.querySelector('.no-trades').remove();
         if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
-    } catch (e) { alert(e.message); }
+    } catch (e) {
+        alert('Trade failed: ' + e.message);
+    }
 }
 
 // SYNA Engine
@@ -574,10 +626,9 @@ function stopSyna() {
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
-// Wallet functions
+// Wallet
 function handleScreenshot(input) {
     if (input.files && input.files[0]) {
-        // Just visual feedback
         alert('Screenshot selected: ' + input.files[0].name + '\nIt will be reviewed manually.');
     }
 }
@@ -587,9 +638,7 @@ async function confirmDeposit() {
         alert('Please upload a payment screenshot first.');
         return;
     }
-    // In real scenario, you'd upload the file. For now, we just log.
     alert('Your deposit is being verified. We will credit your account shortly. Reference: ' + (user ? user.email : 'unknown'));
-    // We won't auto-credit; manual verification required.
 }
 async function addTestFunds() {
     if (!token) return alert('Please log in.');
@@ -603,14 +652,10 @@ async function addTestFunds() {
 function openWallet() {
     document.getElementById('walletModal').style.display = 'flex';
     walletBalance.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
-    document.getElementById('screenshotUpload').value = ''; // clear
+    document.getElementById('screenshotUpload').value = '';
 }
 function closeWallet() { document.getElementById('walletModal').style.display = 'none'; }
-function openWhatsApp() {
-    const phone = '260772566084';
-    const id = user ? (user.phone || user.email) : 'unknown';
-    window.open(`https://wa.me/${phone}?text=Hi NRXTRADER, I've made a deposit. Account: ${id}`, '_blank');
-}
+
 async function handleWithdraw() {
     if (!token) return alert('Please log in.');
     const feeRate = premium ? 0.008 : 0.01;
@@ -622,7 +667,10 @@ async function handleWithdraw() {
         const data = await apiCall('POST', '/api/wallet/withdraw', { amount: amt });
         balance = data.new_balance;
         refreshUI();
-        alert('Withdrawal submitted.');
+        alert('Withdrawal request submitted. Admin has been notified.');
+        const adminPhone = '260772566084';
+        const msg = `NRXTRADER Withdrawal Request:\nUser: ${user.email}\nAmount: K${amt}\nFee: K${(amt*feeRate).toFixed(2)}\nNew Balance: K${balance}`;
+        window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(msg)}`, '_blank');
     } catch (e) { alert(e.message); }
 }
 
@@ -635,11 +683,20 @@ function selectMarket(pair) {
     marketSelector.value = pair;
     closeMarkets();
     window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' });
+    loadChart(selectedMarketPair);
 }
 function changeMarket() {
     selectedMarketPair = marketSelector.value;
     selectedMarket.textContent = selectedMarketPair;
+    loadChart(selectedMarketPair);
 }
+
+// Signals
+function openSignals() {
+    document.getElementById('signalsModal').style.display = 'flex';
+    refreshUI();
+}
+function closeSignals() { document.getElementById('signalsModal').style.display = 'none'; }
 
 // Settings
 function openSettings() {
@@ -680,25 +737,20 @@ document.querySelectorAll('.sidebar li').forEach(li => {
         document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
         li.classList.add('active');
         const tab = li.dataset.tab;
-        if (tab === 'dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else if (tab === 'trade') {
-            window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' });
-        } else if (tab === 'markets') {
-            openMarkets();
-        } else if (tab === 'copy') {
+        if (tab === 'dashboard') { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        else if (tab === 'trade') { window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' }); }
+        else if (tab === 'markets') { openMarkets(); }
+        else if (tab === 'copy') {
             if (!premium) {
                 if (confirm('Copy Trading requires NRX Pro. Start free trial?')) handlePremium();
             } else {
                 alert('Copy Trading: Follow pro traders automatically. Coming soon.');
             }
-        } else if (tab === 'syna') {
-            window.scrollTo({ top: document.querySelector('.syna').offsetTop - 100, behavior: 'smooth' });
-        } else if (tab === 'wallet') {
-            openWallet();
-        } else if (tab === 'settings') {
-            openSettings();
         }
+        else if (tab === 'syna') { window.scrollTo({ top: document.querySelector('.syna').offsetTop - 100, behavior: 'smooth' }); }
+        else if (tab === 'signals') { openSignals(); }
+        else if (tab === 'wallet') { openWallet(); }
+        else if (tab === 'settings') { openSettings(); }
     });
 });
 
@@ -711,6 +763,7 @@ window.onload = () => {
             loginOverlay.style.display = 'none';
             dashboardContainer.style.display = 'flex';
             refreshUI();
+            loadChart(selectedMarketPair);
         }).catch(() => { logout(); });
     } else {
         loginOverlay.style.display = 'flex';
