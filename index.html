@@ -1,617 +1,583 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NRXTRADER</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: 'Inter', Arial, sans-serif;
-            background: #0B0F1A;
-            color: white;
-            height: 100vh;
-            display: flex;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NRXTRADER Dashboard</title>
 
-        /* Login Modal */
-        .login-modal {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .login-box {
-            background: #111827;
-            padding: 30px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 400px;
-            text-align: center;
-            border: 1px solid #1f2937;
-        }
-        .login-box h2 {
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, #3b82f6, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 800;
-        }
-        .login-box input {
-            width: 100%;
-            padding: 12px;
-            margin: 8px 0;
-            background: #0B0F1A;
-            border: 1px solid #1f2937;
-            color: white;
-            border-radius: 6px;
-            outline: none;
-            box-sizing: border-box;
-        }
-        .login-box input:focus {
-            border-color: #3b82f6;
-        }
-        .login-box button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 12px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .login-box button.outline {
-            background: transparent;
-            border: 1px solid #3b82f6;
-            color: #3b82f6;
-        }
-        .login-error {
-            color: #ef4444;
-            font-size: 0.9rem;
-            margin-top: 8px;
-        }
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-        /* Main Dashboard Container */
-        .dashboard {
-            display: flex;
-            width: 100%;
-            height: 100vh;
-        }
+<style>
+*{ margin:0; padding:0; box-sizing:border-box; }
+body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-height:100vh; }
 
-        .sidebar {
-            width: 220px;
-            background: #111827;
-            padding: 20px;
-            border-right: 1px solid #1f2937;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-        }
-        .sidebar h2 {
-            font-size: 1.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #3b82f6, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin: 0 0 24px 0;
-        }
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .sidebar li {
-            padding: 10px 12px;
-            cursor: pointer;
-            color: #94a3b8;
-            border-radius: 6px;
-            margin-bottom: 4px;
-            transition: background 0.2s;
-        }
-        .sidebar li:hover {
-            background: rgba(59,130,246,0.1);
-            color: white;
-        }
-        .sidebar li.active {
-            background: rgba(59,130,246,0.15);
-            color: white;
-            font-weight: 500;
-        }
+/* LOGIN MODAL */
+.login-overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center;
+    z-index:1000;
+}
+.login-box {
+    background:#111827; padding:35px 30px; border-radius:20px; width:90%; max-width:420px;
+    text-align:center; border:1px solid rgba(255,255,255,0.05);
+}
+.login-box h2 { color:#6C5CE7; margin-bottom:8px; font-size:28px; }
+.login-box h2 span { color:white; }
+.login-box p { color:#94a3b8; font-size:14px; margin-bottom:20px; }
+.login-box input {
+    width:100%; padding:14px; margin:8px 0; background:#1f2937; border:none;
+    border-radius:10px; color:white; font-size:15px; outline:none;
+}
+.login-box input:focus { ring:2px solid #6C5CE7; }
+.login-box .btn {
+    width:100%; padding:14px; margin-top:12px; border:none; border-radius:12px;
+    font-size:16px; font-weight:600; cursor:pointer; transition:0.3s;
+}
+.btn-primary { background:#6C5CE7; color:white; }
+.btn-primary:hover { opacity:0.9; }
+.btn-outline { background:transparent; border:1px solid #6C5CE7; color:#6C5CE7; margin-top:8px; }
+.login-error { color:#FF3D00; font-size:13px; margin-top:10px; min-height:20px; }
 
-        .main {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
+/* MAIN CONTAINER */
+.container{ display:flex; min-height:100vh; }
 
-        .cards {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .card {
-            background: #111827;
-            padding: 15px;
-            border-radius: 10px;
-            flex: 1;
-            border: 1px solid #1f2937;
-        }
-        .card strong {
-            font-size: 1.4rem;
-            font-weight: 700;
-            display: block;
-            margin-top: 4px;
-        }
-        .card:nth-child(1) strong { color: white; }
-        .card:nth-child(2) strong { color: #10b981; }
-        .card:nth-child(3) strong { color: #10b981; }
-        .card:nth-child(4) strong { color: #3b82f6; }
+/* SIDEBAR */
+.sidebar{
+    width:240px; background:#111827; padding:25px;
+    border-right:1px solid rgba(255,255,255,0.05); flex-shrink:0;
+}
+.logo{ font-size:26px; font-weight:700; margin-bottom:40px; color:#6C5CE7; }
+.logo span{ color:white; }
+.sidebar ul{ list-style:none; }
+.sidebar li{
+    padding:15px; margin-bottom:10px; border-radius:12px; cursor:pointer;
+    transition:0.3s; color:#cbd5e1; font-size:14px;
+}
+.sidebar li:hover{ background:#1f2937; color:white; }
+.sidebar li.active{ background:#6C5CE7; color:white !important; }
 
-        .middle {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .chart {
-            flex: 2;
-            background: #111827;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #1f2937;
-            min-height: 280px;
-        }
-        .chart h3 {
-            margin: 0 0 12px 0;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .fake-chart {
-            height: 200px;
-            background: linear-gradient(to right, #6C5CE7, #10b981);
-            border-radius: 8px;
-        }
+/* MAIN CONTENT */
+.main{ flex:1; padding:25px; }
 
-        .trade {
-            flex: 1;
-            background: #111827;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #1f2937;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .trade h3 {
-            margin: 0 0 8px 0;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .trade .buy, .trade .sell {
-            padding: 8px 12px;
-            border: 1px solid transparent;
-            border-radius: 4px;
-            background: transparent;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        .buy { border-color: #10b981; color: #10b981; }
-        .buy:hover { background: rgba(16,185,129,0.15); }
-        .sell { border-color: #ef4444; color: #ef4444; }
-        .sell:hover { background: rgba(239,68,68,0.15); }
-        .trade input {
-            width: 100%;
-            padding: 10px;
-            background: #0B0F1A;
-            border: 1px solid #1f2937;
-            color: white;
-            border-radius: 4px;
-            outline: none;
-            box-sizing: border-box;
-        }
-        .trade input:focus { border-color: #3b82f6; }
-        .execute {
-            width: 100%;
-            padding: 10px;
-            background: #6C5CE7;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .execute:hover { background: #5a4bd1; }
+/* TOPBAR */
+.topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; }
+.topbar h1{ font-size:28px; }
+.profile{
+    background:#111827; padding:10px 18px; border-radius:12px; cursor:pointer;
+    font-size:14px; transition:0.3s;
+}
+.profile:hover{ background:#1f2937; }
 
-        .bottom {
-            display: flex;
-            gap: 20px;
-        }
-        .syna, .trades {
-            flex: 1;
-            background: #111827;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #1f2937;
-        }
-        .syna h3, .trades h3 {
-            margin: 0 0 12px 0;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .green { color: #10b981; font-weight: bold; }
-        .trades ul {
-            list-style: none;
-            padding: 0;
-        }
-        .trades li {
-            padding: 8px;
-            background: #0B0F1A;
-            border-radius: 4px;
-            margin-bottom: 6px;
-            color: #94a3b8;
-        }
-        .syna button {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 8px;
-        }
+/* CARDS */
+.cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:25px; }
+.card{
+    background:#111827; padding:22px; border-radius:18px; transition:0.3s;
+}
+.card:hover{ transform:translateY(-3px); }
+.card h3{ font-size:15px; color:#94a3b8; margin-bottom:10px; }
+.card p{ font-size:28px; font-weight:700; }
+.green{ color:#00C853; }
+.red-text{ color:#FF3D00; }
 
-        .fee-note {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            margin-top: 4px;
-        }
+/* MIDDLE SECTION */
+.middle{ display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:25px; }
 
-        @media (max-width: 768px) {
-            .dashboard { flex-direction: column; }
-            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #1f2937; padding: 12px; }
-            .sidebar h2 { display: none; }
-            .sidebar ul { display: flex; overflow-x: auto; gap: 8px; }
-            .sidebar li { white-space: nowrap; }
-            .cards { flex-wrap: wrap; }
-            .card { min-width: 45%; flex: 1 1 auto; }
-            .middle, .bottom { flex-direction: column; }
-        }
-    </style>
+/* CHART AREA */
+.chart-box{ background:#111827; padding:20px; border-radius:18px; }
+.chart-header{ display:flex; justify-content:space-between; margin-bottom:20px; }
+.chart-header h2{ font-size:22px; }
+.chart{
+    height:320px; border-radius:14px;
+    background: linear-gradient(180deg, rgba(108,92,231,0.2), rgba(0,200,83,0.05)), #0f172a;
+    position:relative; overflow:hidden;
+}
+.chart::before{
+    content:''; position:absolute; width:100%; height:100%;
+    background: linear-gradient(to right, transparent 0%, transparent 10%, rgba(255,255,255,0.03) 10%, rgba(255,255,255,0.03) 11%);
+    background-size:60px 60px;
+}
+.chart-line{
+    position:absolute; width:90%; height:3px; background:#00C853; top:55%; left:5%;
+    transform:skewY(-10deg); box-shadow:0 0 15px #00C853;
+}
+
+/* TRADE PANEL */
+.trade-panel{ background:#111827; padding:20px; border-radius:18px; }
+.trade-tabs{ display:flex; margin-bottom:20px; }
+.trade-tabs button{ flex:1; padding:12px; border:none; cursor:pointer; font-weight:600; transition:0.3s; }
+.buy-btn{ background:#00C853; color:white; border-radius:10px 0 0 10px; }
+.buy-btn.active{ box-shadow:0 0 20px rgba(0,200,83,0.5); }
+.sell-btn{ background:#FF3D00; color:white; border-radius:0 10px 10px 0; }
+.sell-btn.active{ box-shadow:0 0 20px rgba(255,61,0,0.5); }
+.trade-panel input{
+    width:100%; padding:14px; margin-bottom:15px; border:none;
+    border-radius:10px; background:#1f2937; color:white; outline:none; font-size:15px;
+}
+.trade-panel input:focus{ ring:2px solid #6C5CE7; }
+.fee-display{ font-size:12px; color:#94a3b8; text-align:right; margin-bottom:8px; }
+.execute-btn{
+    width:100%; padding:15px; background:#6C5CE7; border:none; border-radius:12px;
+    color:white; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s;
+}
+.execute-btn:hover{ opacity:0.9; }
+
+/* BOTTOM SECTION */
+.bottom{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+
+/* S.Y.N.A */
+.syna{ background:#111827; padding:22px; border-radius:18px; }
+.syna h2{ margin-bottom:15px; color:#6C5CE7; }
+.ai-box{ background:#1f2937; padding:20px; border-radius:15px; text-align:center; }
+.ai-circle{
+    width:80px; height:80px; background:#6C5CE7; border-radius:50%; margin:auto;
+    margin-bottom:15px; display:flex; justify-content:center; align-items:center; font-size:35px;
+}
+.syna-stats{ display:flex; justify-content:space-around; margin:15px 0; font-size:14px; color:#94a3b8; }
+.syna-stats strong{ color:white; }
+
+/* RECENT TRADES */
+.recent{ background:#111827; padding:22px; border-radius:18px; }
+.trade-item{ display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.trade-item .buy{ color:#00C853; }
+.trade-item .sell{ color:#FF3D00; }
+.no-trades{ color:#64748b; text-align:center; padding:30px 0; }
+
+/* RESPONSIVE */
+@media(max-width:1100px){
+    .cards{ grid-template-columns:repeat(2,1fr); }
+    .middle{ grid-template-columns:1fr; }
+    .bottom{ grid-template-columns:1fr; }
+}
+@media(max-width:768px){
+    .container{ flex-direction:column; }
+    .sidebar{ width:100%; }
+    .cards{ grid-template-columns:1fr; }
+}
+</style>
 </head>
+
 <body>
-    <!-- Login Modal -->
-    <div id="loginModal" class="login-modal">
-        <div class="login-box">
-            <h2>NRXTRADER</h2>
-            <input type="email" id="loginEmail" placeholder="Email address">
-            <input type="text" id="loginPhone" placeholder="Phone (optional)">
-            <input type="password" id="loginPassword" placeholder="Password">
-            <div id="loginError" class="login-error"></div>
-            <button onclick="login()">Log In</button>
-            <button class="outline" onclick="register()" style="margin-top:8px;">Register</button>
-        </div>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+        <h2>NRX<span>TRADER</span></h2>
+        <p>Trade smarter with SYNA intelligence</p>
+        <input type="email" id="loginEmail" placeholder="Email address">
+        <input type="text" id="loginPhone" placeholder="Phone (optional)">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <div id="loginError" class="login-error"></div>
+        <button class="btn btn-primary" onclick="handleLogin()">Log In</button>
+        <button class="btn btn-outline" onclick="handleRegister()">Create Account</button>
+    </div>
+</div>
+
+<!-- DASHBOARD CONTAINER -->
+<div class="container" id="dashboardContainer" style="display:none;">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo">NRX<span>TRADER</span></div>
+        <ul>
+            <li class="active" data-tab="dashboard">Dashboard</li>
+            <li data-tab="trade">Trade</li>
+            <li data-tab="markets">Markets</li>
+            <li data-tab="copy">Copy Trading</li>
+            <li data-tab="syna">S.Y.N.A</li>
+            <li data-tab="wallet">Wallet</li>
+            <li data-tab="settings">Settings</li>
+        </ul>
     </div>
 
-    <!-- Dashboard (hidden initially) -->
-    <div id="dashboard" class="dashboard" style="display: none;">
-        <div class="sidebar">
-            <h2>NRXTRADER</h2>
-            <ul>
-                <li class="active" data-tab="dashboard">Dashboard</li>
-                <li data-tab="trade">Trade</li>
-                <li data-tab="markets">Markets</li>
-                <li data-tab="copy">Copy Trading</li>
-                <li data-tab="signals">Signals</li>
-                <li data-tab="wallet">Wallet</li>
-                <li data-tab="settings">Settings</li>
-            </ul>
-        </div>
-        <div class="main">
-            <!-- Top Cards -->
-            <div class="cards">
-                <div class="card">Balance<br><strong id="balValue">0.00</strong></div>
-                <div class="card">Profit Today<br><strong id="profitToday">+0.00</strong></div>
-                <div class="card">Total Trades<br><strong id="totalTrades">0</strong></div>
-                <div class="card">Plan<br><strong id="planBadge">Free</strong></div>
-            </div>
+    <!-- MAIN -->
+    <div class="main">
 
-            <!-- Middle: Chart + Trade Panel -->
-            <div class="middle">
+        <!-- TOPBAR -->
+        <div class="topbar">
+            <h1>Welcome Back</h1>
+            <div class="profile" id="planBadge" onclick="handlePremium()">
+                Free Plan
+            </div>
+        </div>
+
+        <!-- CARDS -->
+        <div class="cards">
+            <div class="card">
+                <h3>Total Balance</h3>
+                <p id="balValue">ZMW 0.00</p>
+            </div>
+            <div class="card">
+                <h3>Total Profit</h3>
+                <p class="green" id="totalProfit">+K0.00</p>
+            </div>
+            <div class="card">
+                <h3>Today's Profit</h3>
+                <p class="green" id="todayProfit">+K0.00</p>
+            </div>
+            <div class="card">
+                <h3>Open Trades</h3>
+                <p id="tradeCount">0</p>
+            </div>
+        </div>
+
+        <!-- MIDDLE -->
+        <div class="middle">
+
+            <!-- CHART -->
+            <div class="chart-box">
+                <div class="chart-header">
+                    <h2>BTC / USDT</h2>
+                    <p class="green" id="btcChange">+2.45%</p>
+                </div>
                 <div class="chart">
-                    <h3>BTC/USDT</h3>
-                    <div class="fake-chart"></div>
-                </div>
-                <div class="trade">
-                    <h3>Trade</h3>
-                    <button class="buy" onclick="setDirection('buy')">Buy</button>
-                    <button class="sell" onclick="setDirection('sell')">Sell</button>
-                    <input type="number" id="tradeAmount" placeholder="Amount (min 100)" min="100" step="50" value="100">
-                    <button class="execute" onclick="executeTrade()">Execute Trade</button>
-                    <div class="fee-note" id="tradeFeeInfo">Fee: 0.3%</div>
+                    <div class="chart-line"></div>
                 </div>
             </div>
 
-            <!-- Bottom: SYNA + Recent Trades -->
-            <div class="bottom">
-                <div class="syna">
-                    <h3>SYNA Engine</h3>
-                    <p>Trend: <span class="green" id="synaTrend">Bullish</span></p>
-                    <p>Confidence: <span id="synaConf">86</span>%</p>
-                    <button id="synaToggleBtn" onclick="toggleSyna()">Start SYNA</button>
-                    <div class="fee-note" style="margin-top: 8px;">
-                        Wins: <strong id="synaWins">0</strong> |
-                        Losses: <strong id="synaLosses">0</strong> |
-                        Rate: <strong id="synaWinRate">0%</strong>
-                    </div>
+            <!-- TRADE PANEL -->
+            <div class="trade-panel">
+                <div class="trade-tabs">
+                    <button class="buy-btn active" id="buyTab" onclick="setTradeDirection('buy')">Buy</button>
+                    <button class="sell-btn" id="sellTab" onclick="setTradeDirection('sell')">Sell</button>
                 </div>
-                <div class="trades">
-                    <h3>Recent Trades</h3>
-                    <ul id="recentTradesList">
-                        <li>No trades yet</li>
-                    </ul>
+                <input type="number" id="tradeAmountInput" placeholder="Amount (ZMW)" min="100" step="50" value="100">
+                <div class="fee-display" id="tradeFeeDisplay">Fee: 0.3% | Max K500</div>
+                <button class="execute-btn" onclick="executeTrade()">Execute Trade</button>
+            </div>
+
+        </div>
+
+        <!-- BOTTOM -->
+        <div class="bottom">
+
+            <!-- S.Y.N.A -->
+            <div class="syna">
+                <h2>S.Y.N.A</h2>
+                <div class="ai-box">
+                    <div class="ai-circle">S</div>
+                    <h3>S.Y.N.A Market Intelligence</h3>
+                    <br>
+                    <p class="green" id="synaTrend">TREND: BULLISH</p>
+                    <br>
+                    <p>Confidence Level: <span id="synaConf">86</span>%</p>
+                    <br>
+                    <p style="font-size:13px; color:#94a3b8;" id="synaDescription">
+                        AI detects strong upward momentum with increased buyer activity.
+                    </p>
+                    <br>
+                    <div class="syna-stats">
+                        <span>Wins: <strong id="synaWins">0</strong></span>
+                        <span>Losses: <strong id="synaLosses">0</strong></span>
+                        <span>Rate: <strong id="synaWinRate">0%</strong></span>
+                    </div>
+                    <br>
+                    <button class="execute-btn" id="synaToggleBtn" onclick="toggleSyna()">Start SYNA</button>
                 </div>
             </div>
+
+            <!-- RECENT TRADES -->
+            <div class="recent">
+                <h2>Recent Trades</h2>
+                <div id="recentTradesList">
+                    <div class="no-trades">No trades yet</div>
+                </div>
+            </div>
+
         </div>
+
     </div>
 
-    <script>
-        const API = 'https://nrxtrader-api.onrender.com';
-        let token = localStorage.getItem('nrxtrader_token') || null;
-        let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
-        let balance = 0;
-        let premium = false;
-        let trial = false;
-        let tradeDirection = 'buy';
-        let synaActive = false, synaTimer = null;
-        let synaWins = 0, synaLosses = 0;
-        let tradesCount = 0;
+</div>
 
-        const SYNA_AMOUNT = 100, SYNA_WIN_RATE = 0.8;
+<script>
+// ==================== CONFIGURATION ====================
+const API = 'https://nrxtrader-api.onrender.com';
+let token = localStorage.getItem('nrxtrader_token') || null;
+let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
+let balance = 0;
+let premium = false;
+let trial = false;
+let tradeDirection = 'buy';
+let totalTrades = 0;
+let totalProfitAccum = 0;
 
-        // DOM refs
-        const loginModal = document.getElementById('loginModal');
-        const dashboardDiv = document.getElementById('dashboard');
-        const balValue = document.getElementById('balValue');
-        const profitToday = document.getElementById('profitToday');
-        const totalTradesEl = document.getElementById('totalTrades');
-        const planBadgeEl = document.getElementById('planBadge');
-        const tradeFeeInfo = document.getElementById('tradeFeeInfo');
-        const synaTrend = document.getElementById('synaTrend');
-        const synaConf = document.getElementById('synaConf');
-        const synaToggleBtn = document.getElementById('synaToggleBtn');
-        const synaWinsEl = document.getElementById('synaWins');
-        const synaLossesEl = document.getElementById('synaLosses');
-        const synaWinRateEl = document.getElementById('synaWinRate');
-        const recentTradesList = document.getElementById('recentTradesList');
-        const loginError = document.getElementById('loginError');
+// SYNA engine state
+let synaActive = false;
+let synaTimer = null;
+let synaWins = 0;
+let synaLosses = 0;
+const SYNA_AMOUNT = 100;
+const SYNA_WIN_RATE = 0.8;
 
-        // API helper
-        async function apiCall(method, path, body) {
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Server error');
-            return data;
-        }
+// ==================== DOM ELEMENTS ====================
+const loginOverlay = document.getElementById('loginOverlay');
+const dashboardContainer = document.getElementById('dashboardContainer');
+const loginError = document.getElementById('loginError');
+const balValue = document.getElementById('balValue');
+const totalProfit = document.getElementById('totalProfit');
+const todayProfit = document.getElementById('todayProfit');
+const tradeCount = document.getElementById('tradeCount');
+const planBadge = document.getElementById('planBadge');
+const tradeFeeDisplay = document.getElementById('tradeFeeDisplay');
+const synaTrend = document.getElementById('synaTrend');
+const synaConf = document.getElementById('synaConf');
+const synaDescription = document.getElementById('synaDescription');
+const synaWinsEl = document.getElementById('synaWins');
+const synaLossesEl = document.getElementById('synaLosses');
+const synaWinRateEl = document.getElementById('synaWinRate');
+const synaToggleBtn = document.getElementById('synaToggleBtn');
+const recentTradesList = document.getElementById('recentTradesList');
+const btcChange = document.getElementById('btcChange');
+const buyTab = document.getElementById('buyTab');
+const sellTab = document.getElementById('sellTab');
 
-        // Update UI after login/actions
-        function refreshUI() {
-            balValue.textContent = balance.toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' ZMW';
-            profitToday.textContent = (Math.random() > 0.5 ? '+' : '') + (Math.random() * 200).toFixed(2) + ' ZMW'; // demo
-            totalTradesEl.textContent = tradesCount;
-            planBadgeEl.textContent = premium ? (trial ? 'Trial Pro' : 'Pro') : 'Free';
-            planBadgeEl.style.color = premium ? '#3b82f6' : 'white';
-            const fee = premium ? '0.2%' : '0.3%';
-            tradeFeeInfo.textContent = `Fee: ${fee}`;
-            synaTrend.textContent = Math.random() > 0.5 ? 'Bullish' : 'Bearish';
-            synaConf.textContent = 70 + Math.floor(Math.random() * 25);
-        }
+// ==================== API HELPER ====================
+async function apiCall(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Server error');
+    return data;
+}
 
-        // Login
-        async function login() {
-            loginError.textContent = '';
-            const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
-            if (!email || !password) {
-                loginError.textContent = 'Email and password required';
-                return;
-            }
-            try {
-                const data = await apiCall('POST', '/api/auth/login', { email, password });
-                token = data.token;
-                user = data.user;
-                balance = parseFloat(user.balance);
-                premium = user.is_premium;
-                trial = user.trial_active || false;
-                localStorage.setItem('nrxtrader_token', token);
-                localStorage.setItem('nrxtrader_user', JSON.stringify(user));
-                loginModal.style.display = 'none';
-                dashboardDiv.style.display = 'flex';
-                refreshUI();
-            } catch (e) {
-                loginError.textContent = e.message;
-            }
-        }
+// ==================== REFRESH UI ====================
+function refreshUI() {
+    balValue.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
+    totalProfit.textContent = (totalProfitAccum >= 0 ? '+K' : '-K') + Math.abs(totalProfitAccum).toFixed(2);
+    todayProfit.textContent = '+K' + (Math.random() * 200).toFixed(2);
+    tradeCount.textContent = totalTrades;
+    
+    const fee = premium ? '0.2%' : '0.3%';
+    const max = premium ? '2,000' : '500';
+    tradeFeeDisplay.textContent = `Fee: ${fee} | Max K${max}`;
+    
+    if (premium && trial) {
+        planBadge.textContent = 'Trial Pro';
+    } else if (premium) {
+        planBadge.textContent = 'Pro User';
+    } else {
+        planBadge.textContent = 'Free Plan';
+    }
+    
+    btcChange.textContent = (Math.random() > 0.5 ? '+' : '-') + (Math.random() * 3).toFixed(2) + '%';
+    btcChange.className = btcChange.textContent.startsWith('+') ? 'green' : 'red-text';
+    synaConf.textContent = 70 + Math.floor(Math.random() * 25);
+    
+    const trends = ['BULLISH', 'BEARISH', 'SIDEWAYS'];
+    const descriptions = [
+        'AI detects strong upward momentum with increased buyer activity.',
+        'AI detects downward pressure with seller dominance.',
+        'AI detects market consolidation. Wait for breakout.'
+    ];
+    const idx = Math.floor(Math.random() * 3);
+    synaTrend.textContent = 'TREND: ' + trends[idx];
+    synaDescription.textContent = descriptions[idx];
+    synaTrend.className = trends[idx] === 'BULLISH' ? 'green' : (trends[idx] === 'BEARISH' ? 'red-text' : '');
+}
 
-        // Register
-        async function register() {
-            loginError.textContent = '';
-            const email = document.getElementById('loginEmail').value.trim();
-            const phone = document.getElementById('loginPhone').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
-            if (!email || !password) {
-                loginError.textContent = 'Email and password required';
-                return;
-            }
-            try {
-                await apiCall('POST', '/api/auth/register', { email, password, phone: phone || undefined });
-                loginError.textContent = 'Account created! You can now log in.';
-                loginError.style.color = '#10b981';
-            } catch (e) {
-                loginError.textContent = e.message;
-            }
-        }
+// ==================== AUTH ====================
+async function handleLogin() {
+    loginError.textContent = '';
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
+    try {
+        const data = await apiCall('POST', '/api/auth/login', { email, password });
+        token = data.token;
+        user = data.user;
+        balance = parseFloat(user.balance) || 0;
+        premium = user.is_premium || false;
+        trial = (user.trial_active) || false;
+        localStorage.setItem('nrxtrader_token', token);
+        localStorage.setItem('nrxtrader_user', JSON.stringify(user));
+        loginOverlay.style.display = 'none';
+        dashboardContainer.style.display = 'flex';
+        refreshUI();
+    } catch (e) { loginError.textContent = e.message; }
+}
 
-        // Logout
-        function logout() {
-            token = null;
-            user = null;
-            localStorage.clear();
-            stopSyna();
-            loginModal.style.display = 'flex';
-            dashboardDiv.style.display = 'none';
-            document.getElementById('loginEmail').value = '';
-            document.getElementById('loginPassword').value = '';
-            document.getElementById('loginPhone').value = '';
-            balance = 0;
-            premium = false;
-            trial = false;
-            tradesCount = 0;
-        }
+async function handleRegister() {
+    loginError.textContent = '';
+    const email = document.getElementById('loginEmail').value.trim();
+    const phone = document.getElementById('loginPhone').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
+    try {
+        await apiCall('POST', '/api/auth/register', { email, password, phone: phone || undefined });
+        loginError.textContent = 'Account created! You can now log in.';
+        loginError.style.color = '#00C853';
+    } catch (e) { loginError.textContent = e.message; }
+}
 
-        // Set trade direction
-        function setDirection(dir) {
-            tradeDirection = dir;
-            const buyBtn = document.querySelector('.buy');
-            const sellBtn = document.querySelector('.sell');
-            if (dir === 'buy') {
-                buyBtn.style.background = 'rgba(16,185,129,0.2)';
-                sellBtn.style.background = 'transparent';
-            } else {
-                sellBtn.style.background = 'rgba(239,68,68,0.2)';
-                buyBtn.style.background = 'transparent';
-            }
-        }
+function logout() {
+    token = null; user = null;
+    stopSyna();
+    localStorage.clear();
+    balance = 0; premium = false; trial = false; totalTrades = 0; totalProfitAccum = 0;
+    loginOverlay.style.display = 'flex';
+    dashboardContainer.style.display = 'none';
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginPhone').value = '';
+    recentTradesList.innerHTML = '<div class="no-trades">No trades yet</div>';
+}
 
-        // Execute trade
-        async function executeTrade() {
-            if (!token) return alert('Please log in.');
-            const amount = parseFloat(document.getElementById('tradeAmount').value);
-            if (isNaN(amount) || amount < 100) return alert('Minimum trade amount is K100.');
-            const max = premium ? 2000 : 500;
-            if (amount > max) return alert(`Maximum trade for your plan is K${max}.`);
-            try {
-                const data = await apiCall('POST', '/api/trades/manual', {
-                    symbol: 'BTCUSDT',
-                    direction: tradeDirection.toUpperCase(),
-                    amount: amount
-                });
-                balance = data.new_balance;
-                tradesCount++;
-                refreshUI();
-                const li = document.createElement('li');
-                li.textContent = `${tradeDirection.toUpperCase()} ${amount} ZMW`;
-                recentTradesList.prepend(li);
-                if (recentTradesList.children.length > 5) recentTradesList.lastChild.remove();
-            } catch (e) {
-                alert(e.message);
-            }
-        }
+// ==================== TRADE ====================
+function setTradeDirection(dir) {
+    tradeDirection = dir;
+    if (dir === 'buy') {
+        buyTab.classList.add('active');
+        sellTab.classList.remove('active');
+    } else {
+        sellTab.classList.add('active');
+        buyTab.classList.remove('active');
+    }
+}
 
-        // SYNA (Oracle renamed)
-        function synaTick() {
-            if (!synaActive) return;
-            if (balance < SYNA_AMOUNT) {
-                stopSyna();
-                alert('SYNA stopped: insufficient balance.');
-                return;
-            }
-            const fee = SYNA_AMOUNT * (premium ? 0.002 : 0.003);
-            const win = Math.random() < SYNA_WIN_RATE;
-            const gross = win ? SYNA_AMOUNT * 0.03 : -SYNA_AMOUNT * 0.03;
-            const net = gross - fee;
-            balance += net;
-            if (win) synaWins++; else synaLosses++;
-            synaWinsEl.textContent = synaWins;
-            synaLossesEl.textContent = synaLosses;
-            const total = synaWins + synaLosses;
-            synaWinRateEl.textContent = total ? ((synaWins / total) * 100).toFixed(1) + '%' : '0%';
-            refreshUI();
-        }
-
-        function startSyna() {
-            if (balance < SYNA_AMOUNT) {
-                alert('Minimum K100 balance required to start SYNA.');
-                return;
-            }
-            synaActive = true;
-            synaToggleBtn.textContent = 'Stop SYNA';
-            synaTimer = setInterval(synaTick, 3000);
-        }
-
-        function stopSyna() {
-            synaActive = false;
-            synaToggleBtn.textContent = 'Start SYNA';
-            if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
-        }
-
-        function toggleSyna() {
-            synaActive ? stopSyna() : startSyna();
-        }
-
-        // Sidebar navigation (simple tab switching not fully implemented, but functional placeholders)
-        document.querySelectorAll('.sidebar li').forEach(li => {
-            li.addEventListener('click', () => {
-                document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
-                li.classList.add('active');
-                const tab = li.dataset.tab;
-                // Show appropriate content – for simplicity, the main layout stays; we could toggle visibility.
-                // For now, just log or later implement sections.
-                if (tab === 'settings') {
-                    if (confirm('Log out?')) logout();
-                } else if (tab === 'wallet') {
-                    alert('Wallet: use mobile money deposit (MTN +260960168307). Withdrawal available.');
-                } else if (tab === 'signals') {
-                    if (!premium) {
-                        if (confirm('NRX Pro needed for full signals. Start free trial?')) {
-                            startPremiumTrial();
-                        }
-                    }
-                }
-                // Dashboard view is default.
-            });
+async function executeTrade() {
+    if (!token) return alert('Please log in.');
+    const amount = parseFloat(document.getElementById('tradeAmountInput').value);
+    if (isNaN(amount) || amount < 100) return alert('Minimum trade amount is K100.');
+    const max = premium ? 2000 : 500;
+    if (amount > max) return alert(`Maximum trade for your plan is K${max}.`);
+    try {
+        const data = await apiCall('POST', '/api/trades/manual', {
+            symbol: 'BTCUSDT',
+            direction: tradeDirection.toUpperCase(),
+            amount: amount
         });
-
-        // Premium trial
-        async function startPremiumTrial() {
-            if (!token) return alert('Log in first.');
-            try {
-                await apiCall('POST', '/api/premium/trial');
-                trial = true;
-                premium = true;
-                refreshUI();
-                alert('7-day NRX Pro trial activated!');
-            } catch (e) {
-                alert(e.message);
-            }
+        balance = data.new_balance;
+        totalTrades++;
+        if (data.win) totalProfitAccum += (data.pnl || 0);
+        else totalProfitAccum -= Math.abs(data.pnl || 0);
+        refreshUI();
+        
+        const tradeItem = document.createElement('div');
+        tradeItem.className = 'trade-item';
+        tradeItem.innerHTML = `<span>BTC/USDT - K${amount}</span><span class="${data.win ? 'buy' : 'sell'}">${tradeDirection.toUpperCase()}</span>`;
+        recentTradesList.prepend(tradeItem);
+        if (recentTradesList.querySelector('.no-trades')) {
+            recentTradesList.querySelector('.no-trades').remove();
         }
+        if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
+    } catch (e) { alert(e.message); }
+}
 
-        // On page load
-        window.onload = () => {
-            if (token && user) {
-                apiCall('GET', '/api/wallet/balance').then(data => {
-                    balance = parseFloat(data.balance_zmw);
-                    premium = data.is_premium;
-                    trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date()) || false;
-                    loginModal.style.display = 'none';
-                    dashboardDiv.style.display = 'flex';
-                    refreshUI();
-                }).catch(() => {
-                    logout();
-                });
-            } else {
-                loginModal.style.display = 'flex';
-            }
-        };
-    </script>
+// ==================== SYNA ENGINE ====================
+function synaTick() {
+    if (!synaActive) return;
+    if (balance < SYNA_AMOUNT) {
+        stopSyna();
+        alert('SYNA stopped: insufficient balance (need K100 minimum).');
+        return;
+    }
+    const fee = SYNA_AMOUNT * (premium ? 0.002 : 0.003);
+    const win = Math.random() < SYNA_WIN_RATE;
+    const gross = win ? SYNA_AMOUNT * 0.03 : -SYNA_AMOUNT * 0.03;
+    const net = gross - fee;
+    balance += net;
+    if (win) synaWins++; else synaLosses++;
+    totalProfitAccum += net;
+    totalTrades++;
+    synaWinsEl.textContent = synaWins;
+    synaLossesEl.textContent = synaLosses;
+    const total = synaWins + synaLosses;
+    synaWinRateEl.textContent = total ? ((synaWins / total) * 100).toFixed(1) + '%' : '0%';
+    refreshUI();
+    
+    const tradeItem = document.createElement('div');
+    tradeItem.className = 'trade-item';
+    tradeItem.innerHTML = `<span>SYNA Auto - K${SYNA_AMOUNT}</span><span class="${win ? 'buy' : 'sell'}">${win ? 'WIN' : 'LOSS'}</span>`;
+    recentTradesList.prepend(tradeItem);
+    if (recentTradesList.querySelector('.no-trades')) {
+        recentTradesList.querySelector('.no-trades').remove();
+    }
+    if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
+}
+
+function startSyna() {
+    if (balance < SYNA_AMOUNT) {
+        alert('Minimum K100 balance required to start SYNA. Please deposit first.');
+        return;
+    }
+    synaActive = true;
+    synaToggleBtn.textContent = 'Stop SYNA';
+    synaToggleBtn.style.background = '#FF3D00';
+    synaTimer = setInterval(synaTick, 3000);
+}
+
+function stopSyna() {
+    synaActive = false;
+    synaToggleBtn.textContent = 'Start SYNA';
+    synaToggleBtn.style.background = '#6C5CE7';
+    if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
+}
+
+function toggleSyna() {
+    synaActive ? stopSyna() : startSyna();
+}
+
+// ==================== PREMIUM ====================
+async function handlePremium() {
+    if (!token) return alert('Please log in.');
+    if (premium && !trial) {
+        alert('You are already on NRX Pro. Enjoy lower fees and full SYNA access.');
+        return;
+    }
+    if (trial) {
+        alert('Your 7-day free trial is active. Upgrade to Pro anytime.');
+        return;
+    }
+    if (confirm('Start your 7-day free trial of NRX Pro?\n\nBenefits:\n- Lower 0.2% trade fee\n- 0.8% withdrawal fee\n- K2,000 max trade\n- Full SYNA engine')) {
+        try {
+            await apiCall('POST', '/api/premium/trial');
+            trial = true;
+            premium = true;
+            refreshUI();
+            alert('NRX Pro trial activated! Enjoy premium features for 7 days.');
+        } catch (e) { alert(e.message); }
+    }
+}
+
+// ==================== SIDEBAR NAVIGATION ====================
+document.querySelectorAll('.sidebar li').forEach(li => {
+    li.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
+        li.classList.add('active');
+        const tab = li.dataset.tab;
+        if (tab === 'wallet') {
+            const phone = '260772566084';
+            const id = user ? (user.phone || user.email) : 'unknown';
+            window.open(`https://wa.me/${phone}?text=Hi NRXTRADER, I'd like to make a deposit. Account: ${id}`, '_blank');
+            alert('Deposit via MTN: +260 960 168 307\nMin K200, 0.5% fee.\n\nTap OK to open WhatsApp for confirmation.');
+        } else if (tab === 'settings') {
+            if (confirm('Log out of NRXTRADER?')) logout();
+        } else if (tab === 'syna') {
+            window.scrollTo({ top: document.querySelector('.syna').offsetTop - 100, behavior: 'smooth' });
+        } else if (tab === 'copy') {
+            alert('Copy Trading: Follow pro traders automatically.\n\nComing soon with full NRX Pro subscription.');
+        }
+    });
+});
+
+// ==================== INIT ====================
+window.onload = () => {
+    if (token && user) {
+        apiCall('GET', '/api/wallet/balance').then(data => {
+            balance = parseFloat(data.balance_zmw) || 0;
+            premium = data.is_premium || false;
+            trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date()) || false;
+            loginOverlay.style.display = 'none';
+            dashboardContainer.style.display = 'flex';
+            refreshUI();
+        }).catch(() => { logout(); });
+    } else {
+        loginOverlay.style.display = 'flex';
+        dashboardContainer.style.display = 'none';
+    }
+};
+</script>
+
 </body>
 </html>
