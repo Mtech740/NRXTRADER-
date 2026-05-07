@@ -1,4 +1,5 @@
 require('dotenv').config();
+const initDatabase = require('./dbInit');
 const express = require('express');
 const cors = require('cors');
 
@@ -15,6 +16,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradesRoutes);
 app.use('/api/premium', premiumRoutes);
+
+// Initialize database tables
+initDatabase();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`NRXTRADER backend running on port ${PORT}`));
