@@ -526,40 +526,47 @@ async function apiCall(method, path, body) {
     }
 }
 
-async function checkServer() {
+// ✅ New reliable server check – just ping the root, no auth needed
+async function isServerAwake() {
     try {
-        // Even a 401/403 response means the server is awake
-        await fetch(API + '/api/wallet/balance');
-        serverAwake = true;
-        serverStatus.textContent = 'Server online';
-        serverStatus.className = 'server-status status-ok';
-        synaServerMsg.style.display = 'none';
-        return true;
+        const res = await fetch(API, { method: 'HEAD', cache: 'no-store' });
+        return true;  // any response means server is up
     } catch (e) {
-        serverAwake = false;
-        serverStatus.textContent = 'Server asleep – tap Wake Server';
-        serverStatus.className = 'server-status status-sleep';
         return false;
     }
 }
 
+async function checkServer() {
+    const awake = await isServerAwake();
+    serverAwake = awake;
+    if (awake) {
+        serverStatus.textContent = 'Server online';
+        serverStatus.className = 'server-status status-ok';
+        synaServerMsg.style.display = 'none';
+    } else {
+        serverStatus.textContent = 'Server asleep – tap Wake Server';
+        serverStatus.className = 'server-status status-sleep';
+    }
+    return awake;
+}
+
+// ✅ Guaranteed wake-up with long timeout (4 minutes)
 async function wakeServerNow() {
     serverStatus.textContent = 'Waking server...';
     serverStatus.className = 'server-status status-sleep';
-    for (let i = 1; i <= 90; i++) {
-        try {
-            const res = await fetch(API + '/api/wallet/balance');
+    for (let i = 1; i <= 80; i++) {  // 80 * 3 seconds = 4 minutes
+        const ok = await isServerAwake();
+        if (ok) {
             serverAwake = true;
             serverStatus.textContent = 'Server online';
             serverStatus.className = 'server-status status-ok';
             synaServerMsg.style.display = 'none';
             return true;
-        } catch (e) {
-            serverStatus.textContent = `Waking... ${i * 2}s`;
         }
-        await new Promise(r => setTimeout(r, 2000));
+        serverStatus.textContent = `Waking... ${i * 3}s`;
+        await new Promise(r => setTimeout(r, 3000));
     }
-    serverStatus.textContent = 'Server did not wake – tap again or open site manually';
+    serverStatus.textContent = 'Server did not wake – open wake.html or try later';
     serverStatus.className = 'server-status status-sleep';
     return false;
 }
@@ -699,8 +706,19 @@ function startSyna() {
     synaActive = true;
     synaToggleBtn.textContent = 'Stop SYNA';
     synaToggleBtn.style.background = '#FF3D00';
-    updateSynaSignal().then(() => synaTick());
-    synaTimer = setInterval(synaTick, 5000);
+    // Ensure server is awake first
+    checkServer().then(awake => {
+        if (!awake) {
+            alert('Server is asleep. Starting wake-up...');
+            wakeServerNow().then(() => {
+                updateSynaSignal().then(() => synaTick());
+                synaTimer = setInterval(synaTick, 5000);
+            });
+        } else {
+            updateSynaSignal().then(() => synaTick());
+            synaTimer = setInterval(synaTick, 5000);
+        }
+    });
 }
 
 function stopSyna() {
@@ -817,7 +835,7 @@ async function executeTrade() {
     if (!serverAwake) {
         const woke = await wakeServerNow();
         if (!woke) {
-            tradeError.textContent = 'Server did not wake up. Please try again or use Wake Server button.';
+            tradeError.textContent = 'Server did not wake. Please open wake.html first.';
             tradeError.style.display = 'block';
             btn.disabled = false;
             btn.textContent = 'Execute Trade';
