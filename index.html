@@ -360,10 +360,9 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
                     <div class="ai-circle">S</div>
                     <h3>S.Y.N.A Market Intelligence</h3>
                     <br>
+                    <div><span style="color:#94a3b8;">Current Price:</span> <strong id="synaPrice">---</strong></div>
                     <p class="green" id="synaTrend">TREND: BULLISH</p>
-                    <br>
                     <p>Confidence Level: <span id="synaConf">86</span>%</p>
-                    <br>
                     <div class="syna-stats">
                         <span>Wins: <strong id="synaWins">0</strong></span>
                         <span>Losses: <strong id="synaLosses">0</strong></span>
@@ -398,12 +397,20 @@ let totalTrades = 0;
 let totalProfitAccum = 0;
 let selectedMarketPair = 'BTC/USDT';
 
+// SYNA live market data
 let synaActive = false;
 let synaTimer = null;
-let synaWins = 0;
-let synaLosses = 0;
+let synaWins = 0, synaLosses = 0;
 const SYNA_AMOUNT = 100;
-const SYNA_WIN_RATE = 0.8;
+let priceHistory = []; // store recent prices for moving average
+const MA_PERIOD = 5;
+
+// Binance symbol mapping for crypto pairs (live market)
+const binanceSymbolMap = {
+    'BTC/USDT': 'BTCUSDT',
+    'ETH/USDT': 'ETHUSDT',
+    'XRP/USDT': 'XRPUSDT'
+};
 
 const loginOverlay = document.getElementById('loginOverlay');
 const dashboardContainer = document.getElementById('dashboardContainer');
@@ -435,6 +442,7 @@ const profilePic = document.getElementById('profilePic');
 const profileName = document.getElementById('profileName');
 const profileEmail = document.getElementById('profileEmail');
 const profileDropdown = document.getElementById('profileDropdown');
+const synaPrice = document.getElementById('synaPrice');
 
 const symbolMap = {
     'BTC/USDT': 'BINANCE:BTCUSDT',
@@ -471,52 +479,155 @@ function loadChart(symbol) {
     });
 }
 
-// Robust apiCall with wake-up mechanism
-async function apiCall(method, path, body, keepAlive = false) {
+// Reliable apiCall with wake-up
+async function apiCall(method, path, body) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const fetchWithTimeout = (url, options, timeout = 30000) => {
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
-            fetch(url, options)
-                .then(res => { clearTimeout(timer); resolve(res); })
-                .catch(err => { clearTimeout(timer); reject(err); });
-        });
-    };
-
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
     try {
-        const res = await fetchWithTimeout(API + path, {
+        const res = await fetch(API + path, {
             method,
             headers,
-            body: body ? JSON.stringify(body) : null
+            body: body ? JSON.stringify(body) : null,
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Request failed');
         return data;
     } catch (err) {
-        if (!keepAlive && (err.message === 'Failed to fetch' || err.message === 'Timeout')) {
-            // Server may be asleep, throw specific error for wake-up handling
-            throw new Error('SERVER_ASLEEP');
-        }
+        clearTimeout(timeout);
         throw err;
     }
 }
 
-// Wake up server by polling the balance endpoint until it responds
-async function wakeUpServer(maxAttempts = 15, delay = 4000) {
-    for (let i = 0; i < maxAttempts; i++) {
+async function wakeUpServer() {
+    for (let i = 1; i <= 18; i++) {
         try {
-            // Use a simple GET request to the balance endpoint
-            await apiCall('GET', '/api/wallet/balance', null, true);
-            return true; // success
-        } catch (e) {
-            // Continue waiting
-        }
-        await new Promise(resolve => setTimeout(resolve, delay));
+            await apiCall('GET', '/api/wallet/balance');
+            return true;
+        } catch (e) {}
+        await new Promise(r => setTimeout(r, 5000));
     }
     return false;
 }
+
+// Fetch real price from Binance public API
+async function fetchBinancePrice(symbol) {
+    const binSymbol = binanceSymbolMap[symbol];
+    if (!binSymbol) return null;
+    try {
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binSymbol}`);
+        const data = await res.json();
+        return parseFloat(data.price);
+    } catch (e) {
+        return null;
+    }
+}
+
+// Update SYNA signal based on real price data
+async function updateSynaSignal() {
+    const symbol = selectedMarketPair;
+    const price = await fetchBinancePrice(symbol);
+    if (price === null) {
+        synaPrice.textContent = 'N/A (forex)';
+        synaTrend.textContent = 'TREND: N/A';
+        synaTrend.className = '';
+        synaConf.textContent = '0';
+        return { direction: null, confidence: 0 };
+    }
+    synaPrice.textContent = 'K' + price.toLocaleString();
+    priceHistory.push(price);
+    if (priceHistory.length > MA_PERIOD) priceHistory.shift();
+
+    let signal = 'HOLD';
+    let trendText = 'SIDEWAYS';
+    let trendClass = '';
+    let confidence = 0;
+
+    if (priceHistory.length >= 2) {
+        const sum = priceHistory.reduce((a, b) => a + b, 0);
+        const ma = sum / priceHistory.length;
+        const diff = price - ma;
+        const percentDiff = (diff / ma) * 100;
+        if (diff > 0) {
+            signal = 'BUY';
+            trendText = 'BULLISH';
+            trendClass = 'green';
+        } else if (diff < 0) {
+            signal = 'SELL';
+            trendText = 'BEARISH';
+            trendClass = 'red-text';
+        }
+        confidence = Math.min(95, Math.floor(Math.abs(percentDiff) * 20 + 50));
+    }
+
+    synaTrend.textContent = 'TREND: ' + trendText;
+    synaTrend.className = trendClass;
+    synaConf.textContent = confidence;
+    return { direction: signal, confidence };
+}
+
+// SYNA trading tick
+async function synaTick() {
+    if (!synaActive) return;
+    if (balance < SYNA_AMOUNT) {
+        stopSyna();
+        alert('SYNA stopped: insufficient balance.');
+        return;
+    }
+    const signalData = await updateSynaSignal();
+    if (!signalData.direction || signalData.direction === 'HOLD') return;
+
+    const direction = signalData.direction;
+    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    try {
+        const data = await apiCall('POST', '/api/trades/manual', {
+            symbol: symbol,
+            direction: direction,
+            amount: SYNA_AMOUNT
+        });
+        balance = data.new_balance;
+        totalTrades++;
+        if (data.win) { synaWins++; totalProfitAccum += (data.pnl || 0); }
+        else { synaLosses++; totalProfitAccum -= Math.abs(data.pnl || 0); }
+        synaWinsEl.textContent = synaWins;
+        synaLossesEl.textContent = synaLosses;
+        const total = synaWins + synaLosses;
+        synaWinRateEl.textContent = total ? ((synaWins / total) * 100).toFixed(1) + '%' : '0%';
+        refreshUI();
+
+        const tradeItem = document.createElement('div');
+        tradeItem.className = 'trade-item';
+        tradeItem.innerHTML = `<span>SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}</span><span class="${data.win ? 'buy' : 'sell'}">${direction} ${data.win ? 'WIN' : 'LOSS'}</span>`;
+        recentTradesList.prepend(tradeItem);
+        if (recentTradesList.querySelector('.no-trades')) recentTradesList.querySelector('.no-trades').remove();
+        if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
+    } catch (e) {
+        console.error('SYNA trade failed:', e);
+    }
+}
+
+function startSyna() {
+    if (balance < SYNA_AMOUNT) {
+        alert('Minimum K100 balance required to start SYNA. Please deposit first.');
+        return;
+    }
+    synaActive = true;
+    synaToggleBtn.textContent = 'Stop SYNA';
+    synaToggleBtn.style.background = '#FF3D00';
+    synaTimer = setInterval(synaTick, 3000);
+}
+
+function stopSyna() {
+    synaActive = false;
+    synaToggleBtn.textContent = 'Start SYNA';
+    synaToggleBtn.style.background = '#6C5CE7';
+    if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
+}
+
+function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
 function refreshUI() {
     balValue.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
@@ -535,17 +646,6 @@ function refreshUI() {
         profileEmail.textContent = user.email || '';
         profilePic.textContent = (user.email ? user.email[0] : 'T').toUpperCase();
     }
-
-    synaConf.textContent = 70 + Math.floor(Math.random() * 25);
-    const trends = ['BULLISH', 'BEARISH', 'SIDEWAYS'];
-    const idx = Math.floor(Math.random() * 3);
-    synaTrend.textContent = 'TREND: ' + trends[idx];
-    synaTrend.className = trends[idx] === 'BULLISH' ? 'green' : (trends[idx] === 'BEARISH' ? 'red-text' : '');
-
-    document.getElementById('signalCurrent').textContent = `Current: ${trends[idx] === 'BULLISH' ? 'BUY' : (trends[idx] === 'BEARISH' ? 'SELL' : 'HOLD')} ${selectedMarketPair}`;
-    document.getElementById('signalConf').textContent = synaConf.textContent;
-    document.getElementById('signalTrend').textContent = trends[idx];
-    document.getElementById('signalTrend').className = trends[idx] === 'BULLISH' ? 'green' : (trends[idx] === 'BEARISH' ? 'red-text' : '');
 }
 
 async function handleLogin() {
@@ -566,6 +666,7 @@ async function handleLogin() {
         dashboardContainer.style.display = 'flex';
         refreshUI();
         loadChart(selectedMarketPair);
+        updateSynaSignal();
     } catch (e) { loginError.textContent = e.message; }
 }
 
@@ -635,17 +736,17 @@ async function executeTrade() {
     btn.disabled = true;
     btn.textContent = 'Waking server...';
 
-    try {
-        // Wake up server first
-        const awake = await wakeUpServer();
-        if (!awake) {
-            tradeError.textContent = 'Server did not wake up. Please try again in a minute.';
-            tradeError.style.display = 'block';
-            return;
-        }
+    const awake = await wakeUpServer();
+    if (!awake) {
+        tradeError.textContent = 'Server did not wake up. Please try again in a minute.';
+        tradeError.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Execute Trade';
+        return;
+    }
 
-        btn.textContent = 'Executing...';
-        // Now execute the trade
+    btn.textContent = 'Executing...';
+    try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
             direction: tradeDirection.toUpperCase(),
@@ -665,11 +766,7 @@ async function executeTrade() {
         if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
         tradeError.style.display = 'none';
     } catch (err) {
-        let msg = err.message || 'Trade failed';
-        if (msg === 'SERVER_ASLEEP') {
-            msg = 'Server waking up... Please try again.';
-        }
-        tradeError.textContent = 'Error: ' + msg;
+        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
         tradeError.style.display = 'block';
     } finally {
         btn.disabled = false;
@@ -677,65 +774,11 @@ async function executeTrade() {
     }
 }
 
-// SYNA Engine
-function synaTick() {
-    if (!synaActive) return;
-    if (balance < SYNA_AMOUNT) {
-        stopSyna();
-        alert('SYNA stopped: insufficient balance.');
-        return;
-    }
-    const fee = SYNA_AMOUNT * (premium ? 0.002 : 0.003);
-    const win = Math.random() < SYNA_WIN_RATE;
-    const gross = win ? SYNA_AMOUNT * 0.03 : -SYNA_AMOUNT * 0.03;
-    const net = gross - fee;
-    balance += net;
-    if (win) synaWins++; else synaLosses++;
-    totalProfitAccum += net;
-    totalTrades++;
-    synaWinsEl.textContent = synaWins;
-    synaLossesEl.textContent = synaLosses;
-    const total = synaWins + synaLosses;
-    synaWinRateEl.textContent = total ? ((synaWins / total) * 100).toFixed(1) + '%' : '0%';
-    refreshUI();
-
-    const tradeItem = document.createElement('div');
-    tradeItem.className = 'trade-item';
-    tradeItem.innerHTML = `<span>SYNA Auto - K${SYNA_AMOUNT}</span><span class="${win ? 'buy' : 'sell'}">${win ? 'WIN' : 'LOSS'}</span>`;
-    recentTradesList.prepend(tradeItem);
-    if (recentTradesList.querySelector('.no-trades')) recentTradesList.querySelector('.no-trades').remove();
-    if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
-}
-function startSyna() {
-    if (balance < SYNA_AMOUNT) {
-        alert('Minimum K100 balance required to start SYNA. Please deposit first.');
-        return;
-    }
-    synaActive = true;
-    synaToggleBtn.textContent = 'Stop SYNA';
-    synaToggleBtn.style.background = '#FF3D00';
-    synaTimer = setInterval(synaTick, 3000);
-}
-function stopSyna() {
-    synaActive = false;
-    synaToggleBtn.textContent = 'Start SYNA';
-    synaToggleBtn.style.background = '#6C5CE7';
-    if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
-}
-function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
-
-// Wallet
-function handleScreenshot(input) {
-    if (input.files && input.files[0]) {
-        alert('Screenshot selected: ' + input.files[0].name);
-    }
-}
+// Wallet (unchanged)
+function handleScreenshot(input) { if (input.files && input.files[0]) { alert('Screenshot selected: ' + input.files[0].name); } }
 async function confirmDeposit() {
     const screenshot = document.getElementById('screenshotUpload').files[0];
-    if (!screenshot) {
-        alert('Please upload a payment screenshot first.');
-        return;
-    }
+    if (!screenshot) { alert('Please upload a payment screenshot first.'); return; }
     alert('Your deposit is being verified. We will credit your account shortly.');
 }
 async function addTestFunds() {
@@ -771,7 +814,7 @@ async function handleWithdraw() {
     } catch (e) { alert(e.message); }
 }
 
-// Markets, Signals, Settings
+// Markets, Signals, Settings (unchanged)
 function openMarkets() { document.getElementById('marketsModal').style.display = 'flex'; }
 function closeMarkets() { document.getElementById('marketsModal').style.display = 'none'; }
 function selectMarket(pair) {
@@ -781,11 +824,13 @@ function selectMarket(pair) {
     closeMarkets();
     window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' });
     loadChart(selectedMarketPair);
+    updateSynaSignal();
 }
 function changeMarket() {
     selectedMarketPair = marketSelector.value;
     selectedMarket.textContent = selectedMarketPair;
     loadChart(selectedMarketPair);
+    updateSynaSignal();
 }
 function openSignals() {
     document.getElementById('signalsModal').style.display = 'flex';
@@ -800,10 +845,7 @@ function openSettings() {
     profileDropdown.classList.remove('show');
 }
 function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
-function handlePremiumFromSettings() {
-    closeSettings();
-    handlePremium();
-}
+function handlePremiumFromSettings() { closeSettings(); handlePremium(); }
 async function handlePremium() {
     if (!token) return alert('Please log in.');
     if (premium && !trial) { alert('You are on NRX Pro.'); return; }
@@ -859,6 +901,7 @@ window.onload = () => {
             dashboardContainer.style.display = 'flex';
             refreshUI();
             loadChart(selectedMarketPair);
+            updateSynaSignal();
         }).catch(() => { logout(); });
     } else {
         loginOverlay.style.display = 'flex';
