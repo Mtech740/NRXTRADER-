@@ -361,13 +361,14 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
                     <h3>S.Y.N.A Market Intelligence</h3>
                     <br>
                     <div><span style="color:#94a3b8;">Current Price:</span> <strong id="synaPrice">---</strong></div>
-                    <p class="green" id="synaTrend">TREND: BULLISH</p>
-                    <p>Confidence Level: <span id="synaConf">86</span>%</p>
+                    <p class="green" id="synaTrend">TREND: --</p>
+                    <p>Confidence Level: <span id="synaConf">--</span>%</p>
                     <div class="syna-stats">
                         <span>Wins: <strong id="synaWins">0</strong></span>
                         <span>Losses: <strong id="synaLosses">0</strong></span>
                         <span>Rate: <strong id="synaWinRate">0%</strong></span>
                     </div>
+                    <p id="synaForexNote" style="color:#f59e0b; font-size:12px; display:none;">SYNA is only available for crypto pairs (BTC, ETH, XRP).</p>
                     <br>
                     <button class="execute-btn" id="synaToggleBtn" onclick="toggleSyna()">Start SYNA</button>
                 </div>
@@ -402,8 +403,8 @@ let synaActive = false;
 let synaTimer = null;
 let synaWins = 0, synaLosses = 0;
 const SYNA_AMOUNT = 100;
-let priceHistory = []; // store recent prices for moving average
-const MA_PERIOD = 5;
+let priceHistory = [];
+const MA_PERIOD = 8; // slightly longer moving average
 
 // Binance symbol mapping for crypto pairs (live market)
 const binanceSymbolMap = {
@@ -443,6 +444,7 @@ const profileName = document.getElementById('profileName');
 const profileEmail = document.getElementById('profileEmail');
 const profileDropdown = document.getElementById('profileDropdown');
 const synaPrice = document.getElementById('synaPrice');
+const synaForexNote = document.getElementById('synaForexNote');
 
 const symbolMap = {
     'BTC/USDT': 'BINANCE:BTCUSDT',
@@ -479,7 +481,7 @@ function loadChart(symbol) {
     });
 }
 
-// Reliable apiCall with wake-up
+// Robust apiCall with wake-up
 async function apiCall(method, path, body) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -513,60 +515,57 @@ async function wakeUpServer() {
     return false;
 }
 
-// Fetch real price from Binance public API
-async function fetchBinancePrice(symbol) {
+// Fetch real price from Binance, update SYNA signal
+async function updateSynaSignal() {
+    const symbol = selectedMarketPair;
     const binSymbol = binanceSymbolMap[symbol];
-    if (!binSymbol) return null;
+    if (!binSymbol) {
+        synaPrice.textContent = 'N/A';
+        synaTrend.textContent = 'TREND: --';
+        synaTrend.className = '';
+        synaConf.textContent = '--';
+        synaForexNote.style.display = 'block';
+        return { direction: null, confidence: 0 };
+    }
+    synaForexNote.style.display = 'none';
     try {
         const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binSymbol}`);
         const data = await res.json();
-        return parseFloat(data.price);
-    } catch (e) {
-        return null;
-    }
-}
+        const price = parseFloat(data.price);
+        synaPrice.textContent = 'K' + price.toLocaleString();
+        priceHistory.push(price);
+        if (priceHistory.length > MA_PERIOD) priceHistory.shift();
 
-// Update SYNA signal based on real price data
-async function updateSynaSignal() {
-    const symbol = selectedMarketPair;
-    const price = await fetchBinancePrice(symbol);
-    if (price === null) {
-        synaPrice.textContent = 'N/A (forex)';
-        synaTrend.textContent = 'TREND: N/A';
-        synaTrend.className = '';
-        synaConf.textContent = '0';
+        let signal = 'HOLD';
+        let trendText = 'SIDEWAYS';
+        let trendClass = '';
+        let confidence = 50;
+
+        if (priceHistory.length >= 2) {
+            const sum = priceHistory.reduce((a, b) => a + b, 0);
+            const ma = sum / priceHistory.length;
+            const diff = price - ma;
+            const percentDiff = (diff / ma) * 100;
+            if (diff > 0) {
+                signal = 'BUY';
+                trendText = 'BULLISH';
+                trendClass = 'green';
+            } else if (diff < 0) {
+                signal = 'SELL';
+                trendText = 'BEARISH';
+                trendClass = 'red-text';
+            }
+            confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(percentDiff) * 30 + 50)));
+        }
+
+        synaTrend.textContent = 'TREND: ' + trendText;
+        synaTrend.className = trendClass;
+        synaConf.textContent = confidence;
+        return { direction: signal, confidence };
+    } catch (e) {
+        synaPrice.textContent = 'Error';
         return { direction: null, confidence: 0 };
     }
-    synaPrice.textContent = 'K' + price.toLocaleString();
-    priceHistory.push(price);
-    if (priceHistory.length > MA_PERIOD) priceHistory.shift();
-
-    let signal = 'HOLD';
-    let trendText = 'SIDEWAYS';
-    let trendClass = '';
-    let confidence = 0;
-
-    if (priceHistory.length >= 2) {
-        const sum = priceHistory.reduce((a, b) => a + b, 0);
-        const ma = sum / priceHistory.length;
-        const diff = price - ma;
-        const percentDiff = (diff / ma) * 100;
-        if (diff > 0) {
-            signal = 'BUY';
-            trendText = 'BULLISH';
-            trendClass = 'green';
-        } else if (diff < 0) {
-            signal = 'SELL';
-            trendText = 'BEARISH';
-            trendClass = 'red-text';
-        }
-        confidence = Math.min(95, Math.floor(Math.abs(percentDiff) * 20 + 50));
-    }
-
-    synaTrend.textContent = 'TREND: ' + trendText;
-    synaTrend.className = trendClass;
-    synaConf.textContent = confidence;
-    return { direction: signal, confidence };
 }
 
 // SYNA trading tick
@@ -610,6 +609,10 @@ async function synaTick() {
 }
 
 function startSyna() {
+    if (!binanceSymbolMap[selectedMarketPair]) {
+        alert('SYNA is only available for crypto pairs (BTC, ETH, XRP). Please select one from the chart dropdown.');
+        return;
+    }
     if (balance < SYNA_AMOUNT) {
         alert('Minimum K100 balance required to start SYNA. Please deposit first.');
         return;
@@ -617,7 +620,11 @@ function startSyna() {
     synaActive = true;
     synaToggleBtn.textContent = 'Stop SYNA';
     synaToggleBtn.style.background = '#FF3D00';
-    synaTimer = setInterval(synaTick, 3000);
+    // Initialize price history quickly by fetching once immediately
+    updateSynaSignal().then(() => {
+        if (synaActive) synaTick();
+    });
+    synaTimer = setInterval(synaTick, 5000); // trade every 5 seconds
 }
 
 function stopSyna() {
@@ -774,7 +781,7 @@ async function executeTrade() {
     }
 }
 
-// Wallet (unchanged)
+// Wallet functions unchanged
 function handleScreenshot(input) { if (input.files && input.files[0]) { alert('Screenshot selected: ' + input.files[0].name); } }
 async function confirmDeposit() {
     const screenshot = document.getElementById('screenshotUpload').files[0];
@@ -814,7 +821,7 @@ async function handleWithdraw() {
     } catch (e) { alert(e.message); }
 }
 
-// Markets, Signals, Settings (unchanged)
+// Markets, Signals, Settings
 function openMarkets() { document.getElementById('marketsModal').style.display = 'flex'; }
 function closeMarkets() { document.getElementById('marketsModal').style.display = 'none'; }
 function selectMarket(pair) {
@@ -825,12 +832,21 @@ function selectMarket(pair) {
     window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' });
     loadChart(selectedMarketPair);
     updateSynaSignal();
+    // If SYNA was running and user switched to forex, stop it automatically
+    if (synaActive && !binanceSymbolMap[pair]) {
+        stopSyna();
+        alert('SYNA stopped because the selected market is not a crypto pair.');
+    }
 }
 function changeMarket() {
     selectedMarketPair = marketSelector.value;
     selectedMarket.textContent = selectedMarketPair;
     loadChart(selectedMarketPair);
     updateSynaSignal();
+    if (synaActive && !binanceSymbolMap[selectedMarketPair]) {
+        stopSyna();
+        alert('SYNA stopped because the selected market is not a crypto pair.');
+    }
 }
 function openSignals() {
     document.getElementById('signalsModal').style.display = 'flex';
