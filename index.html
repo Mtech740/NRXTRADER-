@@ -133,6 +133,10 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
 .trade-item .sell{ color:#FF3D00; }
 .no-trades{ color:#64748b; text-align:center; padding:30px 0; }
 
+.server-status{ font-size:12px; margin-top:4px; }
+.status-ok{ color:#10b981; }
+.status-sleep{ color:#f59e0b; }
+
 /* Modals */
 .markets-modal, .wallet-modal, .settings-modal, .signals-modal{
     position:fixed; top:0; left:0; width:100%; height:100%;
@@ -325,6 +329,11 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
             </div>
         </div>
 
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <span class="server-status" id="serverStatus">Checking server...</span>
+            <button class="btn btn-outline" style="width:auto; padding:8px 12px; font-size:12px;" onclick="wakeServerNow()">Wake Server</button>
+        </div>
+
         <div class="middle">
             <div class="chart-box">
                 <div class="chart-header">
@@ -368,7 +377,8 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
                         <span>Losses: <strong id="synaLosses">0</strong></span>
                         <span>Rate: <strong id="synaWinRate">0%</strong></span>
                     </div>
-                    <p id="synaForexNote" style="color:#f59e0b; font-size:12px; display:none;">SYNA is only available for crypto pairs (BTC, ETH, XRP).</p>
+                    <p id="synaForexNote" style="color:#f59e0b; font-size:12px; display:none;"></p>
+                    <div id="synaServerMsg" style="color:#f59e0b; font-size:12px; display:none;">Waiting for server...</div>
                     <br>
                     <button class="execute-btn" id="synaToggleBtn" onclick="toggleSyna()">Start SYNA</button>
                 </div>
@@ -398,19 +408,28 @@ let totalTrades = 0;
 let totalProfitAccum = 0;
 let selectedMarketPair = 'BTC/USDT';
 
-// SYNA live market data
+// SYNA state
 let synaActive = false;
 let synaTimer = null;
 let synaWins = 0, synaLosses = 0;
 const SYNA_AMOUNT = 100;
 let priceHistory = [];
-const MA_PERIOD = 8; // slightly longer moving average
+const MA_PERIOD = 8;
 
-// Binance symbol mapping for crypto pairs (live market)
+// Server status
+let serverAwake = false;
+
+// Data source mappings
 const binanceSymbolMap = {
     'BTC/USDT': 'BTCUSDT',
     'ETH/USDT': 'ETHUSDT',
     'XRP/USDT': 'XRPUSDT'
+};
+
+const forexApiMap = {
+    'EUR/USD': 'EUR',
+    'GBP/USD': 'GBP',
+    'XAU/USD': 'XAU'
 };
 
 const loginOverlay = document.getElementById('loginOverlay');
@@ -445,6 +464,8 @@ const profileEmail = document.getElementById('profileEmail');
 const profileDropdown = document.getElementById('profileDropdown');
 const synaPrice = document.getElementById('synaPrice');
 const synaForexNote = document.getElementById('synaForexNote');
+const synaServerMsg = document.getElementById('synaServerMsg');
+const serverStatus = document.getElementById('serverStatus');
 
 const symbolMap = {
     'BTC/USDT': 'BINANCE:BTCUSDT',
@@ -481,12 +502,11 @@ function loadChart(symbol) {
     });
 }
 
-// Robust apiCall with wake-up
 async function apiCall(method, path, body) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
         const res = await fetch(API + path, {
             method,
@@ -495,80 +515,135 @@ async function apiCall(method, path, body) {
             signal: controller.signal
         });
         clearTimeout(timeout);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Request failed');
-        return data;
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || 'Request failed');
+        }
+        return await res.json();
     } catch (err) {
         clearTimeout(timeout);
         throw err;
     }
 }
 
-async function wakeUpServer() {
-    for (let i = 1; i <= 18; i++) {
+async function checkServer() {
+    try {
+        await apiCall('GET', '/api/wallet/balance');
+        serverAwake = true;
+        serverStatus.textContent = 'Server online';
+        serverStatus.className = 'server-status status-ok';
+        synaServerMsg.style.display = 'none';
+        return true;
+    } catch (e) {
+        serverAwake = false;
+        serverStatus.textContent = 'Server asleep – tap Wake Server';
+        serverStatus.className = 'server-status status-sleep';
+        return false;
+    }
+}
+
+async function wakeServerNow() {
+    serverStatus.textContent = 'Waking server...';
+    serverStatus.className = 'server-status status-sleep';
+    for (let i = 1; i <= 30; i++) {
         try {
             await apiCall('GET', '/api/wallet/balance');
+            serverAwake = true;
+            serverStatus.textContent = 'Server online';
+            serverStatus.className = 'server-status status-ok';
+            synaServerMsg.style.display = 'none';
             return true;
-        } catch (e) {}
-        await new Promise(r => setTimeout(r, 5000));
+        } catch (e) {
+            serverStatus.textContent = `Waking server... (${i * 2}s)`;
+        }
+        await new Promise(r => setTimeout(r, 2000));
     }
+    serverStatus.textContent = 'Server did not wake – try again later';
+    serverStatus.className = 'server-status status-sleep';
     return false;
 }
 
-// Fetch real price from Binance, update SYNA signal
+// Unified price fetcher (crypto from Binance, forex/gold from exchangerate.host)
+async function fetchLivePrice(symbol) {
+    // Crypto
+    if (binanceSymbolMap[symbol]) {
+        const binSymbol = binanceSymbolMap[symbol];
+        try {
+            const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binSymbol}`);
+            const data = await res.json();
+            return parseFloat(data.price);
+        } catch (e) {
+            return null;
+        }
+    }
+    // Forex / Gold
+    if (forexApiMap[symbol]) {
+        const targetCurrency = forexApiMap[symbol];
+        try {
+            const res = await fetch(`https://api.exchangerate.host/convert?from=${targetCurrency}&to=USD&amount=1`);
+            const data = await res.json();
+            if (data.result !== null) {
+                return parseFloat(data.result);
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+// Update SYNA signal using live data
 async function updateSynaSignal() {
     const symbol = selectedMarketPair;
-    const binSymbol = binanceSymbolMap[symbol];
-    if (!binSymbol) {
+    synaForexNote.style.display = 'none';
+
+    const price = await fetchLivePrice(symbol);
+    if (price === null) {
         synaPrice.textContent = 'N/A';
         synaTrend.textContent = 'TREND: --';
         synaTrend.className = '';
         synaConf.textContent = '--';
-        synaForexNote.style.display = 'block';
-        return { direction: null, confidence: 0 };
-    }
-    synaForexNote.style.display = 'none';
-    try {
-        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binSymbol}`);
-        const data = await res.json();
-        const price = parseFloat(data.price);
-        synaPrice.textContent = 'K' + price.toLocaleString();
-        priceHistory.push(price);
-        if (priceHistory.length > MA_PERIOD) priceHistory.shift();
-
-        let signal = 'HOLD';
-        let trendText = 'SIDEWAYS';
-        let trendClass = '';
-        let confidence = 50;
-
-        if (priceHistory.length >= 2) {
-            const sum = priceHistory.reduce((a, b) => a + b, 0);
-            const ma = sum / priceHistory.length;
-            const diff = price - ma;
-            const percentDiff = (diff / ma) * 100;
-            if (diff > 0) {
-                signal = 'BUY';
-                trendText = 'BULLISH';
-                trendClass = 'green';
-            } else if (diff < 0) {
-                signal = 'SELL';
-                trendText = 'BEARISH';
-                trendClass = 'red-text';
-            }
-            confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(percentDiff) * 30 + 50)));
+        if (!binanceSymbolMap[symbol] && !forexApiMap[symbol]) {
+            synaForexNote.style.display = 'block';
+            synaForexNote.textContent = 'This market is not supported.';
         }
-
-        synaTrend.textContent = 'TREND: ' + trendText;
-        synaTrend.className = trendClass;
-        synaConf.textContent = confidence;
-        return { direction: signal, confidence };
-    } catch (e) {
-        synaPrice.textContent = 'Error';
         return { direction: null, confidence: 0 };
     }
+
+    synaPrice.textContent = 'K' + price.toLocaleString(undefined, {maximumFractionDigits:2});
+    priceHistory.push(price);
+    if (priceHistory.length > MA_PERIOD) priceHistory.shift();
+
+    let signal = 'HOLD';
+    let trendText = 'SIDEWAYS';
+    let trendClass = '';
+    let confidence = 50;
+
+    if (priceHistory.length >= 2) {
+        const sum = priceHistory.reduce((a, b) => a + b, 0);
+        const ma = sum / priceHistory.length;
+        const diff = price - ma;
+        const percentDiff = (diff / ma) * 100;
+        if (diff > 0) {
+            signal = 'BUY';
+            trendText = 'BULLISH';
+            trendClass = 'green';
+        } else if (diff < 0) {
+            signal = 'SELL';
+            trendText = 'BEARISH';
+            trendClass = 'red-text';
+        }
+        confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(percentDiff) * 30 + 50)));
+    }
+
+    synaTrend.textContent = 'TREND: ' + trendText;
+    synaTrend.className = trendClass;
+    synaConf.textContent = confidence;
+    return { direction: signal, confidence };
 }
 
-// SYNA trading tick
+// SYNA trade execution with server check
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -576,11 +651,19 @@ async function synaTick() {
         alert('SYNA stopped: insufficient balance.');
         return;
     }
+    if (!serverAwake) {
+        synaServerMsg.style.display = 'block';
+        const woke = await wakeServerNow();
+        if (!woke) return;
+    }
+    synaServerMsg.style.display = 'none';
     const signalData = await updateSynaSignal();
     if (!signalData.direction || signalData.direction === 'HOLD') return;
 
     const direction = signalData.direction;
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    const isForex = !!forexApiMap[selectedMarketPair];
+    const movePercent = isForex ? 0.005 : 0.03; // 0.5% for forex/gold, 3% for crypto
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
@@ -605,12 +688,14 @@ async function synaTick() {
         if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
     } catch (e) {
         console.error('SYNA trade failed:', e);
+        serverAwake = false;
+        synaServerMsg.style.display = 'block';
     }
 }
 
 function startSyna() {
-    if (!binanceSymbolMap[selectedMarketPair]) {
-        alert('SYNA is only available for crypto pairs (BTC, ETH, XRP). Please select one from the chart dropdown.');
+    if (!binanceSymbolMap[selectedMarketPair] && !forexApiMap[selectedMarketPair]) {
+        alert('SYNA requires a supported market (BTC, ETH, XRP, EUR/USD, GBP/USD, XAU/USD).');
         return;
     }
     if (balance < SYNA_AMOUNT) {
@@ -620,11 +705,8 @@ function startSyna() {
     synaActive = true;
     synaToggleBtn.textContent = 'Stop SYNA';
     synaToggleBtn.style.background = '#FF3D00';
-    // Initialize price history quickly by fetching once immediately
-    updateSynaSignal().then(() => {
-        if (synaActive) synaTick();
-    });
-    synaTimer = setInterval(synaTick, 5000); // trade every 5 seconds
+    updateSynaSignal().then(() => synaTick());
+    synaTimer = setInterval(synaTick, 5000);
 }
 
 function stopSyna() {
@@ -632,6 +714,7 @@ function stopSyna() {
     synaToggleBtn.textContent = 'Start SYNA';
     synaToggleBtn.style.background = '#6C5CE7';
     if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
+    synaServerMsg.style.display = 'none';
 }
 
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
@@ -673,6 +756,7 @@ async function handleLogin() {
         dashboardContainer.style.display = 'flex';
         refreshUI();
         loadChart(selectedMarketPair);
+        checkServer();
         updateSynaSignal();
     } catch (e) { loginError.textContent = e.message; }
 }
@@ -708,13 +792,8 @@ function logout() {
 
 function setTradeDirection(dir) {
     tradeDirection = dir;
-    if (dir === 'buy') {
-        buyTab.classList.add('active');
-        sellTab.classList.remove('active');
-    } else {
-        sellTab.classList.add('active');
-        buyTab.classList.remove('active');
-    }
+    buyTab.classList.toggle('active', dir === 'buy');
+    sellTab.classList.toggle('active', dir === 'sell');
 }
 
 async function executeTrade() {
@@ -733,26 +812,26 @@ async function executeTrade() {
         return;
     }
     if (balance < amount) {
-        tradeError.textContent = 'Insufficient balance. Please deposit funds.';
+        tradeError.textContent = 'Insufficient balance.';
         tradeError.style.display = 'block';
         return;
     }
 
-    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
     const btn = document.getElementById('executeTradeBtn');
     btn.disabled = true;
     btn.textContent = 'Waking server...';
-
-    const awake = await wakeUpServer();
-    if (!awake) {
-        tradeError.textContent = 'Server did not wake up. Please try again in a minute.';
-        tradeError.style.display = 'block';
-        btn.disabled = false;
-        btn.textContent = 'Execute Trade';
-        return;
+    if (!serverAwake) {
+        const woke = await wakeServerNow();
+        if (!woke) {
+            tradeError.textContent = 'Server did not wake up. Please try again or use Wake Server button.';
+            tradeError.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Execute Trade';
+            return;
+        }
     }
-
     btn.textContent = 'Executing...';
+    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
@@ -832,26 +911,14 @@ function selectMarket(pair) {
     window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' });
     loadChart(selectedMarketPair);
     updateSynaSignal();
-    // If SYNA was running and user switched to forex, stop it automatically
-    if (synaActive && !binanceSymbolMap[pair]) {
-        stopSyna();
-        alert('SYNA stopped because the selected market is not a crypto pair.');
-    }
 }
 function changeMarket() {
     selectedMarketPair = marketSelector.value;
     selectedMarket.textContent = selectedMarketPair;
     loadChart(selectedMarketPair);
     updateSynaSignal();
-    if (synaActive && !binanceSymbolMap[selectedMarketPair]) {
-        stopSyna();
-        alert('SYNA stopped because the selected market is not a crypto pair.');
-    }
 }
-function openSignals() {
-    document.getElementById('signalsModal').style.display = 'flex';
-    refreshUI();
-}
+function openSignals() { document.getElementById('signalsModal').style.display = 'flex'; }
 function closeSignals() { document.getElementById('signalsModal').style.display = 'none'; }
 function openSettings() {
     document.getElementById('settingsModal').style.display = 'flex';
@@ -909,16 +976,18 @@ document.addEventListener('click', (e) => {
 
 window.onload = () => {
     if (token && user) {
-        apiCall('GET', '/api/wallet/balance').then(data => {
-            balance = parseFloat(data.balance_zmw) || 0;
-            premium = data.is_premium || false;
-            trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date()) || false;
-            loginOverlay.style.display = 'none';
-            dashboardContainer.style.display = 'flex';
-            refreshUI();
-            loadChart(selectedMarketPair);
-            updateSynaSignal();
-        }).catch(() => { logout(); });
+        checkServer().then(() => {
+            apiCall('GET', '/api/wallet/balance').then(data => {
+                balance = parseFloat(data.balance_zmw) || 0;
+                premium = data.is_premium || false;
+                trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date()) || false;
+                loginOverlay.style.display = 'none';
+                dashboardContainer.style.display = 'flex';
+                refreshUI();
+                loadChart(selectedMarketPair);
+                updateSynaSignal();
+            }).catch(() => { logout(); });
+        });
     } else {
         loginOverlay.style.display = 'flex';
         dashboardContainer.style.display = 'none';
