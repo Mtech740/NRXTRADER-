@@ -54,13 +54,11 @@ body{ font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-heigh
 .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; }
 .topbar h1{ font-size:28px; }
 
-/* Profile section */
 .profile-wrapper { position:relative; display:flex; align-items:center; gap:10px; cursor:pointer; }
 .profile-circle {
     width:40px; height:40px; border-radius:50%; background:#6C5CE7;
     display:flex; align-items:center; justify-content:center;
     font-weight:600; font-size:16px; color:white;
-    background-size:cover; background-position:center;
 }
 .profile-info { text-align:right; }
 .profile-name { font-size:14px; font-weight:500; }
@@ -414,7 +412,6 @@ const balValue = document.getElementById('balValue');
 const totalProfit = document.getElementById('totalProfit');
 const todayProfit = document.getElementById('todayProfit');
 const tradeCount = document.getElementById('tradeCount');
-const planBadge = document.getElementById('planBadge');
 const tradeFeeDisplay = document.getElementById('tradeFeeDisplay');
 const synaTrend = document.getElementById('synaTrend');
 const synaConf = document.getElementById('synaConf');
@@ -439,7 +436,6 @@ const profileName = document.getElementById('profileName');
 const profileEmail = document.getElementById('profileEmail');
 const profileDropdown = document.getElementById('profileDropdown');
 
-// Map market pairs to TradingView symbols
 const symbolMap = {
     'BTC/USDT': 'BINANCE:BTCUSDT',
     'ETH/USDT': 'BINANCE:ETHUSDT',
@@ -452,9 +448,7 @@ const symbolMap = {
 let tvWidget = null;
 
 function loadChart(symbol) {
-    if (tvWidget) {
-        tvWidget.remove();
-    }
+    if (tvWidget) tvWidget.remove();
     if (!symbolMap[symbol]) return;
     tvWidget = new TradingView.widget({
         "container_id": "chartContainer",
@@ -477,20 +471,31 @@ function loadChart(symbol) {
     });
 }
 
-function getInitials(name) {
-    if (!name) return 'T';
-    const parts = name.split(' ');
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name[0].toUpperCase();
-}
-
-async function apiCall(method, path, body) {
+// Improved apiCall with timeout and retry
+async function apiCall(method, path, body, retries = 1) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
-    return data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(API + path, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : null,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (attempt < retries) continue;
+            throw err;
+        }
+    }
 }
 
 function refreshUI() {
@@ -508,10 +513,7 @@ function refreshUI() {
     if (user) {
         profileName.textContent = user.email ? user.email.split('@')[0] : 'Trader';
         profileEmail.textContent = user.email || '';
-        // Generate initials for profile picture
-        const initials = user.email ? user.email[0].toUpperCase() : 'T';
-        profilePic.textContent = initials;
-        profilePic.style.backgroundImage = ''; // clear any image
+        profilePic.textContent = (user.email ? user.email[0] : 'T').toUpperCase();
     }
 
     synaConf.textContent = 70 + Math.floor(Math.random() * 25);
@@ -524,10 +526,6 @@ function refreshUI() {
     document.getElementById('signalConf').textContent = synaConf.textContent;
     document.getElementById('signalTrend').textContent = trends[idx];
     document.getElementById('signalTrend').className = trends[idx] === 'BULLISH' ? 'green' : (trends[idx] === 'BEARISH' ? 'red-text' : '');
-}
-
-function toggleProfileDropdown() {
-    profileDropdown.classList.toggle('show');
 }
 
 async function handleLogin() {
@@ -613,7 +611,11 @@ async function executeTrade() {
     }
 
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    const btn = document.getElementById('executeTradeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Executing...';
     try {
+        // First attempt, with timeout, might throw network error if server asleep
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
             direction: tradeDirection.toUpperCase(),
@@ -631,16 +633,21 @@ async function executeTrade() {
         recentTradesList.prepend(tradeItem);
         if (recentTradesList.querySelector('.no-trades')) recentTradesList.querySelector('.no-trades').remove();
         if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
-        // Clear error on success
         tradeError.style.display = 'none';
-    } catch (e) {
-        // Display the real error message from the server or network
-        tradeError.textContent = 'Error: ' + (e.message || 'Failed to fetch');
+    } catch (err) {
+        let msg = err.message || 'Trade failed';
+        if (msg === 'Failed to fetch') {
+            msg = 'Server waking up... please try again in 10 seconds.';
+        }
+        tradeError.textContent = 'Error: ' + msg;
         tradeError.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Execute Trade';
     }
 }
 
-// SYNA Engine (unchanged)
+// SYNA Engine
 function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -769,14 +776,8 @@ function handlePremiumFromSettings() {
 }
 async function handlePremium() {
     if (!token) return alert('Please log in.');
-    if (premium && !trial) {
-        alert('You are on NRX Pro.');
-        return;
-    }
-    if (trial) {
-        alert('Your 7-day free trial is active.');
-        return;
-    }
+    if (premium && !trial) { alert('You are on NRX Pro.'); return; }
+    if (trial) { alert('Your 7-day free trial is active.'); return; }
     if (confirm('Start 7-day free trial of NRX Pro?')) {
         try {
             await apiCall('POST', '/api/premium/trial');
@@ -812,7 +813,6 @@ document.querySelectorAll('.sidebar li').forEach(li => {
     });
 });
 
-// Close dropdown on outside click
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.profile-wrapper')) {
         profileDropdown.classList.remove('show');
