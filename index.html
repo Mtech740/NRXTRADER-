@@ -471,31 +471,51 @@ function loadChart(symbol) {
     });
 }
 
-// Improved apiCall with timeout and retry
-async function apiCall(method, path, body, retries = 1) {
+// Robust apiCall with wake-up mechanism
+async function apiCall(method, path, body, keepAlive = false) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            const res = await fetch(API + path, {
-                method,
-                headers,
-                body: body ? JSON.stringify(body) : null,
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Request failed');
-            return data;
-        } catch (err) {
-            clearTimeout(timeoutId);
-            if (attempt < retries) continue;
-            throw err;
+    const fetchWithTimeout = (url, options, timeout = 30000) => {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
+            fetch(url, options)
+                .then(res => { clearTimeout(timer); resolve(res); })
+                .catch(err => { clearTimeout(timer); reject(err); });
+        });
+    };
+
+    try {
+        const res = await fetchWithTimeout(API + path, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : null
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        return data;
+    } catch (err) {
+        if (!keepAlive && (err.message === 'Failed to fetch' || err.message === 'Timeout')) {
+            // Server may be asleep, throw specific error for wake-up handling
+            throw new Error('SERVER_ASLEEP');
         }
+        throw err;
     }
+}
+
+// Wake up server by polling the balance endpoint until it responds
+async function wakeUpServer(maxAttempts = 15, delay = 4000) {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            // Use a simple GET request to the balance endpoint
+            await apiCall('GET', '/api/wallet/balance', null, true);
+            return true; // success
+        } catch (e) {
+            // Continue waiting
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    return false;
 }
 
 function refreshUI() {
@@ -613,9 +633,19 @@ async function executeTrade() {
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
     const btn = document.getElementById('executeTradeBtn');
     btn.disabled = true;
-    btn.textContent = 'Executing...';
+    btn.textContent = 'Waking server...';
+
     try {
-        // First attempt, with timeout, might throw network error if server asleep
+        // Wake up server first
+        const awake = await wakeUpServer();
+        if (!awake) {
+            tradeError.textContent = 'Server did not wake up. Please try again in a minute.';
+            tradeError.style.display = 'block';
+            return;
+        }
+
+        btn.textContent = 'Executing...';
+        // Now execute the trade
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
             direction: tradeDirection.toUpperCase(),
@@ -636,8 +666,8 @@ async function executeTrade() {
         tradeError.style.display = 'none';
     } catch (err) {
         let msg = err.message || 'Trade failed';
-        if (msg === 'Failed to fetch') {
-            msg = 'Server waking up... please try again in 10 seconds.';
+        if (msg === 'SERVER_ASLEEP') {
+            msg = 'Server waking up... Please try again.';
         }
         tradeError.textContent = 'Error: ' + msg;
         tradeError.style.display = 'block';
