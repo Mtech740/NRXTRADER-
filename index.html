@@ -528,7 +528,8 @@ async function apiCall(method, path, body) {
 
 async function checkServer() {
     try {
-        await apiCall('GET', '/api/wallet/balance');
+        // Even a 401/403 response means the server is awake
+        await fetch(API + '/api/wallet/balance');
         serverAwake = true;
         serverStatus.textContent = 'Server online';
         serverStatus.className = 'server-status status-ok';
@@ -545,27 +546,26 @@ async function checkServer() {
 async function wakeServerNow() {
     serverStatus.textContent = 'Waking server...';
     serverStatus.className = 'server-status status-sleep';
-    for (let i = 1; i <= 30; i++) {
+    for (let i = 1; i <= 90; i++) {
         try {
-            await apiCall('GET', '/api/wallet/balance');
+            const res = await fetch(API + '/api/wallet/balance');
             serverAwake = true;
             serverStatus.textContent = 'Server online';
             serverStatus.className = 'server-status status-ok';
             synaServerMsg.style.display = 'none';
             return true;
         } catch (e) {
-            serverStatus.textContent = `Waking server... (${i * 2}s)`;
+            serverStatus.textContent = `Waking... ${i * 2}s`;
         }
         await new Promise(r => setTimeout(r, 2000));
     }
-    serverStatus.textContent = 'Server did not wake – try again later';
+    serverStatus.textContent = 'Server did not wake – tap again or open site manually';
     serverStatus.className = 'server-status status-sleep';
     return false;
 }
 
 // Unified price fetcher (crypto from Binance, forex/gold from exchangerate.host)
 async function fetchLivePrice(symbol) {
-    // Crypto
     if (binanceSymbolMap[symbol]) {
         const binSymbol = binanceSymbolMap[symbol];
         try {
@@ -576,15 +576,12 @@ async function fetchLivePrice(symbol) {
             return null;
         }
     }
-    // Forex / Gold
     if (forexApiMap[symbol]) {
         const targetCurrency = forexApiMap[symbol];
         try {
             const res = await fetch(`https://api.exchangerate.host/convert?from=${targetCurrency}&to=USD&amount=1`);
             const data = await res.json();
-            if (data.result !== null) {
-                return parseFloat(data.result);
-            }
+            if (data.result !== null) return parseFloat(data.result);
             return null;
         } catch (e) {
             return null;
@@ -593,7 +590,6 @@ async function fetchLivePrice(symbol) {
     return null;
 }
 
-// Update SYNA signal using live data
 async function updateSynaSignal() {
     const symbol = selectedMarketPair;
     synaForexNote.style.display = 'none';
@@ -643,7 +639,6 @@ async function updateSynaSignal() {
     return { direction: signal, confidence };
 }
 
-// SYNA trade execution with server check
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -663,7 +658,7 @@ async function synaTick() {
     const direction = signalData.direction;
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
     const isForex = !!forexApiMap[selectedMarketPair];
-    const movePercent = isForex ? 0.005 : 0.03; // 0.5% for forex/gold, 3% for crypto
+    const movePercent = isForex ? 0.005 : 0.03;
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
@@ -687,7 +682,6 @@ async function synaTick() {
         if (recentTradesList.querySelector('.no-trades')) recentTradesList.querySelector('.no-trades').remove();
         if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
     } catch (e) {
-        console.error('SYNA trade failed:', e);
         serverAwake = false;
         synaServerMsg.style.display = 'block';
     }
