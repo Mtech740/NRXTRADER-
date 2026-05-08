@@ -488,35 +488,45 @@ async function wakeServerNow() {
     return true;
 }
 
-// ========== DETAILED TEST CONNECTION ==========
+// ========== IMPROVED TEST CONNECTION ==========
 async function testConnection() {
     testResult.style.display = 'block';
-    testResult.textContent = 'Testing raw ping (no auth)...';
+    testResult.textContent = 'Testing with no-cors (bypasses CORS)...';
 
-    // 1. Root ping
+    // 1. Use no-cors to see if server is reachable at all
     try {
-        const res1 = await fetch(API, { method: 'HEAD' });
-        testResult.textContent = `Root ping: OK (status ${res1.status}). Now testing balance WITHOUT token...`;
+        const res1 = await fetch(API, { method: 'GET', mode: 'no-cors' });
+        testResult.textContent = 'Server reachable (no-cors). Now testing CORS GET...';
     } catch (e) {
-        testResult.textContent = `Root ping FAILED: ${e.message}. Internet issue?`;
+        testResult.textContent = `FAILED even with no-cors: ${e.message}. Real network block.`;
         testResult.style.color = '#FF3D00';
         return;
     }
 
-    // 2. Balance endpoint without token
+    // 2. Try a normal GET to root (this will fail if CORS is strict)
     try {
-        const res2 = await fetch(API + '/api/wallet/balance');
-        const text2 = await res2.text();
-        testResult.textContent = `Balance (no token): status ${res2.status}, body: ${text2}. Now testing WITH token...`;
+        const res2 = await fetch(API);
+        testResult.textContent = `Root GET OK (status ${res2.status}). Now testing balance without token...`;
+    } catch (e) {
+        testResult.textContent = `Root GET FAILED (CORS likely blocked): ${e.message}. We'll fix CORS.`;
+        testResult.style.color = '#FF3D00';
+        return;
+    }
+
+    // 3. Balance endpoint without token
+    try {
+        const res3 = await fetch(API + '/api/wallet/balance');
+        const text3 = await res3.text();
+        testResult.textContent = `Balance (no token): status ${res3.status}, body: ${text3}. Now with token...`;
     } catch (e) {
         testResult.textContent = `Balance (no token) FAILED: ${e.message}`;
         testResult.style.color = '#FF3D00';
         return;
     }
 
-    // 3. With token
+    // 4. With token
     if (!token) {
-        testResult.textContent += ' No token found. Please log in.';
+        testResult.textContent += ' No token. Please login.';
         testResult.style.color = '#FF3D00';
         return;
     }
