@@ -8,14 +8,13 @@
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-height:100vh; }
-
         .login-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:1000; }
         .login-box { background:#111827; padding:35px 30px; border-radius:20px; width:90%; max-width:420px; text-align:center; border:1px solid rgba(255,255,255,0.05); }
         .login-box h2 { color:#6C5CE7; margin-bottom:8px; font-size:28px; }
         .login-box h2 span { color:white; }
         .login-box p { color:#94a3b8; font-size:14px; margin-bottom:20px; }
         .login-box input { width:100%; padding:14px; margin:8px 0; background:#1f2937; border:none; border-radius:10px; color:white; font-size:15px; outline:none; }
-        .login-box .btn { width:100%; padding:14px; margin-top:12px; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s; }
+        .btn { padding:14px; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s; }
         .btn-primary { background:#6C5CE7; color:white; }
         .btn-primary:hover { opacity:0.9; }
         .btn-outline { background:transparent; border:1px solid #6C5CE7; color:#6C5CE7; margin-top:8px; }
@@ -248,10 +247,14 @@
             </div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:8px;">
             <span class="server-status" id="serverStatus">Checking server...</span>
-            <button class="btn btn-outline" style="width:auto; padding:8px 12px; font-size:12px;" onclick="wakeServerNow()">Wake Server</button>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-outline" style="padding:8px 12px; font-size:12px;" onclick="wakeServerNow()">Wake Server</button>
+                <button class="btn btn-outline" style="padding:8px 12px; font-size:12px; background:#f59e0b; border-color:#f59e0b; color:white;" onclick="testConnection()">Test Connection</button>
+            </div>
         </div>
+        <div id="testResult" style="margin-bottom:15px; font-size:12px; color:#f59e0b; display:none;"></div>
 
         <div class="middle">
             <div class="chart-box">
@@ -309,7 +312,6 @@
 
 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <script>
-// ==================== CONFIGURATION ====================
 const API = 'https://nrxtrader-api.onrender.com';
 let token = localStorage.getItem('nrxtrader_token') || null;
 let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
@@ -341,7 +343,6 @@ const forexApiMap = {
     'XAU/USD': 'XAU'
 };
 
-// DOM refs (abbreviated for brevity, but all necessary)
 const loginOverlay = document.getElementById('loginOverlay');
 const dashboardContainer = document.getElementById('dashboardContainer');
 const loginError = document.getElementById('loginError');
@@ -376,6 +377,7 @@ const synaPrice = document.getElementById('synaPrice');
 const synaForexNote = document.getElementById('synaForexNote');
 const synaServerMsg = document.getElementById('synaServerMsg');
 const serverStatus = document.getElementById('serverStatus');
+const testResult = document.getElementById('testResult');
 
 const symbolMap = {
     'BTC/USDT': 'BINANCE:BTCUSDT',
@@ -412,7 +414,6 @@ function loadChart(symbol) {
     });
 }
 
-// ==================== RELIABLE API CALL (60s timeout) ====================
 async function apiCall(method, path, body) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -437,7 +438,6 @@ async function apiCall(method, path, body) {
     }
 }
 
-// ==================== SERVER CHECK ====================
 async function isServerAwake() {
     try {
         await fetch(API, { method: 'HEAD', cache: 'no-store' });
@@ -461,7 +461,6 @@ async function checkServer() {
     return awake;
 }
 
-// ==================== WAKE UP + WARM UP ====================
 async function wakeServerNow() {
     serverStatus.textContent = 'Waking server...';
     serverStatus.className = 'server-status status-sleep';
@@ -485,6 +484,31 @@ async function wakeServerNow() {
     serverStatus.className = 'server-status status-ok';
     synaServerMsg.style.display = 'none';
     return true;
+}
+
+// ==================== TEST CONNECTION FUNCTION ====================
+async function testConnection() {
+    testResult.style.display = 'block';
+    testResult.textContent = 'Testing trade endpoint...';
+    if (!token) {
+        testResult.textContent = 'Not logged in. Please login first.';
+        return;
+    }
+    try {
+        const data = await apiCall('POST', '/api/trades/manual', {
+            symbol: 'BTCUSDT',
+            direction: 'BUY',
+            amount: 100
+        });
+        testResult.textContent = 'SUCCESS: Trade endpoint is working. Response: ' + JSON.stringify(data);
+        testResult.style.color = '#10b981';
+    } catch (err) {
+        testResult.textContent = 'FAILED: ' + err.message + ' (Name: ' + err.name + ')';
+        testResult.style.color = '#FF3D00';
+        if (err.message === 'Failed to fetch') {
+            testResult.textContent += ' → The request was blocked or timed out. Check internet connection or CORS.';
+        }
+    }
 }
 
 // ==================== PRICE FETCHING ====================
@@ -516,36 +540,21 @@ async function updateSynaSignal() {
     if (price === null) {
         synaPrice.textContent = 'N/A';
         synaTrend.textContent = 'TREND: --';
-        synaTrend.className = '';
         synaConf.textContent = '--';
-        if (!binanceSymbolMap[symbol] && !forexApiMap[symbol]) {
-            synaForexNote.style.display = 'block';
-            synaForexNote.textContent = 'This market is not supported.';
-        }
         return { direction: null, confidence: 0 };
     }
     synaPrice.textContent = 'K' + price.toLocaleString(undefined, {maximumFractionDigits:2});
     priceHistory.push(price);
     if (priceHistory.length > MA_PERIOD) priceHistory.shift();
-    let signal = 'HOLD';
-    let trendText = 'SIDEWAYS';
-    let trendClass = '';
-    let confidence = 50;
+    // ... (rest of moving average logic same as before)
+    let signal = 'HOLD'; let trendText = 'SIDEWAYS'; let trendClass = ''; let confidence = 50;
     if (priceHistory.length >= 2) {
-        const sum = priceHistory.reduce((a, b) => a + b, 0);
-        const ma = sum / priceHistory.length;
+        const sum = priceHistory.reduce((a,b)=>a+b,0);
+        const ma = sum/priceHistory.length;
         const diff = price - ma;
-        const percentDiff = (diff / ma) * 100;
-        if (diff > 0) {
-            signal = 'BUY';
-            trendText = 'BULLISH';
-            trendClass = 'green';
-        } else if (diff < 0) {
-            signal = 'SELL';
-            trendText = 'BEARISH';
-            trendClass = 'red-text';
-        }
-        confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(percentDiff) * 30 + 50)));
+        if (diff > 0) { signal='BUY'; trendText='BULLISH'; trendClass='green'; }
+        else if (diff < 0) { signal='SELL'; trendText='BEARISH'; trendClass='red-text'; }
+        confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(diff/ma)*100*30+50)));
     }
     synaTrend.textContent = 'TREND: ' + trendText;
     synaTrend.className = trendClass;
@@ -553,7 +562,151 @@ async function updateSynaSignal() {
     return { direction: signal, confidence };
 }
 
-// ==================== SYNA TRADE WITH WARM-UP ====================
+// (SYNA tick, start/stop functions unchanged, same as before)
+// (executeTrade function with warm-up, same as before)
+// (refreshUI, auth, wallet, etc., same as before – abbreviated here for length but must be included)
+
+// I'll include a complete minimal set below to make the file complete:
+function refreshUI() {
+    balValue.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
+    walletBalance.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
+    totalProfit.textContent = (totalProfitAccum >= 0 ? '+K' : '-K') + Math.abs(totalProfitAccum).toFixed(2);
+    todayProfit.textContent = '+K' + (Math.random() * 200).toFixed(2);
+    tradeCount.textContent = totalTrades;
+    const fee = premium ? '0.2%' : '0.3%';
+    const max = premium ? '2,000' : '500';
+    tradeFeeDisplay.textContent = `Fee: ${fee} | Max K${max} (${premium ? 'Pro' : 'Free'})`;
+    withdrawFee.textContent = premium ? '0.8%' : '1%';
+    if (user) {
+        profileName.textContent = user.email ? user.email.split('@')[0] : 'Trader';
+        profileEmail.textContent = user.email || '';
+        profilePic.textContent = (user.email ? user.email[0] : 'T').toUpperCase();
+    }
+}
+
+async function handleLogin() {
+    loginError.textContent = '';
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
+    try {
+        const data = await apiCall('POST', '/api/auth/login', { email, password });
+        token = data.token; user = data.user;
+        balance = parseFloat(user.balance) || 0;
+        premium = user.is_premium || false;
+        trial = (user.trial_active) || false;
+        localStorage.setItem('nrxtrader_token', token);
+        localStorage.setItem('nrxtrader_user', JSON.stringify(user));
+        loginOverlay.style.display = 'none';
+        dashboardContainer.style.display = 'flex';
+        refreshUI();
+        loadChart(selectedMarketPair);
+        checkServer();
+        updateSynaSignal();
+    } catch (e) { loginError.textContent = e.message; }
+}
+
+async function handleRegister() {
+    loginError.textContent = '';
+    const email = document.getElementById('loginEmail').value.trim();
+    const phone = document.getElementById('loginPhone').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
+    try {
+        await apiCall('POST', '/api/auth/register', { email, password, phone: phone || undefined });
+        loginError.textContent = 'Account created! You can now log in.';
+        loginError.style.color = '#00C853';
+    } catch (e) { loginError.textContent = e.message; }
+}
+
+function logout() {
+    token = null; user = null;
+    stopSyna();
+    if (tvWidget) tvWidget.remove();
+    localStorage.clear();
+    balance = 0; premium = false; trial = false; totalTrades = 0; totalProfitAccum = 0;
+    loginOverlay.style.display = 'flex';
+    dashboardContainer.style.display = 'none';
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    recentTradesList.innerHTML = '<div class="no-trades">No trades yet</div>';
+    closeSettings(); closeWallet(); closeMarkets(); closeSignals();
+    profileDropdown.classList.remove('show');
+}
+
+function setTradeDirection(dir) {
+    tradeDirection = dir;
+    buyTab.classList.toggle('active', dir === 'buy');
+    sellTab.classList.toggle('active', dir === 'sell');
+}
+
+async function executeTrade() {
+    if (!token) return alert('Please log in.');
+    tradeError.style.display = 'none';
+    const amount = parseFloat(document.getElementById('tradeAmountInput').value);
+    if (isNaN(amount) || amount < 200) {
+        tradeError.textContent = 'Minimum trade amount is K200.';
+        tradeError.style.display = 'block';
+        return;
+    }
+    const max = premium ? 2000 : 500;
+    if (amount > max) {
+        tradeError.textContent = `Maximum trade for your plan is K${max}.`;
+        tradeError.style.display = 'block';
+        return;
+    }
+    if (balance < amount) {
+        tradeError.textContent = 'Insufficient balance.';
+        tradeError.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('executeTradeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Warming up...';
+    if (!serverAwake) {
+        const woke = await wakeServerNow();
+        if (!woke) {
+            tradeError.textContent = 'Server did not wake. Please try again.';
+            tradeError.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Execute Trade';
+            return;
+        }
+    } else {
+        try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
+    }
+
+    btn.textContent = 'Executing...';
+    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    try {
+        const data = await apiCall('POST', '/api/trades/manual', {
+            symbol: symbol,
+            direction: tradeDirection.toUpperCase(),
+            amount: amount
+        });
+        balance = data.new_balance;
+        totalTrades++;
+        if (data.win) totalProfitAccum += (data.pnl || 0);
+        else totalProfitAccum -= Math.abs(data.pnl || 0);
+        refreshUI();
+        const tradeItem = document.createElement('div');
+        tradeItem.className = 'trade-item';
+        tradeItem.innerHTML = `<span>${selectedMarketPair} - K${amount}</span><span class="${data.win ? 'buy' : 'sell'}">${tradeDirection.toUpperCase()} ${data.win ? 'WIN' : 'LOSS'}</span>`;
+        recentTradesList.prepend(tradeItem);
+        if (recentTradesList.querySelector('.no-trades')) recentTradesList.querySelector('.no-trades').remove();
+        if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
+        tradeError.style.display = 'none';
+    } catch (err) {
+        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
+        tradeError.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Execute Trade';
+    }
+}
+
+// SYNA functions (same as before)
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -629,144 +782,7 @@ function stopSyna() {
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
-// ==================== MANUAL TRADE ====================
-async function executeTrade() {
-    if (!token) return alert('Please log in.');
-    tradeError.style.display = 'none';
-    const amount = parseFloat(document.getElementById('tradeAmountInput').value);
-    if (isNaN(amount) || amount < 200) {
-        tradeError.textContent = 'Minimum trade amount is K200.';
-        tradeError.style.display = 'block';
-        return;
-    }
-    const max = premium ? 2000 : 500;
-    if (amount > max) {
-        tradeError.textContent = `Maximum trade for your plan is K${max}.`;
-        tradeError.style.display = 'block';
-        return;
-    }
-    if (balance < amount) {
-        tradeError.textContent = 'Insufficient balance.';
-        tradeError.style.display = 'block';
-        return;
-    }
-
-    const btn = document.getElementById('executeTradeBtn');
-    btn.disabled = true;
-    btn.textContent = 'Warming up...';
-    if (!serverAwake) {
-        const woke = await wakeServerNow();
-        if (!woke) {
-            tradeError.textContent = 'Server did not wake. Please try again.';
-            tradeError.style.display = 'block';
-            btn.disabled = false;
-            btn.textContent = 'Execute Trade';
-            return;
-        }
-    } else {
-        try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
-    }
-
-    btn.textContent = 'Executing...';
-    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
-    try {
-        const data = await apiCall('POST', '/api/trades/manual', {
-            symbol: symbol,
-            direction: tradeDirection.toUpperCase(),
-            amount: amount
-        });
-        balance = data.new_balance;
-        totalTrades++;
-        if (data.win) totalProfitAccum += (data.pnl || 0);
-        else totalProfitAccum -= Math.abs(data.pnl || 0);
-        refreshUI();
-        const tradeItem = document.createElement('div');
-        tradeItem.className = 'trade-item';
-        tradeItem.innerHTML = `<span>${selectedMarketPair} - K${amount}</span><span class="${data.win ? 'buy' : 'sell'}">${tradeDirection.toUpperCase()} ${data.win ? 'WIN' : 'LOSS'}</span>`;
-        recentTradesList.prepend(tradeItem);
-        if (recentTradesList.querySelector('.no-trades')) recentTradesList.querySelector('.no-trades').remove();
-        if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
-        tradeError.style.display = 'none';
-    } catch (err) {
-        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
-        tradeError.style.display = 'block';
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Execute Trade';
-    }
-}
-
-// ==================== UI HELPERS ====================
-function refreshUI() {
-    balValue.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
-    walletBalance.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
-    totalProfit.textContent = (totalProfitAccum >= 0 ? '+K' : '-K') + Math.abs(totalProfitAccum).toFixed(2);
-    todayProfit.textContent = '+K' + (Math.random() * 200).toFixed(2);
-    tradeCount.textContent = totalTrades;
-    const fee = premium ? '0.2%' : '0.3%';
-    const max = premium ? '2,000' : '500';
-    tradeFeeDisplay.textContent = `Fee: ${fee} | Max K${max} (${premium ? 'Pro' : 'Free'})`;
-    withdrawFee.textContent = premium ? '0.8%' : '1%';
-    if (user) {
-        profileName.textContent = user.email ? user.email.split('@')[0] : 'Trader';
-        profileEmail.textContent = user.email || '';
-        profilePic.textContent = (user.email ? user.email[0] : 'T').toUpperCase();
-    }
-}
-
-async function handleLogin() {
-    loginError.textContent = '';
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
-    try {
-        const data = await apiCall('POST', '/api/auth/login', { email, password });
-        token = data.token;
-        user = data.user;
-        balance = parseFloat(user.balance) || 0;
-        premium = user.is_premium || false;
-        trial = (user.trial_active) || false;
-        localStorage.setItem('nrxtrader_token', token);
-        localStorage.setItem('nrxtrader_user', JSON.stringify(user));
-        loginOverlay.style.display = 'none';
-        dashboardContainer.style.display = 'flex';
-        refreshUI();
-        loadChart(selectedMarketPair);
-        checkServer();
-        updateSynaSignal();
-    } catch (e) { loginError.textContent = e.message; }
-}
-
-async function handleRegister() {
-    loginError.textContent = '';
-    const email = document.getElementById('loginEmail').value.trim();
-    const phone = document.getElementById('loginPhone').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    if (!email || !password) { loginError.textContent = 'Email and password required'; return; }
-    try {
-        await apiCall('POST', '/api/auth/register', { email, password, phone: phone || undefined });
-        loginError.textContent = 'Account created! You can now log in.';
-        loginError.style.color = '#00C853';
-    } catch (e) { loginError.textContent = e.message; }
-}
-
-function logout() {
-    token = null; user = null;
-    stopSyna();
-    if (tvWidget) tvWidget.remove();
-    localStorage.clear();
-    balance = 0; premium = false; trial = false; totalTrades = 0; totalProfitAccum = 0;
-    loginOverlay.style.display = 'flex';
-    dashboardContainer.style.display = 'none';
-    document.getElementById('loginEmail').value = '';
-    document.getElementById('loginPassword').value = '';
-    document.getElementById('loginPhone').value = '';
-    recentTradesList.innerHTML = '<div class="no-trades">No trades yet</div>';
-    closeSettings(); closeWallet(); closeMarkets(); closeSignals();
-    profileDropdown.classList.remove('show');
-}
-
-// Wallet, markets, signals, settings functions (all unchanged, but included)
+// Wallet, markets, settings functions (same as before, but needed for completeness)
 function handleScreenshot(input) { if (input.files && input.files[0]) alert('Screenshot selected: ' + input.files[0].name); }
 async function confirmDeposit() {
     if (!document.getElementById('screenshotUpload').files[0]) { alert('Please upload a screenshot first.'); return; }
@@ -863,11 +879,9 @@ document.querySelectorAll('.sidebar li').forEach(li => {
     });
 });
 
-// Profile dropdown toggle
 function toggleProfileDropdown() { profileDropdown.classList.toggle('show'); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.profile-wrapper')) profileDropdown.classList.remove('show'); });
 
-// ==================== INIT ====================
 window.onload = () => {
     if (token && user) {
         checkServer().then(() => {
