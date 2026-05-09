@@ -232,7 +232,7 @@
                 <div class="chart" id="chartContainer"></div>
             </div>
 
-            <!-- TRADE TICKET (MANUAL TRADE) -->
+            <!-- TRADE TICKET -->
             <div class="trade-ticket">
                 <h3>Manual Trade</h3>
                 <div class="input-label">Quantity (ZMW)</div>
@@ -243,8 +243,8 @@
                 <div class="input-label">Take Profit (optional)</div>
                 <input type="number" id="takeProfitInput" placeholder="TP price" step="0.01">
                 <div class="action-buttons">
-                    <button class="btn" style="background:var(--green); color:white;" onclick="executeTrade('BUY')">Buy</button>
-                    <button class="btn" style="background:var(--red); color:white;" onclick="executeTrade('SELL')">Sell</button>
+                    <button class="btn" style="background:var(--green); color:white;" onclick="confirmTrade('BUY')">Buy</button>
+                    <button class="btn" style="background:var(--red); color:white;" onclick="confirmTrade('SELL')">Sell</button>
                 </div>
                 <div id="tradeError" style="color:var(--red); font-size:12px; margin-top:4px; display:none;"></div>
             </div>
@@ -287,7 +287,6 @@ let selectedMarketPair = 'BTC/USDT';
 let totalTrades = 0, totalProfitAccum = 0;
 let serverAwake = false;
 
-// SYNA state – NOT auto-started
 let synaActive = false, synaTimer = null;
 let synaWins = 0, synaLosses = 0;
 const SYNA_AMOUNT = 200;
@@ -310,7 +309,6 @@ function loadChart(symbol) {
     });
 }
 
-// API call with server wake integration
 async function apiCall(method, path, body) {
     const headers = { 'Content-Type':'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -334,7 +332,7 @@ async function checkServer() {
 }
 async function wakeServerNow() {
     document.getElementById('serverStatus').textContent = 'Waking...';
-    for(let i=1; i<=80; i++) { if(await isServerAwake()) break; await new Promise(r=>setTimeout(r,3000)); }
+    for(let i=1; i<=20; i++) { if(await isServerAwake()) break; await new Promise(r=>setTimeout(r,3000)); }
     serverAwake = await isServerAwake();
     document.getElementById('serverStatus').textContent = serverAwake?'Online':'Asleep';
     document.getElementById('serverStatus').className = `status-badge ${serverAwake?'status-ok':'status-sleep'}`;
@@ -342,7 +340,6 @@ async function wakeServerNow() {
     return serverAwake;
 }
 
-// PRICE FETCH (via backend)
 async function fetchLivePrice(symbol) {
     try {
         const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`);
@@ -352,7 +349,6 @@ async function fetchLivePrice(symbol) {
     } catch(e) { return null; }
 }
 
-// SYNA SIGNAL
 async function updateSynaSignal() {
     const price = await fetchLivePrice(selectedMarketPair);
     if (price === null) {
@@ -370,7 +366,14 @@ async function updateSynaSignal() {
         const ma = priceHistory.reduce((a,b)=>a+b,0)/priceHistory.length;
         const diff = price - ma;
         const pct = (diff/ma)*100;
-        const threshold = forexApiMap[selectedMarketPair] ? 0.005 : 0.1;
+
+        // Dynamic thresholds
+        let threshold;
+        if (selectedMarketPair.includes('BTC')) threshold = 0.15;
+        else if (selectedMarketPair.includes('EUR') || selectedMarketPair.includes('GBP')) threshold = 0.0015;
+        else if (selectedMarketPair.includes('XAU')) threshold = 0.03;
+        else threshold = 0.02;
+
         if (pct > threshold) { signal='BUY'; trend='BULLISH'; cls='green'; }
         else if (pct < -threshold) { signal='SELL'; trend='BEARISH'; cls='red-text'; }
         conf = Math.min(95, Math.max(50, Math.floor(Math.abs(pct)*30+50)));
@@ -392,7 +395,7 @@ function addTradeLog(desc, dir, win) {
     if (list.children.length > 10) list.lastChild.remove();
 }
 
-// SYNA TICK
+// SYNA TICK (every 30 seconds)
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
@@ -427,6 +430,11 @@ async function synaTick() {
 }
 
 function startSyna() {
+    // Block forex SYNA for now
+    if (selectedMarketPair === 'EUR/USD' || selectedMarketPair === 'GBP/USD') {
+        alert('Forex SYNA is still experimental. Please use crypto pairs.');
+        return;
+    }
     if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
     synaActive = true;
     document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
@@ -434,7 +442,7 @@ function startSyna() {
     document.getElementById('synaServerMsg').style.display = 'none';
     wakeServerNow().then(() => {
         updateSynaSignal().then(() => synaTick());
-        synaTimer = setInterval(synaTick, 5000);
+        synaTimer = setInterval(synaTick, 30000);   // 30 seconds
     });
 }
 function stopSyna() {
@@ -445,7 +453,13 @@ function stopSyna() {
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
-// MANUAL TRADE
+// CONFIRMATION POPUP BEFORE TRADE
+function confirmTrade(direction) {
+    const amount = document.getElementById('tradeAmountInput').value;
+    const ok = confirm(`${direction} trade?\n\nMarket: ${selectedMarketPair}\nAmount: K${amount}`);
+    if (ok) executeTrade(direction);
+}
+
 async function executeTrade(direction) {
     if (!token) return alert('Please log in.');
     document.getElementById('tradeError').style.display = 'none';
@@ -501,7 +515,6 @@ async function executeTrade(direction) {
     }
 }
 
-// UI
 function refreshUI() {
     document.getElementById('balValue').textContent = 'ZMW ' + balance.toLocaleString(undefined,{minimumFractionDigits:2});
     document.getElementById('walletBalance').textContent = 'ZMW ' + balance.toLocaleString(undefined,{minimumFractionDigits:2});
@@ -557,7 +570,6 @@ function logout() {
     closeWallet(); closeSettings(); closeMarkets();
 }
 
-// WALLET
 function handleScreenshot(input) { if(input.files&&input.files[0]) alert('Screenshot: '+input.files[0].name); }
 async function confirmDeposit() { if(!document.getElementById('screenshotUpload').files[0]){alert('Upload screenshot first.');return;} alert('Deposit submitted for verification.'); }
 async function addTestFunds() {
@@ -615,7 +627,6 @@ async function handlePremium() {
     }
 }
 
-// SIDEBAR NAVIGATION
 document.querySelectorAll('.sidebar li').forEach(li => {
     li.addEventListener('click', () => {
         document.querySelectorAll('.sidebar li').forEach(l=>l.classList.remove('active'));
