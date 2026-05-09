@@ -88,6 +88,7 @@
         .close-btn { background:var(--red); color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; margin-top:12px; float:right; }
         .file-upload { display:block; padding:10px; margin:8px 0; background:var(--surface); border:1px dashed var(--accent); border-radius:6px; text-align:center; cursor:pointer; font-size:13px; color:var(--text-secondary); }
         .notice { font-size:11px; color:var(--warning); background:rgba(245,158,11,0.1); padding:8px; border-radius:6px; margin:8px 0; }
+        .test-result { background:rgba(255,255,255,0.05); padding:10px; border-radius:6px; margin:10px 0; font-size:12px; max-height:200px; overflow-y:auto; white-space:pre-wrap; }
 
         @media (max-width:900px) {
             .chart-trade-row { grid-template-columns:1fr; }
@@ -274,6 +275,13 @@
                 </div>
             </div>
         </div>
+
+        <!-- TEST BUTTON & RESULT -->
+        <div class="panel" style="margin-top:12px;">
+            <h3>Diagnostic</h3>
+            <button class="btn btn-primary" onclick="testTradeAPI()">Test Trade API (K200)</button>
+            <div class="test-result" id="testOutput"></div>
+        </div>
     </div>
 </div>
 
@@ -340,21 +348,14 @@ async function wakeServerNow() {
     return serverAwake;
 }
 
-// PRICE FETCH – NEVER RETURNS NULL (hardcoded fallback)
+// PRICE FETCH with hardcoded fallback
 async function fetchLivePrice(symbol) {
     try {
         const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`);
         const data = await res.json();
         if (data.price !== undefined && data.price !== null) return data.price;
     } catch(e) {}
-    const fallbacks = {
-        'BTC/USDT': 80000,
-        'ETH/USDT': 4000,
-        'XRP/USDT': 0.5,
-        'EUR/USD': 1.08,
-        'GBP/USD': 1.26,
-        'XAU/USD': 2350
-    };
+    const fallbacks = { 'BTC/USDT':80000, 'ETH/USDT':4000, 'XRP/USDT':0.5, 'EUR/USD':1.08, 'GBP/USD':1.26, 'XAU/USD':2350 };
     return fallbacks[symbol] || 80000;
 }
 
@@ -369,8 +370,7 @@ async function updateSynaSignal() {
         const ma = priceHistory.reduce((a,b)=>a+b,0)/priceHistory.length;
         const diff = price - ma;
         const pct = (diff/ma)*100;
-        // Ultra-low thresholds so SYNA trades almost always
-        let threshold = 0.01; // 0.01% for everything, ensures frequent signals
+        const threshold = 0.01;
         if (pct > threshold) { signal='BUY'; trend='BULLISH'; cls='green'; }
         else if (pct < -threshold) { signal='SELL'; trend='BEARISH'; cls='red-text'; }
         conf = Math.min(95, Math.max(50, Math.floor(Math.abs(pct)*30+50)));
@@ -392,7 +392,16 @@ function addTradeLog(desc, dir, win) {
     if (list.children.length > 10) list.lastChild.remove();
 }
 
-// SYNA TICK (every 30 seconds)
+// Refresh balance from server
+async function refreshBalanceFromServer() {
+    try {
+        const data = await apiCall('GET','/api/wallet/balance');
+        balance = parseFloat(data.balance_zmw) || balance;
+        refreshUI();
+    } catch(e) {}
+}
+
+// SYNA tick with balance refresh after trade
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
@@ -409,22 +418,12 @@ async function synaTick() {
     const symbol = selectedMarketPair.replace('/','').replace(' ','');
     try {
         const data = await apiCall('POST','/api/trades/manual',{symbol,direction:sig.direction,amount:SYNA_AMOUNT});
-        // BALANCE UPDATE: try multiple possible field names
-        const newBalance = data.new_balance ?? data.newBalance ?? data.balance;
-        if (newBalance !== undefined) {
-            balance = newBalance;
-        } else {
-            // If no balance returned, manually calculate based on win/loss
-            const movePercent = forexApiMap[selectedMarketPair] ? 0.005 : 0.03;
-            const gross = data.win ? SYNA_AMOUNT * movePercent : -SYNA_AMOUNT * movePercent;
-            const feeRate = premium ? 0.002 : 0.003;
-            const fee = SYNA_AMOUNT * feeRate;
-            balance += (gross - fee);
-        }
         totalTrades++;
-        if (data.win) { synaWins++; totalProfitAccum += (data.pnl || SYNA_AMOUNT*0.03 - SYNA_AMOUNT*(premium?0.002:0.003)); }
-        else { synaLosses++; totalProfitAccum -= (Math.abs(data.pnl) || SYNA_AMOUNT*0.03 + SYNA_AMOUNT*(premium?0.002:0.003)); }
+        if (data.win) { synaWins++; }
+        else { synaLosses++; }
         addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, sig.direction, data.win);
+        // update balance from server
+        await refreshBalanceFromServer();
     } catch(e) {
         document.getElementById('synaServerMsg').style.display='block';
         document.getElementById('synaServerMsg').textContent = 'Trade failed: ' + e.message;
@@ -439,7 +438,7 @@ async function synaTick() {
 
 function startSyna() {
     if (selectedMarketPair === 'EUR/USD' || selectedMarketPair === 'GBP/USD') {
-        alert('Forex SYNA is still experimental. Please use crypto pairs.');
+        alert('Forex SYNA still experimental. Use crypto pairs.');
         return;
     }
     if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
@@ -460,7 +459,6 @@ function stopSyna() {
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
-// CONFIRMATION POPUP BEFORE TRADE
 function confirmTrade(direction) {
     const amount = document.getElementById('tradeAmountInput').value;
     const ok = confirm(`${direction} trade?\n\nMarket: ${selectedMarketPair}\nAmount: K${amount}`);
@@ -508,26 +506,36 @@ async function executeTrade(direction) {
 
     try {
         const data = await apiCall('POST', '/api/trades/manual', orderData);
-        const newBalance = data.new_balance ?? data.newBalance ?? data.balance;
-        if (newBalance !== undefined) {
-            balance = newBalance;
-        } else {
-            const movePercent = forexApiMap[selectedMarketPair] ? 0.005 : 0.03;
-            const gross = data.win ? amount * movePercent : -amount * movePercent;
-            const feeRate = premium ? 0.002 : 0.003;
-            const fee = amount * feeRate;
-            balance += (gross - fee);
-        }
         totalTrades++;
-        if (data.win) totalProfitAccum += (data.pnl || amount*0.03 - amount*(premium?0.002:0.003));
-        else totalProfitAccum -= (Math.abs(data.pnl) || amount*0.03 + amount*(premium?0.002:0.003));
+        if (data.win) totalProfitAccum += (data.pnl || 0);
+        else totalProfitAccum -= (Math.abs(data.pnl) || 0);
         addTradeLog(`${selectedMarketPair} - K${amount}`, direction.toUpperCase(), data.win);
         document.getElementById('stopLossInput').value = '';
         document.getElementById('takeProfitInput').value = '';
-        refreshUI();
+        await refreshBalanceFromServer();
     } catch (err) {
         document.getElementById('tradeError').textContent = 'Order failed: ' + (err.message || 'Trade failed');
         document.getElementById('tradeError').style.display = 'block';
+    }
+}
+
+// TEST TRADE API (phone-friendly)
+async function testTradeAPI() {
+    if (!token) { alert('Please log in first.'); return; }
+    const output = document.getElementById('testOutput');
+    output.textContent = 'Testing...';
+    try {
+        const data = await apiCall('POST', '/api/trades/manual', {
+            symbol: 'BTCUSDT',
+            direction: 'BUY',
+            amount: 200
+        });
+        output.textContent = 'Full API response:\n' + JSON.stringify(data, null, 2);
+        // Refresh balance
+        await refreshBalanceFromServer();
+        output.textContent += '\n\nBalance after fetch: ' + balance;
+    } catch(e) {
+        output.textContent = 'ERROR: ' + e.message;
     }
 }
 
@@ -544,7 +552,6 @@ function refreshUI() {
     document.getElementById('profilePic').textContent = (user?.email?user.email[0]:'T').toUpperCase();
 }
 
-// AUTH
 async function handleLogin() {
     document.getElementById('loginError').textContent = '';
     const email = document.getElementById('loginEmail').value.trim();
@@ -605,8 +612,6 @@ async function handleWithdraw() {
         const d=await apiCall('POST','/api/wallet/withdraw',{amount:amt});
         balance=d.new_balance; refreshUI();
         alert('Withdrawal submitted. Admin notified.');
-        const msg = `NRXTRADER Withdrawal:\nUser: ${user.email}\nAmount: K${amt}\nFee: K${(amt*feeRate).toFixed(2)}`;
-        window.open(`https://wa.me/260772566084?text=${encodeURIComponent(msg)}`,'_blank');
     } catch(e) { alert(e.message); }
 }
 
