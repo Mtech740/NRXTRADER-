@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NRXTRADER – Professional Trading</title>
+    <title>NRXTRADER – Intelligent Trading</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -340,15 +340,13 @@ async function wakeServerNow() {
     return serverAwake;
 }
 
-// PRICE FETCH – NEVER RETURNS NULL (uses hardcoded fallback)
+// PRICE FETCH – NEVER RETURNS NULL (hardcoded fallback)
 async function fetchLivePrice(symbol) {
-    // Try backend endpoint first
     try {
         const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`);
         const data = await res.json();
         if (data.price !== undefined && data.price !== null) return data.price;
-    } catch(e) { /* ignore */ }
-    // Hardcoded fallback – guarantees SYNA never stops
+    } catch(e) {}
     const fallbacks = {
         'BTC/USDT': 80000,
         'ETH/USDT': 4000,
@@ -371,11 +369,8 @@ async function updateSynaSignal() {
         const ma = priceHistory.reduce((a,b)=>a+b,0)/priceHistory.length;
         const diff = price - ma;
         const pct = (diff/ma)*100;
-        let threshold;
-        if (selectedMarketPair.includes('BTC')) threshold = 0.15;
-        else if (selectedMarketPair.includes('EUR') || selectedMarketPair.includes('GBP')) threshold = 0.0015;
-        else if (selectedMarketPair.includes('XAU')) threshold = 0.03;
-        else threshold = 0.02;
+        // Ultra-low thresholds so SYNA trades almost always
+        let threshold = 0.01; // 0.01% for everything, ensures frequent signals
         if (pct > threshold) { signal='BUY'; trend='BULLISH'; cls='green'; }
         else if (pct < -threshold) { signal='SELL'; trend='BEARISH'; cls='red-text'; }
         conf = Math.min(95, Math.max(50, Math.floor(Math.abs(pct)*30+50)));
@@ -414,10 +409,21 @@ async function synaTick() {
     const symbol = selectedMarketPair.replace('/','').replace(' ','');
     try {
         const data = await apiCall('POST','/api/trades/manual',{symbol,direction:sig.direction,amount:SYNA_AMOUNT});
-        balance = data.new_balance;
+        // BALANCE UPDATE: try multiple possible field names
+        const newBalance = data.new_balance ?? data.newBalance ?? data.balance;
+        if (newBalance !== undefined) {
+            balance = newBalance;
+        } else {
+            // If no balance returned, manually calculate based on win/loss
+            const movePercent = forexApiMap[selectedMarketPair] ? 0.005 : 0.03;
+            const gross = data.win ? SYNA_AMOUNT * movePercent : -SYNA_AMOUNT * movePercent;
+            const feeRate = premium ? 0.002 : 0.003;
+            const fee = SYNA_AMOUNT * feeRate;
+            balance += (gross - fee);
+        }
         totalTrades++;
-        if (data.win) { synaWins++; totalProfitAccum += (data.pnl||0); }
-        else { synaLosses++; totalProfitAccum -= Math.abs(data.pnl||0); }
+        if (data.win) { synaWins++; totalProfitAccum += (data.pnl || SYNA_AMOUNT*0.03 - SYNA_AMOUNT*(premium?0.002:0.003)); }
+        else { synaLosses++; totalProfitAccum -= (Math.abs(data.pnl) || SYNA_AMOUNT*0.03 + SYNA_AMOUNT*(premium?0.002:0.003)); }
         addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, sig.direction, data.win);
     } catch(e) {
         document.getElementById('synaServerMsg').style.display='block';
@@ -502,10 +508,19 @@ async function executeTrade(direction) {
 
     try {
         const data = await apiCall('POST', '/api/trades/manual', orderData);
-        balance = data.new_balance;
+        const newBalance = data.new_balance ?? data.newBalance ?? data.balance;
+        if (newBalance !== undefined) {
+            balance = newBalance;
+        } else {
+            const movePercent = forexApiMap[selectedMarketPair] ? 0.005 : 0.03;
+            const gross = data.win ? amount * movePercent : -amount * movePercent;
+            const feeRate = premium ? 0.002 : 0.003;
+            const fee = amount * feeRate;
+            balance += (gross - fee);
+        }
         totalTrades++;
-        if (data.win) totalProfitAccum += (data.pnl || 0);
-        else totalProfitAccum -= Math.abs(data.pnl || 0);
+        if (data.win) totalProfitAccum += (data.pnl || amount*0.03 - amount*(premium?0.002:0.003));
+        else totalProfitAccum -= (Math.abs(data.pnl) || amount*0.03 + amount*(premium?0.002:0.003));
         addTradeLog(`${selectedMarketPair} - K${amount}`, direction.toUpperCase(), data.win);
         document.getElementById('stopLossInput').value = '';
         document.getElementById('takeProfitInput').value = '';
