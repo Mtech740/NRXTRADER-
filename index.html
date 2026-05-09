@@ -488,55 +488,46 @@ async function wakeServerNow() {
     return true;
 }
 
-// ========== IMPROVED TEST CONNECTION ==========
+// ========== UPDATED TEST CONNECTION ==========
 async function testConnection() {
     testResult.style.display = 'block';
-    testResult.textContent = 'Testing with no-cors (bypasses CORS)...';
+    testResult.textContent = 'Testing balance with token...';
 
-    // 1. Use no-cors to see if server is reachable at all
-    try {
-        const res1 = await fetch(API, { method: 'GET', mode: 'no-cors' });
-        testResult.textContent = 'Server reachable (no-cors). Now testing CORS GET...';
-    } catch (e) {
-        testResult.textContent = `FAILED even with no-cors: ${e.message}. Real network block.`;
-        testResult.style.color = '#FF3D00';
-        return;
-    }
-
-    // 2. Try a normal GET to root (this will fail if CORS is strict)
-    try {
-        const res2 = await fetch(API);
-        testResult.textContent = `Root GET OK (status ${res2.status}). Now testing balance without token...`;
-    } catch (e) {
-        testResult.textContent = `Root GET FAILED (CORS likely blocked): ${e.message}. We'll fix CORS.`;
-        testResult.style.color = '#FF3D00';
-        return;
-    }
-
-    // 3. Balance endpoint without token
-    try {
-        const res3 = await fetch(API + '/api/wallet/balance');
-        const text3 = await res3.text();
-        testResult.textContent = `Balance (no token): status ${res3.status}, body: ${text3}. Now with token...`;
-    } catch (e) {
-        testResult.textContent = `Balance (no token) FAILED: ${e.message}`;
-        testResult.style.color = '#FF3D00';
-        return;
-    }
-
-    // 4. With token
+    // 1. Balance (we know it works, just verifying)
     if (!token) {
-        testResult.textContent += ' No token. Please login.';
+        testResult.textContent = 'No token. Please log in.';
         testResult.style.color = '#FF3D00';
         return;
     }
     try {
-        const data = await apiCall('GET', '/api/wallet/balance');
-        testResult.textContent += ` Balance WITH token: success. Balance: ${data.balance_zmw}`;
+        const balData = await apiCall('GET', '/api/wallet/balance');
+        testResult.textContent = `Balance OK: ${balData.balance_zmw} ZMW. Now testing trade...`;
+        testResult.style.color = '#f59e0b';
+    } catch (err) {
+        testResult.textContent = `Balance FAILED: ${err.message}`;
+        testResult.style.color = '#FF3D00';
+        return;
+    }
+
+    // 2. Execute a small trade
+    try {
+        const tradeData = await apiCall('POST', '/api/trades/manual', {
+            symbol: 'BTCUSDT',
+            direction: 'BUY',
+            amount: 100
+        });
+        testResult.textContent = `Trade SUCCESS! Response: ` + JSON.stringify(tradeData);
         testResult.style.color = '#10b981';
     } catch (err) {
-        testResult.textContent += ` Balance WITH token FAILED: ${err.message}`;
+        // The real error is here – show it
+        testResult.textContent = `Trade FAILED: ${err.message}`;
         testResult.style.color = '#FF3D00';
+        // If it's a network error, suggest checking logs
+        if (err.message === 'Failed to fetch') {
+            testResult.textContent += ' (Network error – possibly server crash. Check Render logs immediately after this test.)';
+        } else {
+            testResult.textContent += ' (Server responded, but request failed. See above.)';
+        }
     }
 }
 
