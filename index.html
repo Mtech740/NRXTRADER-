@@ -72,6 +72,15 @@
         .fee-display { font-size:12px; color:#94a3b8; text-align:right; margin-bottom:8px; }
         .execute-btn { width:100%; padding:15px; background:#6C5CE7; border:none; border-radius:12px; color:white; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s; }
         .execute-btn:hover { opacity:0.9; }
+        .auto-toggle-wrapper { display:flex; align-items:center; gap:10px; margin-top:10px; }
+        .auto-label { font-size:14px; color:#94a3b8; }
+        .toggle-switch { position:relative; display:inline-block; width:48px; height:24px; }
+        .toggle-switch input { opacity:0; width:0; height:0; }
+        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#1f2937; transition:.3s; border-radius:24px; }
+        .slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background-color:white; transition:.3s; border-radius:50%; }
+        input:checked + .slider { background-color:#6C5CE7; }
+        input:checked + .slider:before { transform:translateX(24px); }
+        .auto-status { font-size:12px; color:#10b981; margin-top:4px; }
 
         .bottom { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
         .syna { background:#111827; padding:22px; border-radius:18px; }
@@ -281,6 +290,14 @@
                 <input type="number" id="tradeAmountInput" placeholder="Amount (min K200)" min="200" step="50" value="200">
                 <div class="fee-display" id="tradeFeeDisplay">Fee: 0.3% | Max K500 (Free)</div>
                 <button class="execute-btn" id="executeTradeBtn" onclick="executeTrade()">Execute Trade</button>
+                <div class="auto-toggle-wrapper">
+                    <label class="auto-label">Auto Trade</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoTradeToggle" onchange="toggleAutoTrade()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="auto-status" id="autoTradeStatus"></div>
                 <div id="tradeError" style="color:#FF3D00; font-size:12px; margin-top:8px; display:none;"></div>
             </div>
         </div>
@@ -329,11 +346,16 @@ let selectedMarketPair = 'BTC/USDT';
 let synaActive = false;
 let synaTimer = null;
 let synaWins = 0, synaLosses = 0;
-const SYNA_AMOUNT = 200;   // ✅ Changed from 100 to 200
+const SYNA_AMOUNT = 200;
 let priceHistory = [];
 const MA_PERIOD = 8;
 
 let serverAwake = false;
+
+// ---------- AUTO TRADE STATE ----------
+let autoTradeActive = false;
+let autoTradeTimer = null;
+const AUTO_TRADE_INTERVAL = 5000; // 5 seconds
 
 const binanceSymbolMap = {
     'BTC/USDT': 'BTCUSDT',
@@ -346,7 +368,7 @@ const forexApiMap = {
     'XAU/USD': 'XAU'
 };
 
-// DOM refs (abbreviated for clarity, all included)
+// DOM refs
 const loginOverlay = document.getElementById('loginOverlay');
 const dashboardContainer = document.getElementById('dashboardContainer');
 const loginError = document.getElementById('loginError');
@@ -373,6 +395,8 @@ const settingsPlan = document.getElementById('settingsPlan');
 const settingsBalance = document.getElementById('settingsBalance');
 const chartContainer = document.getElementById('chartContainer');
 const tradeError = document.getElementById('tradeError');
+const autoTradeStatus = document.getElementById('autoTradeStatus');
+const autoTradeToggle = document.getElementById('autoTradeToggle');
 const profilePic = document.getElementById('profilePic');
 const profileName = document.getElementById('profileName');
 const profileEmail = document.getElementById('profileEmail');
@@ -533,7 +557,7 @@ async function testConnection() {
         const tradeData = await apiCall('POST', '/api/trades/manual', {
             symbol: 'BTCUSDT',
             direction: 'BUY',
-            amount: 200   // ✅ fixed from 100
+            amount: 200
         });
         testResult.textContent = `Trade SUCCESS! Response: ` + JSON.stringify(tradeData);
         testResult.style.color = '#10b981';
@@ -543,7 +567,6 @@ async function testConnection() {
     }
 }
 
-// Price fetch and SYNA signal update unchanged
 async function fetchLivePrice(symbol) {
     if (binanceSymbolMap[symbol]) {
         try {
@@ -563,6 +586,7 @@ async function fetchLivePrice(symbol) {
     return null;
 }
 
+// SYNA signal with forex threshold
 async function updateSynaSignal() {
     const symbol = selectedMarketPair;
     synaForexNote.style.display = 'none';
@@ -580,11 +604,21 @@ async function updateSynaSignal() {
     let signal = 'HOLD', trendText = 'SIDEWAYS', trendClass = '', confidence = 50;
     if (priceHistory.length >= 2) {
         const sum = priceHistory.reduce((a,b)=>a+b,0);
-        const ma = sum/priceHistory.length;
+        const ma = sum / priceHistory.length;
         const diff = price - ma;
-        if (diff > 0) { signal='BUY'; trendText='BULLISH'; trendClass='green'; }
-        else if (diff < 0) { signal='SELL'; trendText='BEARISH'; trendClass='red-text'; }
-        confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(diff/ma)*100*30+50)));
+        const percentDiff = (diff / ma) * 100;
+        const isForex = !!forexApiMap[symbol];
+        const threshold = isForex ? 0.005 : 0.1;
+        if (percentDiff > threshold) {
+            signal = 'BUY';
+            trendText = 'BULLISH';
+            trendClass = 'green';
+        } else if (percentDiff < -threshold) {
+            signal = 'SELL';
+            trendText = 'BEARISH';
+            trendClass = 'red-text';
+        }
+        confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(percentDiff) * 30 + 50)));
     }
     synaTrend.textContent = 'TREND: ' + trendText;
     synaTrend.className = trendClass;
@@ -601,7 +635,7 @@ function addTradeLog(desc, direction, win) {
     if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
 }
 
-// SYNA tick – NO LOCAL FALLBACK, fixed error message
+// SYNA tick
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -634,7 +668,7 @@ async function synaTick() {
     } catch (e) {
         console.error('SYNA trade failed:', e.message);
         synaServerMsg.style.display = 'block';
-        synaServerMsg.textContent = 'SYNA trade failed: ' + e.message;   // ✅ show real error
+        synaServerMsg.textContent = 'SYNA trade failed: ' + e.message;
         return;
     }
     synaWinsEl.textContent = synaWins;
@@ -670,6 +704,106 @@ function stopSyna() {
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
+// ---------- AUTO TRADE ----------
+const executeTradeCore = async () => {
+    const amount = parseFloat(document.getElementById('tradeAmountInput').value);
+    if (isNaN(amount) || amount < 200) {
+        tradeError.textContent = 'Minimum trade amount is K200.';
+        tradeError.style.display = 'block';
+        return false;
+    }
+    const max = premium ? 2000 : 500;
+    if (amount > max) {
+        tradeError.textContent = `Maximum trade for your plan is K${max}.`;
+        tradeError.style.display = 'block';
+        return false;
+    }
+    if (balance < amount) {
+        tradeError.textContent = 'Insufficient balance.';
+        tradeError.style.display = 'block';
+        stopAutoTrade();
+        return false;
+    }
+    if (!serverAwake) {
+        const woke = await wakeServerNow();
+        if (!woke) {
+            tradeError.textContent = 'Server did not wake.';
+            tradeError.style.display = 'block';
+            stopAutoTrade();
+            return false;
+        }
+    } else {
+        try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
+    }
+    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    try {
+        const data = await apiCall('POST', '/api/trades/manual', {
+            symbol: symbol,
+            direction: tradeDirection.toUpperCase(),
+            amount: amount
+        });
+        balance = data.new_balance;
+        totalTrades++;
+        if (data.win) totalProfitAccum += (data.pnl || 0);
+        else totalProfitAccum -= Math.abs(data.pnl || 0);
+        addTradeLog(`${selectedMarketPair} - K${amount}`, tradeDirection.toUpperCase(), data.win);
+        tradeError.style.display = 'none';
+        return true;
+    } catch (err) {
+        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
+        tradeError.style.display = 'block';
+        return false;
+    }
+};
+
+function startAutoTrade() {
+    if (!token) {
+        alert('Please log in.');
+        autoTradeToggle.checked = false;
+        return;
+    }
+    autoTradeActive = true;
+    autoTradeStatus.textContent = 'Auto Trade Running';
+    // run one immediately
+    executeTradeCore().then(() => refreshUI());
+    autoTradeTimer = setInterval(() => {
+        if (!autoTradeActive) return;
+        executeTradeCore().then(() => refreshUI());
+    }, AUTO_TRADE_INTERVAL);
+}
+
+function stopAutoTrade() {
+    autoTradeActive = false;
+    autoTradeStatus.textContent = '';
+    if (autoTradeTimer) {
+        clearInterval(autoTradeTimer);
+        autoTradeTimer = null;
+    }
+    autoTradeToggle.checked = false;
+}
+
+function toggleAutoTrade() {
+    if (autoTradeToggle.checked) {
+        startAutoTrade();
+    } else {
+        stopAutoTrade();
+    }
+}
+
+// ---------- MANUAL EXECUTE TRADE ----------
+async function executeTrade() {
+    if (!token) return alert('Please log in.');
+    tradeError.style.display = 'none';
+    const btn = document.getElementById('executeTradeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Executing...';
+    const success = await executeTradeCore();
+    btn.disabled = false;
+    btn.textContent = 'Execute Trade';
+    refreshUI();
+}
+
+// ---------- UI HELPERS ----------
 function refreshUI() {
     balValue.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
     walletBalance.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
@@ -687,6 +821,7 @@ function refreshUI() {
     }
 }
 
+// Auth, wallet, markets, settings (unchanged)
 async function handleLogin() {
     loginError.textContent = '';
     const email = document.getElementById('loginEmail').value.trim();
@@ -725,6 +860,7 @@ async function handleRegister() {
 function logout() {
     token = null; user = null;
     stopSyna();
+    stopAutoTrade();
     if (tvWidget) tvWidget.remove();
     localStorage.clear();
     balance = 0; premium = false; trial = false; totalTrades = 0; totalProfitAccum = 0;
@@ -743,68 +879,7 @@ function setTradeDirection(dir) {
     sellTab.classList.toggle('active', dir === 'sell');
 }
 
-async function executeTrade() {
-    if (!token) return alert('Please log in.');
-    tradeError.style.display = 'none';
-    const amount = parseFloat(document.getElementById('tradeAmountInput').value);
-    if (isNaN(amount) || amount < 200) {
-        tradeError.textContent = 'Minimum trade amount is K200.';
-        tradeError.style.display = 'block';
-        return;
-    }
-    const max = premium ? 2000 : 500;
-    if (amount > max) {
-        tradeError.textContent = `Maximum trade for your plan is K${max}.`;
-        tradeError.style.display = 'block';
-        return;
-    }
-    if (balance < amount) {
-        tradeError.textContent = 'Insufficient balance.';
-        tradeError.style.display = 'block';
-        return;
-    }
-
-    const btn = document.getElementById('executeTradeBtn');
-    btn.disabled = true;
-    btn.textContent = 'Warming up...';
-    if (!serverAwake) {
-        const woke = await wakeServerNow();
-        if (!woke) {
-            tradeError.textContent = 'Server did not wake. Please try again.';
-            tradeError.style.display = 'block';
-            btn.disabled = false;
-            btn.textContent = 'Execute Trade';
-            return;
-        }
-    } else {
-        try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
-    }
-
-    btn.textContent = 'Executing...';
-    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
-    try {
-        const data = await apiCall('POST', '/api/trades/manual', {
-            symbol: symbol,
-            direction: tradeDirection.toUpperCase(),
-            amount: amount
-        });
-        balance = data.new_balance;
-        totalTrades++;
-        if (data.win) totalProfitAccum += (data.pnl || 0);
-        else totalProfitAccum -= Math.abs(data.pnl || 0);
-        addTradeLog(`${selectedMarketPair} - K${amount}`, tradeDirection.toUpperCase(), data.win);
-        tradeError.style.display = 'none';
-    } catch (err) {
-        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
-        tradeError.style.display = 'block';
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Execute Trade';
-        refreshUI();
-    }
-}
-
-// Wallet, Markets, Settings functions (same as before)
+// Wallet functions (unchanged)
 function handleScreenshot(input) { if (input.files && input.files[0]) alert('Screenshot selected: ' + input.files[0].name); }
 async function confirmDeposit() {
     if (!document.getElementById('screenshotUpload').files[0]) { alert('Please upload a screenshot first.'); return; }
