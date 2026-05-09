@@ -8,13 +8,13 @@ const authRoutes = require('./routes/auth');
 const walletRoutes = require('./routes/wallet');
 const tradesRoutes = require('./routes/trades');
 const premiumRoutes = require('./routes/premium');
-const priceRoutes = require('./routes/price');   // ✅ NEW
+const priceRoutes = require('./routes/price');
 
 const app = express();
 
 app.use(express.json());
 
-/* ✅ CORS FIX */
+/* CORS FIX */
 const corsOptions = {
     origin: 'https://mtech740.github.io',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -23,15 +23,11 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-/* ✅ HANDLE PREFLIGHT */
 app.options(/.*/, cors(corsOptions));
 
-/* ✅ ROOT ROUTE */
+/* ROOT */
 app.get('/', (req, res) => {
-    res.json({
-        status: 'NRXTRADER API ONLINE'
-    });
+    res.json({ status: 'NRXTRADER API ONLINE' });
 });
 
 /* ROUTES */
@@ -39,7 +35,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradesRoutes);
 app.use('/api/premium', premiumRoutes);
-app.use('/api/price', priceRoutes);   // ✅ NEW
+app.use('/api/price', priceRoutes);
 
 /* DATABASE */
 initDatabase();
@@ -47,13 +43,8 @@ initDatabase();
 /* ERROR HANDLER */
 app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({
-        error: 'Internal server error'
-    });
+    res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-    console.log(`NRXTRADER backend running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`NRXTRADER backend running on port ${PORT}`));
