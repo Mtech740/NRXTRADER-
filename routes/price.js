@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
             }
         } catch (e) { /* ignore */ }
 
-        // Fallback prices
+        // Hard fallback
         const fallback = { 'EUR': 1.07, 'GBP': 1.25, 'XAU': 2350 };
         return res.json({ price: fallback[targetCurrency] || null, fallback: true });
     }
