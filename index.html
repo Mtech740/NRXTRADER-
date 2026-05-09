@@ -331,7 +331,6 @@
 
 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <script>
-// ==================== CONFIGURATION ====================
 const API = 'https://nrxtrader-api.onrender.com';
 let token = localStorage.getItem('nrxtrader_token') || null;
 let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
@@ -351,11 +350,9 @@ let priceHistory = [];
 const MA_PERIOD = 8;
 
 let serverAwake = false;
-
-// ---------- AUTO TRADE STATE ----------
 let autoTradeActive = false;
 let autoTradeTimer = null;
-const AUTO_TRADE_INTERVAL = 5000; // 5 seconds
+const AUTO_TRADE_INTERVAL = 5000;
 
 const binanceSymbolMap = {
     'BTC/USDT': 'BTCUSDT',
@@ -535,7 +532,7 @@ async function testCors() {
     }
 }
 
-// ========== TEST CONNECTION (with amount 200) ==========
+// ========== TEST CONNECTION ==========
 async function testConnection() {
     testResult.style.display = 'block';
     testResult.textContent = 'Testing balance with token...';
@@ -567,26 +564,21 @@ async function testConnection() {
     }
 }
 
+// ========== NEW FETCH PRICE VIA BACKEND ==========
 async function fetchLivePrice(symbol) {
-    if (binanceSymbolMap[symbol]) {
-        try {
-            const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbolMap[symbol]}`);
-            const data = await res.json();
-            return parseFloat(data.price);
-        } catch (e) { return null; }
+    try {
+        const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`);
+        const data = await res.json();
+        if (data.price !== null && data.price !== undefined) {
+            return data.price;
+        }
+        return null;
+    } catch (e) {
+        console.error('Price fetch failed:', e.message);
+        return null;
     }
-    if (forexApiMap[symbol]) {
-        try {
-            const res = await fetch(`https://api.exchangerate.host/convert?from=${forexApiMap[symbol]}&to=USD&amount=1`);
-            const data = await res.json();
-            if (data.result !== null) return parseFloat(data.result);
-            return null;
-        } catch (e) { return null; }
-    }
-    return null;
 }
 
-// SYNA signal with forex threshold
 async function updateSynaSignal() {
     const symbol = selectedMarketPair;
     synaForexNote.style.display = 'none';
@@ -704,7 +696,7 @@ function stopSyna() {
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
-// ---------- AUTO TRADE ----------
+// ========== AUTO TRADE ==========
 const executeTradeCore = async () => {
     const amount = parseFloat(document.getElementById('tradeAmountInput').value);
     if (isNaN(amount) || amount < 200) {
@@ -764,7 +756,6 @@ function startAutoTrade() {
     }
     autoTradeActive = true;
     autoTradeStatus.textContent = 'Auto Trade Running';
-    // run one immediately
     executeTradeCore().then(() => refreshUI());
     autoTradeTimer = setInterval(() => {
         if (!autoTradeActive) return;
@@ -790,7 +781,7 @@ function toggleAutoTrade() {
     }
 }
 
-// ---------- MANUAL EXECUTE TRADE ----------
+// Manual trade
 async function executeTrade() {
     if (!token) return alert('Please log in.');
     tradeError.style.display = 'none';
@@ -803,7 +794,7 @@ async function executeTrade() {
     refreshUI();
 }
 
-// ---------- UI HELPERS ----------
+// UI
 function refreshUI() {
     balValue.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
     walletBalance.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
@@ -821,7 +812,7 @@ function refreshUI() {
     }
 }
 
-// Auth, wallet, markets, settings (unchanged)
+// Auth
 async function handleLogin() {
     loginError.textContent = '';
     const email = document.getElementById('loginEmail').value.trim();
@@ -879,7 +870,7 @@ function setTradeDirection(dir) {
     sellTab.classList.toggle('active', dir === 'sell');
 }
 
-// Wallet functions (unchanged)
+// Wallet
 function handleScreenshot(input) { if (input.files && input.files[0]) alert('Screenshot selected: ' + input.files[0].name); }
 async function confirmDeposit() {
     if (!document.getElementById('screenshotUpload').files[0]) { alert('Please upload a screenshot first.'); return; }
@@ -914,6 +905,7 @@ async function handleWithdraw() {
     } catch (e) { alert(e.message); }
 }
 
+// Markets / Signals / Settings
 function openMarkets() { document.getElementById('marketsModal').style.display = 'flex'; }
 function closeMarkets() { document.getElementById('marketsModal').style.display = 'none'; }
 function selectMarket(pair) {
@@ -955,7 +947,7 @@ async function handlePremium() {
     }
 }
 
-// Sidebar navigation
+// Sidebar
 document.querySelectorAll('.sidebar li').forEach(li => {
     li.addEventListener('click', () => {
         document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
