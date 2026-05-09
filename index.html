@@ -392,16 +392,21 @@ function addTradeLog(desc, dir, win) {
     if (list.children.length > 10) list.lastChild.remove();
 }
 
-// Refresh balance from server
-async function refreshBalanceFromServer() {
-    try {
-        const data = await apiCall('GET','/api/wallet/balance');
-        balance = parseFloat(data.balance_zmw) || balance;
+// Update balance from trade response or server fallback
+async function updateBalanceAfterTrade(tradeResponse) {
+    if (tradeResponse && tradeResponse.new_balance !== undefined) {
+        balance = tradeResponse.new_balance;
         refreshUI();
-    } catch(e) {}
+    } else {
+        try {
+            const data = await apiCall('GET','/api/wallet/balance');
+            balance = parseFloat(data.balance_zmw) || balance;
+            refreshUI();
+        } catch(e) {}
+    }
 }
 
-// SYNA tick with balance refresh after trade
+// SYNA tick – trades any market
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
@@ -422,8 +427,7 @@ async function synaTick() {
         if (data.win) { synaWins++; }
         else { synaLosses++; }
         addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, sig.direction, data.win);
-        // update balance from server
-        await refreshBalanceFromServer();
+        await updateBalanceAfterTrade(data);
     } catch(e) {
         document.getElementById('synaServerMsg').style.display='block';
         document.getElementById('synaServerMsg').textContent = 'Trade failed: ' + e.message;
@@ -433,14 +437,10 @@ async function synaTick() {
     document.getElementById('synaLosses').textContent = synaLosses;
     const total = synaWins+synaLosses;
     document.getElementById('synaWinRate').textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
-    refreshUI();
 }
 
 function startSyna() {
-    if (selectedMarketPair === 'EUR/USD' || selectedMarketPair === 'GBP/USD') {
-        alert('Forex SYNA still experimental. Use crypto pairs.');
-        return;
-    }
+    // No restriction – all markets allowed
     if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
     synaActive = true;
     document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
@@ -459,6 +459,7 @@ function stopSyna() {
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
+// Manual trade
 function confirmTrade(direction) {
     const amount = document.getElementById('tradeAmountInput').value;
     const ok = confirm(`${direction} trade?\n\nMarket: ${selectedMarketPair}\nAmount: K${amount}`);
@@ -512,14 +513,14 @@ async function executeTrade(direction) {
         addTradeLog(`${selectedMarketPair} - K${amount}`, direction.toUpperCase(), data.win);
         document.getElementById('stopLossInput').value = '';
         document.getElementById('takeProfitInput').value = '';
-        await refreshBalanceFromServer();
+        await updateBalanceAfterTrade(data);
     } catch (err) {
         document.getElementById('tradeError').textContent = 'Order failed: ' + (err.message || 'Trade failed');
         document.getElementById('tradeError').style.display = 'block';
     }
 }
 
-// TEST TRADE API (phone-friendly)
+// Test button
 async function testTradeAPI() {
     if (!token) { alert('Please log in first.'); return; }
     const output = document.getElementById('testOutput');
@@ -531,9 +532,8 @@ async function testTradeAPI() {
             amount: 200
         });
         output.textContent = 'Full API response:\n' + JSON.stringify(data, null, 2);
-        // Refresh balance
-        await refreshBalanceFromServer();
-        output.textContent += '\n\nBalance after fetch: ' + balance;
+        await updateBalanceAfterTrade(data);
+        output.textContent += '\n\nBalance updated to: ' + balance;
     } catch(e) {
         output.textContent = 'ERROR: ' + e.message;
     }
@@ -552,6 +552,7 @@ function refreshUI() {
     document.getElementById('profilePic').textContent = (user?.email?user.email[0]:'T').toUpperCase();
 }
 
+// Auth, wallet, etc. unchanged
 async function handleLogin() {
     document.getElementById('loginError').textContent = '';
     const email = document.getElementById('loginEmail').value.trim();
@@ -680,4 +681,4 @@ window.onload = () => {
 };
 </script>
 </body>
-</html>
+    </html>
