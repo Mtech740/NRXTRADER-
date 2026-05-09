@@ -3,124 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NRXTRADER Dashboard</title>
+    <title>NRXTRADER - Professional Trading</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #0B0F1A;
+            --surface: #111827;
+            --border: #1f2937;
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent: #6C5CE7;
+            --accent-hover: #5A4BD1;
+            --green: #00C853;
+            --red: #FF3D00;
+            --warning: #f59e0b;
+            --radius: 12px;
+        }
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Inter',sans-serif; background:#0B0F1A; color:white; min-height:100vh; }
-
+        body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
         .login-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:1000; }
-        .login-box { background:#111827; padding:35px 30px; border-radius:20px; width:90%; max-width:420px; text-align:center; border:1px solid rgba(255,255,255,0.05); }
-        .login-box h2 { color:#6C5CE7; margin-bottom:8px; font-size:28px; }
-        .login-box h2 span { color:white; }
-        .login-box p { color:#94a3b8; font-size:14px; margin-bottom:20px; }
-        .login-box input { width:100%; padding:14px; margin:8px 0; background:#1f2937; border:none; border-radius:10px; color:white; font-size:15px; outline:none; }
+        .login-box { background:var(--surface); padding:35px 30px; border-radius:20px; width:90%; max-width:420px; text-align:center; border:1px solid var(--border); }
+        .login-box h2 { color:var(--accent); margin-bottom:8px; font-size:28px; }
+        .login-box p { color:var(--text-secondary); font-size:14px; margin-bottom:20px; }
+        .login-box input { width:100%; padding:14px; margin:8px 0; background:var(--bg); border:1px solid var(--border); border-radius:10px; color:white; font-size:15px; outline:none; }
         .btn { padding:14px; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s; }
-        .btn-primary { background:#6C5CE7; color:white; }
+        .btn-primary { background:var(--accent); color:white; width:100%; }
         .btn-primary:hover { opacity:0.9; }
-        .btn-outline { background:transparent; border:1px solid #6C5CE7; color:#6C5CE7; margin-top:8px; }
-        .btn-danger { background:#FF3D00; color:white; }
-        .login-error { color:#FF3D00; font-size:13px; margin-top:10px; min-height:20px; }
+        .btn-outline { background:transparent; border:1px solid var(--accent); color:var(--accent); margin-top:8px; }
+        .btn-danger { background:var(--red); color:white; }
+        .login-error { color:var(--red); font-size:13px; margin-top:10px; min-height:20px; }
 
-        .container { display:flex; min-height:100vh; }
-        .sidebar { width:240px; background:#111827; padding:25px; border-right:1px solid rgba(255,255,255,0.05); flex-shrink:0; }
-        .logo { font-size:26px; font-weight:700; margin-bottom:40px; color:#6C5CE7; }
+        .container { display:flex; height:100vh; }
+        .sidebar { width:240px; background:var(--surface); padding:25px; border-right:1px solid var(--border); display:flex; flex-direction:column; gap:24px; flex-shrink:0; }
+        .logo { font-size:26px; font-weight:700; color:var(--accent); }
         .logo span { color:white; }
-        .sidebar ul { list-style:none; }
-        .sidebar li { padding:15px; margin-bottom:10px; border-radius:12px; cursor:pointer; transition:0.3s; color:#cbd5e1; font-size:14px; }
-        .sidebar li:hover { background:#1f2937; color:white; }
-        .sidebar li.active { background:#6C5CE7; color:white !important; }
-
-        .main { flex:1; padding:25px; }
-        .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; }
-        .topbar h1 { font-size:28px; }
-
+        .sidebar ul { list-style:none; display:flex; flex-direction:column; gap:6px; }
+        .sidebar li { padding:12px 14px; border-radius:8px; cursor:pointer; color:var(--text-secondary); font-size:14px; transition:0.2s; }
+        .sidebar li:hover, .sidebar li.active { background:var(--accent); color:white; }
+        .main { flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; gap:24px; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; }
+        .topbar h1 { font-size:28px; font-weight:600; }
         .profile-wrapper { position:relative; display:flex; align-items:center; gap:10px; cursor:pointer; }
-        .profile-circle { width:40px; height:40px; border-radius:50%; background:#6C5CE7; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:16px; color:white; }
+        .profile-circle { width:40px; height:40px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:16px; }
         .profile-info { text-align:right; }
         .profile-name { font-size:14px; font-weight:500; }
-        .profile-email { font-size:12px; color:#94a3b8; }
-        .profile-dropdown { position:absolute; top:50px; right:0; background:#111827; border-radius:12px; padding:10px 0; min-width:150px; display:none; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:10; border:1px solid rgba(255,255,255,0.05); }
+        .profile-email { font-size:12px; color:var(--text-secondary); }
+        .profile-dropdown { position:absolute; top:50px; right:0; background:var(--surface); border-radius:8px; padding:8px 0; min-width:150px; display:none; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:10; border:1px solid var(--border); }
         .profile-dropdown.show { display:block; }
-        .profile-dropdown a { display:block; padding:10px 20px; color:#cbd5e1; text-decoration:none; font-size:14px; transition:background 0.2s; }
-        .profile-dropdown a:hover { background:#1f2937; color:white; }
+        .profile-dropdown a { display:block; padding:10px 20px; color:var(--text-secondary); text-decoration:none; font-size:14px; }
+        .profile-dropdown a:hover { background:rgba(108,92,231,0.1); color:white; }
 
-        .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:25px; }
-        .card { background:#111827; padding:22px; border-radius:18px; transition:0.3s; cursor:pointer; }
-        .card:hover { transform:translateY(-3px); }
-        .card h3 { font-size:15px; color:#94a3b8; margin-bottom:10px; }
-        .card p { font-size:28px; font-weight:700; }
-        .card .sub-text { font-size:12px; color:#64748b; margin-top:4px; }
-        .green { color:#00C853; }
-        .red-text { color:#FF3D00; }
+        .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+        .card { background:var(--surface); padding:20px; border-radius:var(--radius); border:1px solid var(--border); cursor:pointer; transition:0.2s; }
+        .card:hover { border-color:var(--accent); }
+        .card h3 { font-size:14px; color:var(--text-secondary); margin-bottom:8px; }
+        .card p { font-size:26px; font-weight:700; }
+        .green { color:var(--green); }
+        .red-text { color:var(--red); }
+        .sub-text { font-size:12px; color:var(--text-secondary); margin-top:4px; }
 
-        .middle { display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:25px; }
-        .chart-box { background:#111827; padding:20px; border-radius:18px; }
-        .chart-header { display:flex; justify-content:space-between; margin-bottom:20px; }
-        .chart-header h2 { font-size:22px; }
-        .chart-header select { background:#1f2937; border:none; color:white; padding:8px 12px; border-radius:8px; font-size:14px; outline:none; }
-        .chart { border-radius:14px; overflow:hidden; height:320px; }
+        .chart-trade-row { display:grid; grid-template-columns:2fr 1fr; gap:16px; min-height:0; }
+        .chart-box { background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); padding:16px; display:flex; flex-direction:column; }
+        .chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .chart-header h2 { font-size:20px; font-weight:600; }
+        .chart-header select { background:var(--surface); border:1px solid var(--border); color:white; padding:8px 12px; border-radius:8px; font-size:13px; outline:none; }
+        .chart { flex:1; border-radius:12px; overflow:hidden; min-height:300px; }
 
-        .trade-panel { background:#111827; padding:20px; border-radius:18px; }
-        .trade-tabs { display:flex; margin-bottom:20px; }
-        .trade-tabs button { flex:1; padding:12px; border:none; cursor:pointer; font-weight:600; transition:0.3s; }
-        .buy-btn { background:#00C853; color:white; border-radius:10px 0 0 10px; }
-        .buy-btn.active { box-shadow:0 0 20px rgba(0,200,83,0.5); }
-        .sell-btn { background:#FF3D00; color:white; border-radius:0 10px 10px 0; }
-        .sell-btn.active { box-shadow:0 0 20px rgba(255,61,0,0.5); }
-        .trade-panel input { width:100%; padding:14px; margin-bottom:15px; border:none; border-radius:10px; background:#1f2937; color:white; outline:none; font-size:15px; }
-        .fee-display { font-size:12px; color:#94a3b8; text-align:right; margin-bottom:8px; }
-        .execute-btn { width:100%; padding:15px; background:#6C5CE7; border:none; border-radius:12px; color:white; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s; }
-        .execute-btn:hover { opacity:0.9; }
-        .auto-toggle-wrapper { display:flex; align-items:center; gap:10px; margin-top:10px; }
-        .auto-label { font-size:14px; color:#94a3b8; }
-        .toggle-switch { position:relative; display:inline-block; width:48px; height:24px; }
+        .trade-ticket { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; display:flex; flex-direction:column; gap:12px; }
+        .trade-ticket h3 { font-size:18px; font-weight:600; }
+        .order-type-row { display:flex; gap:8px; margin-bottom:4px; }
+        .order-type-btn { flex:1; padding:10px; background:transparent; border:1px solid var(--border); color:var(--text-secondary); border-radius:6px; cursor:pointer; font-size:13px; font-weight:500; transition:0.2s; }
+        .order-type-btn.active { background:var(--accent); color:white; border-color:var(--accent); }
+        .order-type-btn:hover:not(.active) { border-color:var(--accent); color:white; }
+        .input-label { font-size:12px; color:var(--text-secondary); margin-bottom:2px; }
+        .trade-ticket input[type="number"] { width:100%; padding:12px; background:var(--bg); border:1px solid var(--border); color:white; border-radius:8px; font-size:14px; outline:none; }
+        .trade-ticket input:focus { border-color:var(--accent); }
+        .fee-display { font-size:12px; color:var(--text-secondary); text-align:right; margin-top:4px; }
+        .action-buttons { display:flex; gap:10px; margin-top:8px; }
+        .action-buttons button { flex:1; }
+        .auto-trade-row { display:flex; align-items:center; justify-content:space-between; margin-top:8px; }
+        .auto-label { font-size:13px; color:var(--text-secondary); }
+        .toggle-switch { position:relative; display:inline-block; width:44px; height:22px; }
         .toggle-switch input { opacity:0; width:0; height:0; }
-        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#1f2937; transition:.3s; border-radius:24px; }
-        .slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background-color:white; transition:.3s; border-radius:50%; }
-        input:checked + .slider { background-color:#6C5CE7; }
-        input:checked + .slider:before { transform:translateX(24px); }
-        .auto-status { font-size:12px; color:#10b981; margin-top:4px; }
+        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#374151; transition:.3s; border-radius:22px; }
+        .slider:before { position:absolute; content:""; height:18px; width:18px; left:2px; bottom:2px; background-color:white; transition:.3s; border-radius:50%; }
+        input:checked + .slider { background-color:var(--accent); }
+        input:checked + .slider:before { transform:translateX(22px); }
+        .auto-status { font-size:12px; color:var(--green); margin-top:4px; }
 
-        .bottom { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-        .syna { background:#111827; padding:22px; border-radius:18px; }
-        .syna h2 { margin-bottom:15px; color:#6C5CE7; }
-        .ai-box { background:#1f2937; padding:20px; border-radius:15px; text-align:center; }
-        .ai-circle { width:80px; height:80px; background:#6C5CE7; border-radius:50%; margin:auto; margin-bottom:15px; display:flex; justify-content:center; align-items:center; font-size:35px; }
-        .syna-stats { display:flex; justify-content:space-around; margin:15px 0; font-size:14px; color:#94a3b8; }
+        .bottom-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+        .panel h3 { font-size:16px; margin-bottom:12px; color:var(--accent); }
+        .syna-stats { display:flex; justify-content:space-around; margin:12px 0; font-size:14px; color:var(--text-secondary); }
         .syna-stats strong { color:white; }
+        .status-badge { display:inline-block; padding:4px 12px; border-radius:12px; font-size:12px; font-weight:500; }
+        .status-ok { background:rgba(0,200,83,0.15); color:var(--green); }
+        .status-sleep { background:rgba(245,158,11,0.15); color:var(--warning); }
+        .recent-list { max-height:240px; overflow-y:auto; font-size:13px; }
+        .trade-item { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+        .trade-item .buy { color:var(--green); }
+        .trade-item .sell { color:var(--red); }
+        .no-trades { color:var(--text-secondary); text-align:center; padding:20px 0; }
 
-        .recent { background:#111827; padding:22px; border-radius:18px; }
-        .trade-item { display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
-        .trade-item .buy { color:#00C853; }
-        .trade-item .sell { color:#FF3D00; }
-        .no-trades { color:#64748b; text-align:center; padding:30px 0; }
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:999; display:none; }
+        .modal-content { background:var(--surface); padding:24px; border-radius:var(--radius); width:90%; max-width:500px; border:1px solid var(--border); max-height:80vh; overflow-y:auto; }
+        .modal-content h3 { margin-bottom:16px; color:var(--accent); }
+        .close-btn { background:var(--red); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:16px; float:right; }
 
-        .server-status { font-size:12px; margin-top:4px; }
-        .status-ok { color:#10b981; }
-        .status-sleep { color:#f59e0b; }
-
-        .markets-modal, .wallet-modal, .settings-modal, .signals-modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:999; display:none; }
-        .modal-content { background:#111827; padding:25px; border-radius:18px; width:90%; max-width:500px; border:1px solid rgba(255,255,255,0.05); max-height:80vh; overflow-y:auto; }
-        .modal-content h3 { margin-bottom:15px; color:#6C5CE7; }
-        .modal-content table { width:100%; border-collapse:collapse; }
-        .modal-content td, .modal-content th { padding:12px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.05); }
-        .modal-content th { color:#94a3b8; font-size:13px; }
-        .close-btn { background:#FF3D00; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:15px; float:right; }
-        .file-upload { display:block; width:100%; padding:12px; margin:10px 0; background:#1f2937; border-radius:10px; color:#94a3b8; border:1px dashed #6C5CE7; text-align:center; cursor:pointer; }
-        .notice { font-size:12px; color:#f59e0b; margin:10px 0; padding:10px; background:rgba(245,158,11,0.1); border-radius:8px; }
-        .signal-item { padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
-
-        @media (max-width:1100px) { .cards { grid-template-columns:repeat(2,1fr); } .middle { grid-template-columns:1fr; } .bottom { grid-template-columns:1fr; } }
-        @media (max-width:768px) { .container { flex-direction:column; } .sidebar { width:100%; } .cards { grid-template-columns:1fr; } }
+        @media (max-width:1024px) {
+            .chart-trade-row { grid-template-columns:1fr; }
+            .cards { grid-template-columns:repeat(2,1fr); }
+            .bottom-row { grid-template-columns:1fr; }
+        }
+        @media (max-width:768px) {
+            .container { flex-direction:column; }
+            .sidebar { width:100%; flex-direction:row; overflow-x:auto; padding:12px; }
+            .sidebar ul { flex-direction:row; }
+            .cards { grid-template-columns:1fr; }
+        }
     </style>
 </head>
 <body>
 <!-- LOGIN OVERLAY -->
 <div id="loginOverlay" class="login-overlay">
     <div class="login-box">
-        <h2>NRX<span>TRADER</span></h2>
-        <p>Trade smarter with SYNA intelligence</p>
+        <h2>NRX<span style="color:white;">TRADER</span></h2>
+        <p>Professional Trading Platform</p>
         <input type="email" id="loginEmail" placeholder="Email address">
         <input type="text" id="loginPhone" placeholder="Phone (optional)">
         <input type="password" id="loginPassword" placeholder="Password">
@@ -131,18 +139,18 @@
 </div>
 
 <!-- MARKETS MODAL -->
-<div id="marketsModal" class="markets-modal">
+<div id="marketsModal" class="modal">
     <div class="modal-content">
         <h3>Markets</h3>
-        <table>
-            <thead><tr><th>Pair</th><th>Price</th><th>Change</th><th>Action</th></tr></thead>
+        <table style="width:100%; border-collapse:collapse;">
+            <thead><tr><th style="text-align:left; padding:8px; color:var(--text-secondary);">Pair</th><th style="text-align:right; padding:8px;">Price</th><th style="text-align:right; padding:8px;">Change</th><th></th></tr></thead>
             <tbody>
-                <tr><td>BTC/USDT</td><td>K1,234,567</td><td class="green">+2.45%</td><td><button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="selectMarket('BTC/USDT')">Trade</button></td></tr>
-                <tr><td>ETH/USDT</td><td>K89,432</td><td class="green">+1.89%</td><td><button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="selectMarket('ETH/USDT')">Trade</button></td></tr>
-                <tr><td>XRP/USDT</td><td>K23.45</td><td class="red-text">-0.67%</td><td><button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="selectMarket('XRP/USDT')">Trade</button></td></tr>
-                <tr><td>EUR/USD</td><td>K27.89</td><td class="green">+0.12%</td><td><button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="selectMarket('EUR/USD')">Trade</button></td></tr>
-                <tr><td>GBP/USD</td><td>K34.56</td><td class="red-text">-0.23%</td><td><button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="selectMarket('GBP/USD')">Trade</button></td></tr>
-                <tr><td>XAU/USD</td><td>K67,890</td><td class="green">+0.89%</td><td><button class="btn-primary" style="padding:6px 12px; font-size:12px;" onclick="selectMarket('XAU/USD')">Trade</button></td></tr>
+                <tr><td style="padding:8px;">BTC/USDT</td><td style="text-align:right;">K1,234,567</td><td class="green" style="text-align:right;">+2.45%</td><td><button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="selectMarket('BTC/USDT')">Trade</button></td></tr>
+                <tr><td style="padding:8px;">ETH/USDT</td><td style="text-align:right;">K89,432</td><td class="green" style="text-align:right;">+1.89%</td><td><button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="selectMarket('ETH/USDT')">Trade</button></td></tr>
+                <tr><td style="padding:8px;">XRP/USDT</td><td style="text-align:right;">K23.45</td><td class="red-text" style="text-align:right;">-0.67%</td><td><button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="selectMarket('XRP/USDT')">Trade</button></td></tr>
+                <tr><td style="padding:8px;">EUR/USD</td><td style="text-align:right;">K27.89</td><td class="green" style="text-align:right;">+0.12%</td><td><button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="selectMarket('EUR/USD')">Trade</button></td></tr>
+                <tr><td style="padding:8px;">GBP/USD</td><td style="text-align:right;">K34.56</td><td class="red-text" style="text-align:right;">-0.23%</td><td><button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="selectMarket('GBP/USD')">Trade</button></td></tr>
+                <tr><td style="padding:8px;">XAU/USD</td><td style="text-align:right;">K67,890</td><td class="green" style="text-align:right;">+0.89%</td><td><button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="selectMarket('XAU/USD')">Trade</button></td></tr>
             </tbody>
         </table>
         <button class="close-btn" onclick="closeMarkets()">Close</button>
@@ -150,62 +158,44 @@
 </div>
 
 <!-- WALLET MODAL -->
-<div id="walletModal" class="wallet-modal">
+<div id="walletModal" class="modal">
     <div class="modal-content">
         <h3>Wallet</h3>
         <p><strong>Balance:</strong> <span id="walletBalance">ZMW 0.00</span></p>
-        <hr style="border-color:rgba(255,255,255,0.05); margin:15px 0;">
-        <h4 style="color:#00C853;">Deposit</h4>
-        <p>MTN: +260 960 168 307</p>
-        <p>Airtel: Coming soon</p>
-        <p style="font-size:12px; color:#64748b;">Min K200 | Fee: 0.5%</p>
-        <div class="notice">Smart automated payments coming soon. Currently manual verification — your deposit will be credited after confirmation.</div>
-        <label class="file-upload" for="screenshotUpload">Tap to upload payment screenshot</label>
+        <hr style="border-color:var(--border); margin:12px 0;">
+        <h4 style="color:var(--green);">Deposit</h4>
+        <p style="font-size:14px;">MTN: +260 960 168 307</p>
+        <p style="font-size:14px;">Airtel: Coming soon</p>
+        <p style="font-size:12px; color:var(--text-secondary);">Min K200 | Fee: 0.5%</p>
+        <div class="notice" style="font-size:12px; color:var(--warning); background:rgba(245,158,11,0.1); padding:10px; border-radius:8px; margin:10px 0;">Smart automated payments coming soon. Currently manual verification — your deposit will be credited after confirmation.</div>
+        <label class="file-upload" style="display:block; padding:12px; margin:10px 0; background:var(--surface); border:1px dashed var(--accent); border-radius:8px; text-align:center; cursor:pointer;" for="screenshotUpload">Tap to upload payment screenshot</label>
         <input type="file" id="screenshotUpload" accept="image/*" style="display:none;" onchange="handleScreenshot(this)">
-        <button class="btn-primary" style="width:100%; margin-top:10px;" onclick="confirmDeposit()">Deposit</button>
-        <p style="font-size:11px; color:#64748b; margin-top:5px; text-align:center;">Your account will be credited after verification.</p>
-        <button class="btn-primary" style="width:100%; margin-top:8px; background:#10b981;" onclick="addTestFunds()">Add Test Funds K500</button>
-        <hr style="border-color:rgba(255,255,255,0.05); margin:15px 0;">
-        <h4 style="color:#FF3D00;">Withdrawal</h4>
-        <p style="font-size:12px; color:#64748b;">Min K200 | Fee: <span id="withdrawFee">1%</span></p>
-        <button class="btn-danger" style="width:100%;" onclick="handleWithdraw()">Withdrawal</button>
+        <button class="btn btn-primary" style="margin-top:8px;" onclick="confirmDeposit()">Deposit</button>
+        <p style="font-size:11px; color:var(--text-secondary); text-align:center; margin-top:6px;">Your account will be credited after verification.</p>
+        <button class="btn btn-primary" style="background:var(--green); margin-top:8px;" onclick="addTestFunds()">Add Test Funds K500</button>
+        <hr style="border-color:var(--border); margin:12px 0;">
+        <h4 style="color:var(--red);">Withdrawal</h4>
+        <p style="font-size:12px; color:var(--text-secondary);">Min K200 | Fee: <span id="withdrawFee">1%</span></p>
+        <button class="btn btn-danger" style="width:100%;" onclick="handleWithdraw()">Withdrawal</button>
         <button class="close-btn" onclick="closeWallet()">Close</button>
     </div>
 </div>
 
 <!-- SETTINGS MODAL -->
-<div id="settingsModal" class="settings-modal">
+<div id="settingsModal" class="modal">
     <div class="modal-content">
         <h3>Settings</h3>
         <p><strong>Logged in:</strong> <span id="settingsEmail"></span></p>
         <p><strong>Plan:</strong> <span id="settingsPlan"></span></p>
         <p><strong>Balance:</strong> <span id="settingsBalance"></span></p>
-        <hr style="border-color:rgba(255,255,255,0.05); margin:15px 0;">
-        <button class="btn-primary" style="width:100%;" onclick="handlePremiumFromSettings()">Upgrade to Pro</button>
-        <button class="btn-danger" style="width:100%; margin-top:10px;" onclick="logout()">Logout</button>
+        <hr style="border-color:var(--border); margin:12px 0;">
+        <button class="btn btn-primary" onclick="handlePremiumFromSettings()">Upgrade to Pro</button>
+        <button class="btn btn-danger" style="margin-top:8px;" onclick="logout()">Logout</button>
         <button class="close-btn" onclick="closeSettings()">Close</button>
     </div>
 </div>
 
-<!-- SIGNALS MODAL -->
-<div id="signalsModal" class="signals-modal">
-    <div class="modal-content">
-        <h3>SYNA Trading Signals</h3>
-        <p class="green" id="signalCurrent">Current: BUY BTC/USDT</p>
-        <p>Confidence: <span id="signalConf">85</span>%</p>
-        <p>Trend: <span id="signalTrend">Bullish</span></p>
-        <hr style="border-color:rgba(255,255,255,0.05); margin:15px 0;">
-        <h4>Recent Signals</h4>
-        <div id="signalList">
-            <div class="signal-item">BUY BTC/USDT - 87%</div>
-            <div class="signal-item">SELL ETH/USDT - 78%</div>
-            <div class="signal-item">BUY XAUUSD - 82%</div>
-        </div>
-        <button class="close-btn" onclick="closeSignals()">Close</button>
-    </div>
-</div>
-
-<!-- DASHBOARD CONTAINER -->
+<!-- DASHBOARD -->
 <div class="container" id="dashboardContainer" style="display:none;">
     <div class="sidebar">
         <div class="logo">NRX<span>TRADER</span></div>
@@ -224,7 +214,7 @@
         <div class="topbar">
             <h1>Welcome Back</h1>
             <div class="profile-wrapper" onclick="toggleProfileDropdown()">
-                <div class="profile-circle" id="profilePic"></div>
+                <div class="profile-circle" id="profilePic">T</div>
                 <div class="profile-info">
                     <div class="profile-name" id="profileName">Trader</div>
                     <div class="profile-email" id="profileEmail">user@example.com</div>
@@ -257,17 +247,16 @@
             </div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:8px;">
-            <span class="server-status" id="serverStatus">Checking server...</span>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="status-badge" id="serverStatus">Checking...</span>
             <div style="display:flex; gap:8px;">
-                <button class="btn btn-outline" style="padding:8px 12px; font-size:12px;" onclick="wakeServerNow()">Wake Server</button>
-                <button class="btn btn-outline" style="padding:8px 12px; font-size:12px; background:#f59e0b; border-color:#f59e0b; color:white;" onclick="testConnection()">Test Connection</button>
-                <button class="btn btn-outline" style="padding:8px 12px; font-size:12px; background:#6366f1; border-color:#6366f1; color:white;" onclick="testCors()">CORS Test</button>
+                <button class="btn btn-primary" style="padding:6px 12px; font-size:12px;" onclick="wakeServerNow()">Wake Server</button>
+                <button class="btn btn-primary" style="padding:6px 12px; font-size:12px; background:var(--warning);" onclick="testConnection()">Test Connection</button>
             </div>
         </div>
-        <div id="testResult" style="margin-bottom:15px; font-size:12px; color:#f59e0b; display:none;"></div>
+        <div id="testResult" style="font-size:12px; color:var(--warning); margin-top:4px; display:none;"></div>
 
-        <div class="middle">
+        <div class="chart-trade-row">
             <div class="chart-box">
                 <div class="chart-header">
                     <h2 id="selectedMarket">BTC / USDT</h2>
@@ -282,48 +271,63 @@
                 </div>
                 <div class="chart" id="chartContainer"></div>
             </div>
-            <div class="trade-panel">
-                <div class="trade-tabs">
-                    <button class="buy-btn active" id="buyTab" onclick="setTradeDirection('buy')">Buy</button>
-                    <button class="sell-btn" id="sellTab" onclick="setTradeDirection('sell')">Sell</button>
+
+            <div class="trade-ticket">
+                <h3>Trade</h3>
+                <div class="order-type-row">
+                    <button class="order-type-btn active" data-type="market" onclick="setOrderType('market')">Market</button>
+                    <button class="order-type-btn" data-type="limit" onclick="setOrderType('limit')">Limit</button>
+                    <button class="order-type-btn" data-type="stop" onclick="setOrderType('stop')">Stop</button>
                 </div>
-                <input type="number" id="tradeAmountInput" placeholder="Amount (min K200)" min="200" step="50" value="200">
-                <div class="fee-display" id="tradeFeeDisplay">Fee: 0.3% | Max K500 (Free)</div>
-                <button class="execute-btn" id="executeTradeBtn" onclick="executeTrade()">Execute Trade</button>
-                <div class="auto-toggle-wrapper">
-                    <label class="auto-label">Auto Trade</label>
+                <div class="input-label">Quantity (ZMW)</div>
+                <input type="number" id="tradeAmountInput" placeholder="Min K200" min="200" step="50" value="200">
+                <div id="limitPriceGroup" style="display:none;">
+                    <div class="input-label">Limit Price</div>
+                    <input type="number" id="limitPriceInput" placeholder="Enter price" step="0.01">
+                </div>
+                <div class="input-label">Stop Loss (optional)</div>
+                <input type="number" id="stopLossInput" placeholder="SL price" step="0.01">
+                <div class="input-label">Take Profit (optional)</div>
+                <input type="number" id="takeProfitInput" placeholder="TP price" step="0.01">
+                <div class="fee-display" id="tradeFeeDisplay">Fee: 0.3% | Max K500</div>
+                <div class="action-buttons">
+                    <button class="btn" style="background:var(--green); color:white;" onclick="executeTrade('BUY')">Buy</button>
+                    <button class="btn" style="background:var(--red); color:white;" onclick="executeTrade('SELL')">Sell</button>
+                </div>
+                <div class="auto-trade-row">
+                    <span class="auto-label">Auto Trade</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="autoTradeToggle" onchange="toggleAutoTrade()">
                         <span class="slider"></span>
                     </label>
                 </div>
                 <div class="auto-status" id="autoTradeStatus"></div>
-                <div id="tradeError" style="color:#FF3D00; font-size:12px; margin-top:8px; display:none;"></div>
+                <div id="tradeError" style="color:var(--red); font-size:12px; margin-top:4px; display:none;"></div>
             </div>
         </div>
 
-        <div class="bottom">
-            <div class="syna">
-                <h2>S.Y.N.A</h2>
-                <div class="ai-box">
-                    <div class="ai-circle">S</div>
-                    <h3>S.Y.N.A Market Intelligence</h3>
-                    <div><span style="color:#94a3b8;">Current Price:</span> <strong id="synaPrice">---</strong></div>
-                    <p class="green" id="synaTrend">TREND: --</p>
-                    <p>Confidence Level: <span id="synaConf">--</span>%</p>
+        <div class="bottom-row">
+            <div class="panel">
+                <h3>S.Y.N.A Intelligence</h3>
+                <div style="text-align:center;">
+                    <div><span style="color:var(--text-secondary);">Current Price:</span> <strong id="synaPrice">---</strong></div>
+                    <p class="green" id="synaTrend" style="margin:8px 0;">TREND: --</p>
+                    <p>Confidence: <span id="synaConf">--</span>%</p>
                     <div class="syna-stats">
                         <span>Wins: <strong id="synaWins">0</strong></span>
                         <span>Losses: <strong id="synaLosses">0</strong></span>
                         <span>Rate: <strong id="synaWinRate">0%</strong></span>
                     </div>
-                    <p id="synaForexNote" style="color:#f59e0b; font-size:12px; display:none;">SYNA only for crypto pairs (BTC, ETH, XRP).</p>
-                    <div id="synaServerMsg" style="color:#f59e0b; font-size:12px; display:none;">Waiting for server...</div>
-                    <button class="execute-btn" id="synaToggleBtn" onclick="toggleSyna()">Start SYNA</button>
+                    <p id="synaForexNote" style="color:var(--warning); font-size:12px; display:none;">SYNA only for crypto pairs (BTC, ETH, XRP).</p>
+                    <div id="synaServerMsg" style="color:var(--warning); font-size:12px; display:none;">Waiting for server...</div>
+                    <button class="btn btn-primary" id="synaToggleBtn" onclick="toggleSyna()">Start SYNA</button>
                 </div>
             </div>
-            <div class="recent">
-                <h2>Recent Trades</h2>
-                <div id="recentTradesList"><div class="no-trades">No trades yet</div></div>
+            <div class="panel">
+                <h3>Recent Trades</h3>
+                <div class="recent-list" id="recentTradesList">
+                    <div class="no-trades">No trades yet</div>
+                </div>
             </div>
         </div>
     </div>
@@ -337,10 +341,11 @@ let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
 let balance = 0;
 let premium = false;
 let trial = false;
-let tradeDirection = 'buy';
+let selectedMarketPair = 'BTC/USDT';
 let totalTrades = 0;
 let totalProfitAccum = 0;
-let selectedMarketPair = 'BTC/USDT';
+let orderType = 'market';
+let serverAwake = false;
 
 let synaActive = false;
 let synaTimer = null;
@@ -349,7 +354,6 @@ const SYNA_AMOUNT = 200;
 let priceHistory = [];
 const MA_PERIOD = 8;
 
-let serverAwake = false;
 let autoTradeActive = false;
 let autoTradeTimer = null;
 const AUTO_TRADE_INTERVAL = 5000;
@@ -365,7 +369,6 @@ const forexApiMap = {
     'XAU/USD': 'XAU'
 };
 
-// DOM refs
 const loginOverlay = document.getElementById('loginOverlay');
 const dashboardContainer = document.getElementById('dashboardContainer');
 const loginError = document.getElementById('loginError');
@@ -381,8 +384,6 @@ const synaLossesEl = document.getElementById('synaLosses');
 const synaWinRateEl = document.getElementById('synaWinRate');
 const synaToggleBtn = document.getElementById('synaToggleBtn');
 const recentTradesList = document.getElementById('recentTradesList');
-const buyTab = document.getElementById('buyTab');
-const sellTab = document.getElementById('sellTab');
 const selectedMarket = document.getElementById('selectedMarket');
 const marketSelector = document.getElementById('marketSelector');
 const walletBalance = document.getElementById('walletBalance');
@@ -394,6 +395,8 @@ const chartContainer = document.getElementById('chartContainer');
 const tradeError = document.getElementById('tradeError');
 const autoTradeStatus = document.getElementById('autoTradeStatus');
 const autoTradeToggle = document.getElementById('autoTradeToggle');
+const serverStatus = document.getElementById('serverStatus');
+const testResult = document.getElementById('testResult');
 const profilePic = document.getElementById('profilePic');
 const profileName = document.getElementById('profileName');
 const profileEmail = document.getElementById('profileEmail');
@@ -401,8 +404,6 @@ const profileDropdown = document.getElementById('profileDropdown');
 const synaPrice = document.getElementById('synaPrice');
 const synaForexNote = document.getElementById('synaForexNote');
 const synaServerMsg = document.getElementById('synaServerMsg');
-const serverStatus = document.getElementById('serverStatus');
-const testResult = document.getElementById('testResult');
 
 const symbolMap = {
     'BTC/USDT': 'BINANCE:BTCUSDT',
@@ -445,138 +446,59 @@ async function apiCall(method, path, body) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
     try {
-        const res = await fetch(API + path, {
-            method,
-            headers,
-            body: body ? JSON.stringify(body) : null,
-            signal: controller.signal
-        });
+        const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null, signal: controller.signal });
         clearTimeout(timeout);
-        if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || 'Request failed');
-        }
+        if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data.error || 'Request failed'); }
         return await res.json();
-    } catch (err) {
-        clearTimeout(timeout);
-        throw err;
-    }
+    } catch (err) { clearTimeout(timeout); throw err; }
 }
 
 async function isServerAwake() {
-    try {
-        await fetch(API, { method: 'HEAD', cache: 'no-store' });
-        return true;
-    } catch (e) { return false; }
+    try { await fetch(API, { method: 'HEAD', cache: 'no-store' }); return true; } catch (e) { return false; }
 }
 
 async function checkServer() {
     const awake = await isServerAwake();
     serverAwake = awake;
-    if (awake) {
-        serverStatus.textContent = 'Server online';
-        serverStatus.className = 'server-status status-ok';
-        synaServerMsg.style.display = 'none';
-    } else {
-        serverStatus.textContent = 'Server asleep – tap Wake Server';
-        serverStatus.className = 'server-status status-sleep';
-    }
+    serverStatus.textContent = awake ? 'Server Online' : 'Server Asleep';
+    serverStatus.className = `status-badge ${awake ? 'status-ok' : 'status-sleep'}`;
     return awake;
 }
 
 async function wakeServerNow() {
-    serverStatus.textContent = 'Waking server...';
-    serverStatus.className = 'server-status status-sleep';
-    let awake = false;
+    serverStatus.textContent = 'Waking...';
     for (let i = 1; i <= 80; i++) {
-        if (await isServerAwake()) { awake = true; break; }
+        if (await isServerAwake()) { break; }
         await new Promise(r => setTimeout(r, 3000));
     }
-    if (!awake) {
-        serverStatus.textContent = 'Server did not wake – try again';
-        serverStatus.className = 'server-status status-sleep';
-        return false;
-    }
-    try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
-    serverAwake = true;
-    serverStatus.textContent = 'Server online';
-    serverStatus.className = 'server-status status-ok';
-    synaServerMsg.style.display = 'none';
-    return true;
+    serverAwake = await isServerAwake();
+    serverStatus.textContent = serverAwake ? 'Server Online' : 'Server Asleep';
+    serverStatus.className = `status-badge ${serverAwake ? 'status-ok' : 'status-sleep'}`;
+    if (serverAwake) { try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {} }
+    return serverAwake;
 }
 
-// ========== CORS TEST ==========
-async function testCors() {
-    testResult.style.display = 'block';
-    testResult.textContent = 'Sending OPTIONS preflight...';
-    try {
-        const res = await fetch(API + '/api/trades/manual', {
-            method: 'OPTIONS',
-            headers: {
-                'Access-Control-Request-Method': 'POST',
-                'Access-Control-Request-Headers': 'content-type,authorization'
-            }
-        });
-        const headers = [];
-        res.headers.forEach((val, key) => headers.push(`${key}: ${val}`));
-        if (res.ok) {
-            testResult.textContent = `CORS preflight OK. Status ${res.status}. Headers: ${headers.join(', ')}`;
-            testResult.style.color = '#10b981';
-        } else {
-            testResult.textContent = `CORS preflight returned ${res.status}. Headers: ${headers.join(', ')}`;
-            testResult.style.color = '#f59e0b';
-        }
-    } catch (e) {
-        testResult.textContent = `CORS preflight FAILED: ${e.message}`;
-        testResult.style.color = '#FF3D00';
-    }
-}
-
-// ========== TEST CONNECTION ==========
 async function testConnection() {
     testResult.style.display = 'block';
-    testResult.textContent = 'Testing balance with token...';
-    if (!token) {
-        testResult.textContent = 'No token. Please log in.';
-        testResult.style.color = '#FF3D00';
-        return;
-    }
+    testResult.textContent = 'Testing...';
+    if (!token) { testResult.textContent = 'No token.'; return; }
     try {
         const balData = await apiCall('GET', '/api/wallet/balance');
-        testResult.textContent = `Balance OK: ${balData.balance_zmw} ZMW. Now testing trade...`;
-        testResult.style.color = '#f59e0b';
-    } catch (err) {
-        testResult.textContent = `Balance FAILED: ${err.message}`;
-        testResult.style.color = '#FF3D00';
-        return;
-    }
-    try {
-        const tradeData = await apiCall('POST', '/api/trades/manual', {
-            symbol: 'BTCUSDT',
-            direction: 'BUY',
-            amount: 200
-        });
-        testResult.textContent = `Trade SUCCESS! Response: ` + JSON.stringify(tradeData);
-        testResult.style.color = '#10b981';
-    } catch (err) {
-        testResult.textContent = `Trade FAILED: ${err.message}`;
-        testResult.style.color = '#FF3D00';
-    }
+        testResult.textContent = `Balance OK: ${balData.balance_zmw} ZMW. Testing trade...`;
+        const tradeData = await apiCall('POST', '/api/trades/manual', { symbol: 'BTCUSDT', direction: 'BUY', amount: 200 });
+        testResult.textContent = `Trade SUCCESS! New balance: ${tradeData.new_balance}`;
+        balance = tradeData.new_balance;
+        refreshUI();
+    } catch (err) { testResult.textContent = `FAILED: ${err.message}`; }
 }
 
-// ========== NEW FETCH PRICE VIA BACKEND ==========
 async function fetchLivePrice(symbol) {
     try {
         const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`);
         const data = await res.json();
-        if (data.price !== null && data.price !== undefined) {
-            return data.price;
-        }
+        if (data.price !== null && data.price !== undefined) return data.price;
         return null;
-    } catch (e) {
-        console.error('Price fetch failed:', e.message);
-        return null;
-    }
+    } catch (e) { return null; }
 }
 
 async function updateSynaSignal() {
@@ -601,15 +523,8 @@ async function updateSynaSignal() {
         const percentDiff = (diff / ma) * 100;
         const isForex = !!forexApiMap[symbol];
         const threshold = isForex ? 0.005 : 0.1;
-        if (percentDiff > threshold) {
-            signal = 'BUY';
-            trendText = 'BULLISH';
-            trendClass = 'green';
-        } else if (percentDiff < -threshold) {
-            signal = 'SELL';
-            trendText = 'BEARISH';
-            trendClass = 'red-text';
-        }
+        if (percentDiff > threshold) { signal = 'BUY'; trendText = 'BULLISH'; trendClass = 'green'; }
+        else if (percentDiff < -threshold) { signal = 'SELL'; trendText = 'BEARISH'; trendClass = 'red-text'; }
         confidence = Math.min(95, Math.max(50, Math.floor(Math.abs(percentDiff) * 30 + 50)));
     }
     synaTrend.textContent = 'TREND: ' + trendText;
@@ -627,14 +542,9 @@ function addTradeLog(desc, direction, win) {
     if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
 }
 
-// SYNA tick
 async function synaTick() {
     if (!synaActive) return;
-    if (balance < SYNA_AMOUNT) {
-        stopSyna();
-        alert('SYNA stopped: insufficient balance.');
-        return;
-    }
+    if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
     if (!serverAwake) {
         synaServerMsg.style.display = 'block';
         const woke = await wakeServerNow();
@@ -643,158 +553,120 @@ async function synaTick() {
     synaServerMsg.style.display = 'none';
     const signalData = await updateSynaSignal();
     if (!signalData.direction || signalData.direction === 'HOLD') return;
-
     const direction = signalData.direction;
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
     try {
-        const data = await apiCall('POST', '/api/trades/manual', {
-            symbol: symbol,
-            direction: direction,
-            amount: SYNA_AMOUNT
-        });
+        const data = await apiCall('POST', '/api/trades/manual', { symbol, direction, amount: SYNA_AMOUNT });
         balance = data.new_balance;
         totalTrades++;
         if (data.win) { synaWins++; totalProfitAccum += (data.pnl || 0); }
         else { synaLosses++; totalProfitAccum -= Math.abs(data.pnl || 0); }
         addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, direction, data.win);
     } catch (e) {
-        console.error('SYNA trade failed:', e.message);
         synaServerMsg.style.display = 'block';
         synaServerMsg.textContent = 'SYNA trade failed: ' + e.message;
         return;
     }
     synaWinsEl.textContent = synaWins;
     synaLossesEl.textContent = synaLosses;
-    const total = synaWins + synaLosses;
-    synaWinRateEl.textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
+    synaWinRateEl.textContent = synaWins+synaLosses ? ((synaWins/(synaWins+synaLosses))*100).toFixed(1)+'%' : '0%';
     refreshUI();
 }
 
 function startSyna() {
-    if (!binanceSymbolMap[selectedMarketPair] && !forexApiMap[selectedMarketPair]) {
-        alert('SYNA requires BTC, ETH, XRP, EUR/USD, GBP/USD, or XAU/USD.');
-        return;
-    }
-    if (balance < SYNA_AMOUNT) {
-        alert('Minimum K' + SYNA_AMOUNT + ' balance required.');
-        return;
-    }
+    if (!binanceSymbolMap[selectedMarketPair] && !forexApiMap[selectedMarketPair]) { alert('SYNA requires supported market'); return; }
+    if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required.'); return; }
     synaActive = true;
     synaToggleBtn.textContent = 'Stop SYNA';
-    synaToggleBtn.style.background = '#FF3D00';
-    wakeServerNow().then(() => {
-        updateSynaSignal().then(() => synaTick());
-        synaTimer = setInterval(synaTick, 5000);
-    });
+    synaToggleBtn.style.background = 'var(--red)';
+    wakeServerNow().then(() => { updateSynaSignal().then(() => synaTick()); synaTimer = setInterval(synaTick, 5000); });
 }
 function stopSyna() {
     synaActive = false;
     synaToggleBtn.textContent = 'Start SYNA';
-    synaToggleBtn.style.background = '#6C5CE7';
+    synaToggleBtn.style.background = 'var(--accent)';
     if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
     synaServerMsg.style.display = 'none';
 }
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
-// ========== AUTO TRADE ==========
-const executeTradeCore = async () => {
+function setOrderType(type) {
+    orderType = type;
+    document.querySelectorAll('.order-type-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.type === type));
+    document.getElementById('limitPriceGroup').style.display = (type === 'limit' || type === 'stop') ? 'block' : 'none';
+}
+
+async function executeTrade(direction) {
+    if (!token) return alert('Please log in.');
+    tradeError.style.display = 'none';
     const amount = parseFloat(document.getElementById('tradeAmountInput').value);
-    if (isNaN(amount) || amount < 200) {
-        tradeError.textContent = 'Minimum trade amount is K200.';
-        tradeError.style.display = 'block';
-        return false;
-    }
+    if (isNaN(amount) || amount < 200) { tradeError.textContent = 'Minimum trade amount is K200.'; tradeError.style.display = 'block'; return; }
     const max = premium ? 2000 : 500;
-    if (amount > max) {
-        tradeError.textContent = `Maximum trade for your plan is K${max}.`;
-        tradeError.style.display = 'block';
-        return false;
-    }
-    if (balance < amount) {
-        tradeError.textContent = 'Insufficient balance.';
-        tradeError.style.display = 'block';
-        stopAutoTrade();
-        return false;
-    }
-    if (!serverAwake) {
-        const woke = await wakeServerNow();
-        if (!woke) {
-            tradeError.textContent = 'Server did not wake.';
-            tradeError.style.display = 'block';
-            stopAutoTrade();
-            return false;
-        }
-    } else {
-        try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
-    }
-    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    if (amount > max) { tradeError.textContent = `Maximum trade for your plan is K${max}.`; tradeError.style.display = 'block'; return; }
+    if (balance < amount) { tradeError.textContent = 'Insufficient balance.'; tradeError.style.display = 'block'; return; }
+
+    const orderData = {
+        symbol: selectedMarketPair.replace('/', '').replace(' ', ''),
+        direction: direction.toUpperCase(),
+        amount,
+        orderType,
+        limitPrice: orderType !== 'market' ? parseFloat(document.getElementById('limitPriceInput').value) || null : null,
+        stopLoss: parseFloat(document.getElementById('stopLossInput').value) || null,
+        takeProfit: parseFloat(document.getElementById('takeProfitInput').value) || null
+    };
+
+    if (!serverAwake) { const woke = await wakeServerNow(); if (!woke) { tradeError.textContent = 'Server did not wake.'; tradeError.style.display = 'block'; return; } }
+    else { try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {} }
+
     try {
-        const data = await apiCall('POST', '/api/trades/manual', {
-            symbol: symbol,
-            direction: tradeDirection.toUpperCase(),
-            amount: amount
-        });
+        const data = await apiCall('POST', '/api/trades/manual', orderData);
         balance = data.new_balance;
         totalTrades++;
-        if (data.win) totalProfitAccum += (data.pnl || 0);
-        else totalProfitAccum -= Math.abs(data.pnl || 0);
-        addTradeLog(`${selectedMarketPair} - K${amount}`, tradeDirection.toUpperCase(), data.win);
+        if (data.win) totalProfitAccum += (data.pnl || 0); else totalProfitAccum -= Math.abs(data.pnl || 0);
+        addTradeLog(`${selectedMarketPair} [${orderType}] - K${amount}`, direction.toUpperCase(), data.win);
+        document.getElementById('stopLossInput').value = '';
+        document.getElementById('takeProfitInput').value = '';
         tradeError.style.display = 'none';
-        return true;
+        refreshUI();
     } catch (err) {
-        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
+        tradeError.textContent = 'Order failed: ' + (err.message || 'Trade failed');
         tradeError.style.display = 'block';
-        return false;
     }
+}
+
+const executeTradeCore = async () => {
+    const amount = parseFloat(document.getElementById('tradeAmountInput').value);
+    if (isNaN(amount) || amount < 200) { tradeError.textContent = 'Min K200.'; tradeError.style.display = 'block'; return false; }
+    if (amount > (premium ? 2000 : 500)) { tradeError.textContent = 'Max limit exceeded.'; tradeError.style.display = 'block'; return false; }
+    if (balance < amount) { tradeError.textContent = 'Insufficient balance.'; tradeError.style.display = 'block'; stopAutoTrade(); return false; }
+    if (!serverAwake) { const woke = await wakeServerNow(); if (!woke) { stopAutoTrade(); return false; } }
+    else { try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {} }
+    const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    try {
+        const data = await apiCall('POST', '/api/trades/manual', { symbol, direction: tradeDirection, amount });
+        balance = data.new_balance;
+        totalTrades++;
+        if (data.win) totalProfitAccum += (data.pnl || 0); else totalProfitAccum -= Math.abs(data.pnl || 0);
+        addTradeLog(`${selectedMarketPair} - K${amount}`, tradeDirection.toUpperCase(), data.win);
+        return true;
+    } catch (err) { tradeError.textContent = err.message; return false; }
 };
 
 function startAutoTrade() {
-    if (!token) {
-        alert('Please log in.');
-        autoTradeToggle.checked = false;
-        return;
-    }
+    if (!token) { alert('Please log in.'); autoTradeToggle.checked = false; return; }
     autoTradeActive = true;
     autoTradeStatus.textContent = 'Auto Trade Running';
     executeTradeCore().then(() => refreshUI());
-    autoTradeTimer = setInterval(() => {
-        if (!autoTradeActive) return;
-        executeTradeCore().then(() => refreshUI());
-    }, AUTO_TRADE_INTERVAL);
+    autoTradeTimer = setInterval(() => { if (!autoTradeActive) return; executeTradeCore().then(() => refreshUI()); }, AUTO_TRADE_INTERVAL);
 }
-
 function stopAutoTrade() {
     autoTradeActive = false;
     autoTradeStatus.textContent = '';
-    if (autoTradeTimer) {
-        clearInterval(autoTradeTimer);
-        autoTradeTimer = null;
-    }
+    if (autoTradeTimer) { clearInterval(autoTradeTimer); autoTradeTimer = null; }
     autoTradeToggle.checked = false;
 }
+function toggleAutoTrade() { if (autoTradeToggle.checked) startAutoTrade(); else stopAutoTrade(); }
 
-function toggleAutoTrade() {
-    if (autoTradeToggle.checked) {
-        startAutoTrade();
-    } else {
-        stopAutoTrade();
-    }
-}
-
-// Manual trade
-async function executeTrade() {
-    if (!token) return alert('Please log in.');
-    tradeError.style.display = 'none';
-    const btn = document.getElementById('executeTradeBtn');
-    btn.disabled = true;
-    btn.textContent = 'Executing...';
-    const success = await executeTradeCore();
-    btn.disabled = false;
-    btn.textContent = 'Execute Trade';
-    refreshUI();
-}
-
-// UI
 function refreshUI() {
     balValue.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
     walletBalance.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2});
@@ -802,8 +674,7 @@ function refreshUI() {
     todayProfit.textContent = '+K' + (Math.random() * 200).toFixed(2);
     tradeCount.textContent = totalTrades;
     const fee = premium ? '0.2%' : '0.3%';
-    const max = premium ? '2,000' : '500';
-    tradeFeeDisplay.textContent = `Fee: ${fee} | Max K${max} (${premium ? 'Pro' : 'Free'})`;
+    tradeFeeDisplay.textContent = `Fee: ${fee} | Max K${premium ? '2,000' : '500'} (${premium ? 'Pro' : 'Free'})`;
     withdrawFee.textContent = premium ? '0.8%' : '1%';
     if (user) {
         profileName.textContent = user.email ? user.email.split('@')[0] : 'Trader';
@@ -812,7 +683,6 @@ function refreshUI() {
     }
 }
 
-// Auth
 async function handleLogin() {
     loginError.textContent = '';
     const email = document.getElementById('loginEmail').value.trim();
@@ -850,40 +720,22 @@ async function handleRegister() {
 
 function logout() {
     token = null; user = null;
-    stopSyna();
-    stopAutoTrade();
+    stopSyna(); stopAutoTrade();
     if (tvWidget) tvWidget.remove();
     localStorage.clear();
     balance = 0; premium = false; trial = false; totalTrades = 0; totalProfitAccum = 0;
     loginOverlay.style.display = 'flex';
     dashboardContainer.style.display = 'none';
-    document.getElementById('loginEmail').value = '';
-    document.getElementById('loginPassword').value = '';
     recentTradesList.innerHTML = '<div class="no-trades">No trades yet</div>';
-    closeSettings(); closeWallet(); closeMarkets(); closeSignals();
+    closeWallet(); closeMarkets(); closeSettings(); closeSignals();
     profileDropdown.classList.remove('show');
 }
 
-function setTradeDirection(dir) {
-    tradeDirection = dir;
-    buyTab.classList.toggle('active', dir === 'buy');
-    sellTab.classList.toggle('active', dir === 'sell');
-}
-
-// Wallet
 function handleScreenshot(input) { if (input.files && input.files[0]) alert('Screenshot selected: ' + input.files[0].name); }
-async function confirmDeposit() {
-    if (!document.getElementById('screenshotUpload').files[0]) { alert('Please upload a screenshot first.'); return; }
-    alert('Your deposit is being verified. We will credit your account shortly.');
-}
+async function confirmDeposit() { if (!document.getElementById('screenshotUpload').files[0]) { alert('Please upload a screenshot first.'); return; } alert('Your deposit is being verified. We will credit your account shortly.'); }
 async function addTestFunds() {
     if (!token) return alert('Please log in.');
-    try {
-        const data = await apiCall('POST', '/api/wallet/deposit', { amount: 500, reference: 'test-' + Date.now() });
-        balance = data.new_balance;
-        refreshUI();
-        alert('Test funds K500 added!');
-    } catch (e) { alert('Failed: ' + e.message); }
+    try { const data = await apiCall('POST', '/api/wallet/deposit', { amount: 500, reference: 'test-' + Date.now() }); balance = data.new_balance; refreshUI(); alert('Test funds K500 added!'); } catch (e) { alert('Failed: ' + e.message); }
 }
 function openWallet() { document.getElementById('walletModal').style.display = 'flex'; walletBalance.textContent = 'ZMW ' + balance.toLocaleString(undefined, {minimumFractionDigits:2}); }
 function closeWallet() { document.getElementById('walletModal').style.display = 'none'; }
@@ -899,13 +751,11 @@ async function handleWithdraw() {
         balance = data.new_balance;
         refreshUI();
         alert('Withdrawal submitted. Admin notified.');
-        const adminPhone = '260772566084';
         const msg = `NRXTRADER Withdrawal:\nUser: ${user.email}\nAmount: K${amt}\nFee: K${(amt*feeRate).toFixed(2)}`;
-        window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://wa.me/260772566084?text=${encodeURIComponent(msg)}`, '_blank');
     } catch (e) { alert(e.message); }
 }
 
-// Markets / Signals / Settings
 function openMarkets() { document.getElementById('marketsModal').style.display = 'flex'; }
 function closeMarkets() { document.getElementById('marketsModal').style.display = 'none'; }
 function selectMarket(pair) {
@@ -913,7 +763,6 @@ function selectMarket(pair) {
     selectedMarket.textContent = pair;
     marketSelector.value = pair;
     closeMarkets();
-    window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' });
     loadChart(selectedMarketPair);
     updateSynaSignal();
 }
@@ -923,8 +772,8 @@ function changeMarket() {
     loadChart(selectedMarketPair);
     updateSynaSignal();
 }
-function openSignals() { document.getElementById('signalsModal').style.display = 'flex'; }
-function closeSignals() { document.getElementById('signalsModal').style.display = 'none'; }
+function openSignals() { alert('Signals: BUY BTC/USDT - 87% confidence'); }
+function closeSignals() {}
 function openSettings() {
     document.getElementById('settingsModal').style.display = 'flex';
     settingsEmail.textContent = user ? user.email : '';
@@ -938,33 +787,23 @@ async function handlePremium() {
     if (premium && !trial) { alert('Already Pro.'); return; }
     if (trial) { alert('Trial active.'); return; }
     if (confirm('Start 7-day free trial of NRX Pro?')) {
-        try {
-            await apiCall('POST', '/api/premium/trial');
-            trial = true; premium = true;
-            refreshUI();
-            alert('NRX Pro trial activated!');
-        } catch (e) { alert(e.message); }
+        try { await apiCall('POST', '/api/premium/trial'); trial = true; premium = true; refreshUI(); alert('NRX Pro trial activated!'); } catch (e) { alert(e.message); }
     }
 }
 
-// Sidebar
 document.querySelectorAll('.sidebar li').forEach(li => {
     li.addEventListener('click', () => {
         document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
         li.classList.add('active');
         const tab = li.dataset.tab;
-        if (tab === 'dashboard') { window.scrollTo({ top: 0, behavior: 'smooth' }); }
-        else if (tab === 'trade') { window.scrollTo({ top: document.querySelector('.middle').offsetTop - 100, behavior: 'smooth' }); }
-        else if (tab === 'markets') { openMarkets(); }
-        else if (tab === 'copy') {
-            if (!premium) {
-                if (confirm('Copy Trading requires NRX Pro. Start free trial?')) handlePremium();
-            } else { alert('Copy Trading: Follow pro traders automatically. Coming soon.'); }
-        }
-        else if (tab === 'syna') { window.scrollTo({ top: document.querySelector('.syna').offsetTop - 100, behavior: 'smooth' }); }
-        else if (tab === 'signals') { openSignals(); }
-        else if (tab === 'wallet') { openWallet(); }
-        else if (tab === 'settings') { openSettings(); }
+        if (tab === 'dashboard') window.scrollTo({ top: 0, behavior: 'smooth' });
+        else if (tab === 'trade') window.scrollTo({ top: document.querySelector('.chart-trade-row').offsetTop - 100, behavior: 'smooth' });
+        else if (tab === 'markets') openMarkets();
+        else if (tab === 'copy') alert('Copy Trading: Coming soon with Pro subscription.');
+        else if (tab === 'syna') window.scrollTo({ top: document.querySelector('.syna').offsetTop - 100, behavior: 'smooth' });
+        else if (tab === 'signals') openSignals();
+        else if (tab === 'wallet') openWallet();
+        else if (tab === 'settings') openSettings();
     });
 });
 
@@ -987,7 +826,6 @@ window.onload = () => {
         });
     } else {
         loginOverlay.style.display = 'flex';
-        dashboardContainer.style.display = 'none';
     }
 };
 </script>
