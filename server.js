@@ -9,7 +9,17 @@ const tradesRoutes = require('./routes/trades');
 const premiumRoutes = require('./routes/premium');
 
 const app = express();
-app.use(cors());
+
+// 🔥 FIX: Allow requests from your GitHub Pages domain explicitly
+app.use(cors({
+    origin: ['https://mtech740.github.io', 'http://localhost:5000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Handle preflight requests explicitly for all routes
+app.options('*', cors());
+
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
