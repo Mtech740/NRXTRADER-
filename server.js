@@ -10,7 +10,7 @@ const premiumRoutes = require('./routes/premium');
 
 const app = express();
 
-// Allow your GitHub Pages origin explicitly
+// 🔥 CORS – allow your frontend explicitly
 app.use(cors({
     origin: ['https://mtech740.github.io'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
