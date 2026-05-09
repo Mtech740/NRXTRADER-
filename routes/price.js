@@ -26,25 +26,36 @@ router.get('/', async (req, res) => {
             return res.json({ price: parseFloat(data.price) });
         }
 
-        // Forex / Gold via exchangerate.host
+        // Forex / Gold
         if (forexApiMap[symbol]) {
-            const targetCurrency = forexApiMap[symbol];
-            try {
-                const response = await fetch(`https://api.exchangerate.host/convert?from=${targetCurrency}&to=USD&amount=1`);
-                const data = await response.json();
-                if (data && data.result) return res.json({ price: parseFloat(data.result) });
-            } catch (e) { /* fall through */ }
+            const targetCurrency = forexApiMap[symbol];   // <-- THIS WAS MISSING
 
-            // Backup: frankfurter.app
-            try {
-                const response = await fetch(`https://api.frankfurter.app/latest?amount=1&from=${targetCurrency}&to=USD`);
-                const data = await response.json();
-                if (data && data.rates && data.rates.USD) return res.json({ price: parseFloat(data.rates.USD) });
-            } catch (e) { /* fall through */ }
+            const fallback = {
+                'EUR': 1.08,
+                'GBP': 1.26,
+                'XAU': 2350
+            };
 
-            // Hard fallback
-            const fallback = { 'EUR': 1.07, 'GBP': 1.25, 'XAU': 2350 };
-            return res.json({ price: fallback[targetCurrency] || 1 });
+            // Use Frankfurter for forex (not gold)
+            if (targetCurrency !== 'XAU') {
+                try {
+                    const response = await fetch(`https://api.frankfurter.app/latest?from=${targetCurrency}&to=USD`);
+                    const data = await response.json();
+                    if (data?.rates?.USD) {
+                        return res.json({ price: parseFloat(data.rates.USD) });
+                    }
+                } catch (e) {
+                    console.log('Forex API failed, using fallback');
+                }
+            }
+
+            // Gold fallback (always static for now)
+            if (targetCurrency === 'XAU') {
+                return res.json({ price: fallback['XAU'] });
+            }
+
+            // Final fallback
+            return res.json({ price: fallback[targetCurrency] });
         }
 
         res.status(400).json({ error: 'Unsupported symbol' });
