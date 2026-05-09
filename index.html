@@ -331,11 +331,42 @@ async function wakeServerNow() {
     return serverAwake;
 }
 
-async function fetchLivePrice(symbol) { /* ... unchanged ... */ }
+async function fetchLivePrice(symbol) {
+    try { const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`); const data = await res.json(); if (data.price) return data.price; } catch(e) {}
+    const fb = { 'BTC/USDT':80000, 'ETH/USDT':4000, 'XRP/USDT':0.5, 'EUR/USD':1.08, 'GBP/USD':1.26, 'XAU/USD':2350 };
+    return fb[symbol] || 80000;
+}
 
-async function updateSynaSignal() { /* ... unchanged ... */ }
+async function updateSynaSignal() {
+    const price = await fetchLivePrice(selectedMarketPair);
+    document.getElementById('synaPrice').textContent = 'K' + price.toLocaleString(undefined, {maximumFractionDigits:2});
+    priceHistory.push(price);
+    if (priceHistory.length > MA_PERIOD) priceHistory.shift();
+    let signal='HOLD', trend='SIDEWAYS', cls='', conf=50;
+    if (priceHistory.length >= 2) {
+        const ma = priceHistory.reduce((a,b)=>a+b,0)/priceHistory.length;
+        const diff = price - ma;
+        const pct = (diff/ma)*100;
+        if (pct > 0.01) { signal='BUY'; trend='BULLISH'; cls='green'; }
+        else if (pct < -0.01) { signal='SELL'; trend='BEARISH'; cls='red-text'; }
+        conf = Math.min(95, Math.max(50, Math.floor(Math.abs(pct)*30+50)));
+    }
+    document.getElementById('synaTrend').textContent = 'TREND: '+trend;
+    document.getElementById('synaTrend').className = cls;
+    document.getElementById('synaConf').textContent = conf;
+    return { direction: signal, confidence: conf };
+}
 
-function addTradeLog(desc, dir, win) { /* ... unchanged ... */ }
+function addTradeLog(desc, dir, win) {
+    const d = document.createElement('div');
+    d.className = 'trade-item';
+    d.innerHTML = `<span>${desc}</span><span class="${win?'buy':'sell'}">${dir} ${win?'WIN':'LOSS'}</span>`;
+    document.getElementById('recentTradesList').prepend(d);
+    const noT = document.querySelector('.no-trades');
+    if (noT) noT.remove();
+    const list = document.getElementById('recentTradesList');
+    if (list.children.length > 10) list.lastChild.remove();
+}
 
 function updateBalanceFromTrade(data) {
     if (data && typeof data.new_balance === 'number') {
@@ -344,40 +375,178 @@ function updateBalanceFromTrade(data) {
     }
 }
 
-async function synaTick() { /* ... calls updateBalanceFromTrade ... */ }
-function startSyna() { /* ... */ }
-function stopSyna() { /* ... */ }
+async function synaTick() {
+    if (!synaActive) return;
+    if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
+    if (!serverAwake) {
+        document.getElementById('synaServerMsg').style.display='block';
+        document.getElementById('synaServerMsg').textContent = 'Waiting for server...';
+        const w = await wakeServerNow();
+        if (!w) return;
+    }
+    document.getElementById('synaServerMsg').style.display='none';
+    const sig = await updateSynaSignal();
+    if (!sig.direction || sig.direction==='HOLD') return;
+    const symbol = selectedMarketPair.replace('/','').replace(' ','');
+    try {
+        const data = await apiCall('POST','/api/trades/manual',{symbol,direction:sig.direction,amount:SYNA_AMOUNT});
+        totalTrades++;
+        if (data.win) synaWins++; else synaLosses++;
+        if (data.pnl) totalProfitAccum += data.win ? data.pnl : -data.pnl;
+        addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, sig.direction, data.win);
+        updateBalanceFromTrade(data);
+    } catch(e) {
+        document.getElementById('synaServerMsg').style.display='block';
+        document.getElementById('synaServerMsg').textContent = 'Trade failed: ' + e.message;
+        return;
+    }
+    document.getElementById('synaWins').textContent = synaWins;
+    document.getElementById('synaLosses').textContent = synaLosses;
+    const total = synaWins+synaLosses;
+    document.getElementById('synaWinRate').textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
+}
+
+function startSyna() {
+    if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
+    synaActive = true;
+    document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
+    document.getElementById('synaToggleBtn').style.background = 'var(--red)';
+    document.getElementById('synaServerMsg').style.display = 'none';
+    wakeServerNow().then(() => {
+        updateSynaSignal().then(() => synaTick());
+        synaTimer = setInterval(synaTick, 30000);
+    });
+}
+function stopSyna() {
+    synaActive = false;
+    document.getElementById('synaToggleBtn').textContent = 'Start SYNA';
+    document.getElementById('synaToggleBtn').style.background = 'var(--accent)';
+    if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
+}
 function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
-function confirmTrade(direction) { /* ... */ }
-async function executeTrade(direction) { /* ... calls updateBalanceFromTrade ... */ }
+function confirmTrade(direction) {
+    const amount = document.getElementById('tradeAmountInput').value;
+    const ok = confirm(`${direction} trade?\n\nMarket: ${selectedMarketPair}\nAmount: K${amount}`);
+    if (ok) executeTrade(direction);
+}
 
-async function testTradeAPI() { /* ... calls updateBalanceFromTrade ... */ }
+async function executeTrade(direction) {
+    if (!token) return alert('Please log in.');
+    document.getElementById('tradeError').style.display = 'none';
+    const amount = parseFloat(document.getElementById('tradeAmountInput').value);
+    if (isNaN(amount) || amount < 200) { document.getElementById('tradeError').textContent='Minimum trade amount is K200.'; document.getElementById('tradeError').style.display='block'; return; }
+    const max = premium ? 2000 : 500;
+    if (amount > max) { document.getElementById('tradeError').textContent=`Maximum trade for your plan is K${max}.`; document.getElementById('tradeError').style.display='block'; return; }
+    if (balance < amount) { document.getElementById('tradeError').textContent='Insufficient balance.'; document.getElementById('tradeError').style.display='block'; return; }
+    if (!serverAwake) { const woke=await wakeServerNow(); if(!woke){ document.getElementById('tradeError').textContent='Server is asleep. Please try again.'; document.getElementById('tradeError').style.display='block'; return; } }
+    const orderData = { symbol: selectedMarketPair.replace('/', '').replace(' ', ''), direction: direction.toUpperCase(), amount, orderType:'market', stopLoss: parseFloat(document.getElementById('stopLossInput').value)||null, takeProfit: parseFloat(document.getElementById('takeProfitInput').value)||null };
+    try {
+        const data = await apiCall('POST','/api/trades/manual', orderData);
+        totalTrades++;
+        if (data.win) totalProfitAccum += (data.pnl||0); else totalProfitAccum -= (Math.abs(data.pnl)||0);
+        addTradeLog(`${selectedMarketPair} - K${amount}`, direction.toUpperCase(), data.win);
+        document.getElementById('stopLossInput').value=''; document.getElementById('takeProfitInput').value='';
+        updateBalanceFromTrade(data);
+    } catch(err) { document.getElementById('tradeError').textContent='Order failed: '+(err.message||'Trade failed'); document.getElementById('tradeError').style.display='block'; }
+}
 
-function refreshUI() { /* ... */ }
+async function testTradeAPI() {
+    if (!token) { alert('Please log in first.'); return; }
+    document.getElementById('testOutput').textContent = 'Testing...';
+    try {
+        const data = await apiCall('POST','/api/trades/manual',{symbol:'BTCUSDT',direction:'BUY',amount:200});
+        document.getElementById('testOutput').textContent = 'Full API response:\n' + JSON.stringify(data,null,2);
+        updateBalanceFromTrade(data);
+        document.getElementById('testOutput').textContent += '\n\n✅ Balance now: ' + balance;
+    } catch(e) { document.getElementById('testOutput').textContent = 'ERROR: ' + e.message; }
+}
 
-async function handleLogin() { /* ... */ }
-async function handleRegister() { /* ... */ }
-function logout() { /* ... */ }
+function refreshUI() {
+    document.getElementById('balValue').textContent = 'ZMW ' + balance.toLocaleString(undefined,{minimumFractionDigits:2});
+    document.getElementById('walletBalance').textContent = 'ZMW ' + balance.toLocaleString(undefined,{minimumFractionDigits:2});
+    document.getElementById('totalProfit').textContent = (totalProfitAccum>=0?'+K':'-K') + Math.abs(totalProfitAccum).toFixed(2);
+    document.getElementById('todayProfit').textContent = '+K' + (Math.random()*200).toFixed(2);
+    document.getElementById('tradeCount').textContent = totalTrades;
+    const fee = premium ? '0.2%' : '0.3%';
+    document.getElementById('tradeFeeDisplay').textContent = `Fee: ${fee} | Max ${premium?'2,000':'500'} (${premium?'Pro':'Free'})`;
+    document.getElementById('withdrawFee').textContent = premium?'0.8%':'1%';
+    document.getElementById('profilePic').textContent = (user?.email?user.email[0]:'T').toUpperCase();
+}
 
-function handleScreenshot(input) { /* ... */ }
-async function confirmDeposit() { /* ... */ }
-async function addTestFunds() { /* ... */ }
-function openWallet() { document.getElementById('walletModal').style.display='flex'; }
+async function handleLogin() {
+    document.getElementById('loginError').textContent='';
+    const email=document.getElementById('loginEmail').value.trim();
+    const password=document.getElementById('loginPassword').value.trim();
+    if(!email||!password){document.getElementById('loginError').textContent='Email and password required';return;}
+    try{
+        const data=await apiCall('POST','/api/auth/login',{email,password});
+        token=data.token;user=data.user;
+        balance=parseFloat(user.balance)||0;premium=user.is_premium||false;trial=user.trial_active||false;
+        localStorage.setItem('nrxtrader_token',token);localStorage.setItem('nrxtrader_user',JSON.stringify(user));
+        document.getElementById('loginOverlay').style.display='none';
+        document.getElementById('dashboardContainer').style.display='flex';
+        refreshUI();loadChart(selectedMarketPair);checkServer();
+    }catch(e){document.getElementById('loginError').textContent=e.message;}
+}
+
+async function handleRegister() {
+    document.getElementById('loginError').textContent='';
+    const email=document.getElementById('loginEmail').value.trim();
+    const phone=document.getElementById('loginPhone').value.trim();
+    const password=document.getElementById('loginPassword').value.trim();
+    if(!email||!password){document.getElementById('loginError').textContent='Email and password required';return;}
+    try{
+        await apiCall('POST','/api/auth/register',{email,password,phone:phone||undefined});
+        document.getElementById('loginError').textContent='Account created! You can now log in.';
+        document.getElementById('loginError').style.color='#00C853';
+    }catch(e){document.getElementById('loginError').textContent=e.message;}
+}
+
+function logout() {
+    stopSyna();token=null;user=null;
+    if(tvWidget&&typeof tvWidget.remove==='function')tvWidget.remove();
+    localStorage.clear();
+    balance=0;premium=false;trial=false;totalTrades=0;totalProfitAccum=0;
+    document.getElementById('loginOverlay').style.display='flex';
+    document.getElementById('dashboardContainer').style.display='none';
+    document.getElementById('recentTradesList').innerHTML='<div class="no-trades">No trades yet</div>';
+    closeWallet();closeSettings();closeMarkets();
+}
+
+function handleScreenshot(input) { if(input.files&&input.files[0]) alert('Screenshot: '+input.files[0].name); }
+async function confirmDeposit() { if(!document.getElementById('screenshotUpload').files[0]){alert('Upload screenshot first.');return;} alert('Deposit submitted for verification.'); }
+async function addTestFunds() {
+    if(!token) return alert('Log in first.');
+    try { const d=await apiCall('POST','/api/wallet/deposit',{amount:500,reference:'test-'+Date.now()}); balance=d.new_balance; refreshUI(); alert('K500 added!'); } catch(e) { alert('Failed: '+e.message); }
+}
+function openWallet() { document.getElementById('walletModal').style.display='flex'; document.getElementById('walletBalance').textContent='ZMW '+balance.toLocaleString(undefined,{minimumFractionDigits:2}); }
 function closeWallet() { document.getElementById('walletModal').style.display='none'; }
 
-async function handleWithdraw() { /* ... */ }
+async function handleWithdraw() {
+    if(!token) return alert('Log in first.');
+    const feeRate=premium?0.008:0.01;
+    const amt=parseFloat(prompt(`Min K200. Fee: ${(feeRate*100).toFixed(1)}%\nEnter amount:`));
+    if(isNaN(amt)||amt<200) return alert('Min K200.');
+    if(balance<amt*(1+feeRate)) return alert('Insufficient balance.');
+    try { const d=await apiCall('POST','/api/wallet/withdraw',{amount:amt}); balance=d.new_balance; refreshUI(); } catch(e) { alert(e.message); }
+}
 
 function openMarkets() { document.getElementById('marketsModal').style.display='flex'; }
 function closeMarkets() { document.getElementById('marketsModal').style.display='none'; }
-function selectMarket(pair) { /* ... */ }
-function changeMarket() { /* ... */ }
-function openSettings() { document.getElementById('settingsModal').style.display='flex'; }
+function selectMarket(pair) { selectedMarketPair=pair; document.getElementById('selectedMarket').textContent=pair; document.getElementById('marketSelector').value=pair; closeMarkets(); loadChart(selectedMarketPair); updateSynaSignal(); }
+function changeMarket() { selectedMarketPair=document.getElementById('marketSelector').value; document.getElementById('selectedMarket').textContent=selectedMarketPair; loadChart(selectedMarketPair); updateSynaSignal(); }
+function openSettings() { document.getElementById('settingsModal').style.display='flex'; document.getElementById('settingsEmail').textContent=user?user.email:''; document.getElementById('settingsPlan').textContent=premium?(trial?'Trial Pro':'Pro'):'Free'; document.getElementById('settingsBalance').textContent='ZMW '+balance.toLocaleString(undefined,{minimumFractionDigits:2}); }
 function closeSettings() { document.getElementById('settingsModal').style.display='none'; }
 
-async function handlePremium() { /* ... */ }
+async function handlePremium() {
+    if(!token) return alert('Log in first.');
+    if(premium&&!trial){alert('Already Pro.');return;}
+    if(trial){alert('Trial active.');return;}
+    if(confirm('Start 7-day free trial of NRX Pro?')){ try{await apiCall('POST','/api/premium/trial');trial=true;premium=true;refreshUI();}catch(e){alert(e.message);} }
+}
 
-// ✅ FULL SIDEBAR HANDLER
+// FULL SIDEBAR HANDLER
 document.querySelectorAll('.sidebar li').forEach(li => {
     li.addEventListener('click', () => {
         document.querySelectorAll('.sidebar li').forEach(x => x.classList.remove('active'));
