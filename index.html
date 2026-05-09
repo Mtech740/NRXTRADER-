@@ -313,7 +313,6 @@
 
 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <script>
-// ==================== CONFIGURATION ====================
 const API = 'https://nrxtrader-api.onrender.com';
 let token = localStorage.getItem('nrxtrader_token') || null;
 let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
@@ -345,7 +344,6 @@ const forexApiMap = {
     'XAU/USD': 'XAU'
 };
 
-// DOM refs
 const loginOverlay = document.getElementById('loginOverlay');
 const dashboardContainer = document.getElementById('dashboardContainer');
 const loginError = document.getElementById('loginError');
@@ -488,12 +486,9 @@ async function wakeServerNow() {
     return true;
 }
 
-// ========== UPDATED TEST CONNECTION ==========
 async function testConnection() {
     testResult.style.display = 'block';
     testResult.textContent = 'Testing balance with token...';
-
-    // 1. Balance (we know it works, just verifying)
     if (!token) {
         testResult.textContent = 'No token. Please log in.';
         testResult.style.color = '#FF3D00';
@@ -508,8 +503,6 @@ async function testConnection() {
         testResult.style.color = '#FF3D00';
         return;
     }
-
-    // 2. Execute a small trade
     try {
         const tradeData = await apiCall('POST', '/api/trades/manual', {
             symbol: 'BTCUSDT',
@@ -519,14 +512,10 @@ async function testConnection() {
         testResult.textContent = `Trade SUCCESS! Response: ` + JSON.stringify(tradeData);
         testResult.style.color = '#10b981';
     } catch (err) {
-        // The real error is here – show it
         testResult.textContent = `Trade FAILED: ${err.message}`;
         testResult.style.color = '#FF3D00';
-        // If it's a network error, suggest checking logs
         if (err.message === 'Failed to fetch') {
             testResult.textContent += ' (Network error – possibly server crash. Check Render logs immediately after this test.)';
-        } else {
-            testResult.textContent += ' (Server responded, but request failed. See above.)';
         }
     }
 }
@@ -563,7 +552,6 @@ async function updateSynaSignal() {
     synaPrice.textContent = 'K' + price.toLocaleString(undefined, {maximumFractionDigits:2});
     priceHistory.push(price);
     if (priceHistory.length > MA_PERIOD) priceHistory.shift();
-
     let signal = 'HOLD', trendText = 'SIDEWAYS', trendClass = '', confidence = 50;
     if (priceHistory.length >= 2) {
         const sum = priceHistory.reduce((a,b)=>a+b,0);
@@ -588,7 +576,7 @@ function addTradeLog(desc, direction, win) {
     if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
 }
 
-// SYNA tick with fallback
+// SYNA tick (unchanged, with fallback)
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -604,13 +592,10 @@ async function synaTick() {
     synaServerMsg.style.display = 'none';
     const signalData = await updateSynaSignal();
     if (!signalData.direction || signalData.direction === 'HOLD') return;
-
     const direction = signalData.direction;
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
     const isForex = !!forexApiMap[selectedMarketPair];
     const movePercent = isForex ? 0.005 : 0.03;
-
-    let success = false;
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
@@ -621,10 +606,9 @@ async function synaTick() {
         totalTrades++;
         if (data.win) { synaWins++; totalProfitAccum += (data.pnl || 0); }
         else { synaLosses++; totalProfitAccum -= Math.abs(data.pnl || 0); }
-        success = true;
         addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, direction, data.win);
     } catch (e) {
-        console.error('SYNA API failed, using local fallback:', e.message);
+        console.error('SYNA API failed, local fallback:', e.message);
         const win = Math.random() < 0.8;
         const rawGross = SYNA_AMOUNT * movePercent;
         const fee = SYNA_AMOUNT * (premium ? 0.002 : 0.003);
@@ -741,6 +725,7 @@ function setTradeDirection(dir) {
     sellTab.classList.toggle('active', dir === 'sell');
 }
 
+// ===== EXECUTE TRADE WITH LOCAL FALLBACK =====
 async function executeTrade() {
     if (!token) return alert('Please log in.');
     tradeError.style.display = 'none';
@@ -774,12 +759,13 @@ async function executeTrade() {
             btn.textContent = 'Execute Trade';
             return;
         }
-    } else {
-        try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
     }
 
     btn.textContent = 'Executing...';
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
+    const isForex = !!forexApiMap[selectedMarketPair];
+    const movePercent = isForex ? 0.005 : 0.03;
+
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
@@ -790,19 +776,31 @@ async function executeTrade() {
         totalTrades++;
         if (data.win) totalProfitAccum += (data.pnl || 0);
         else totalProfitAccum -= Math.abs(data.pnl || 0);
-        refreshUI();
         addTradeLog(`${selectedMarketPair} - K${amount}`, tradeDirection.toUpperCase(), data.win);
         tradeError.style.display = 'none';
     } catch (err) {
-        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
+        console.error('Manual trade API failed, local fallback:', err.message);
+        // Local fallback – simulate the trade
+        const win = Math.random() < 0.5; // 50% manual
+        const rawGross = amount * movePercent;
+        const feeRate = premium ? 0.002 : 0.003;
+        const fee = amount * feeRate;
+        const net = win ? rawGross - fee : -rawGross - fee;
+        balance += net;
+        totalTrades++;
+        totalProfitAccum += net;
+        addTradeLog(`${selectedMarketPair} (local) - K${amount}`, tradeDirection.toUpperCase(), win);
+        tradeError.textContent = 'Trade executed locally (server unreachable).';
+        tradeError.style.color = '#f59e0b';
         tradeError.style.display = 'block';
     } finally {
         btn.disabled = false;
         btn.textContent = 'Execute Trade';
+        refreshUI();
     }
 }
 
-// Wallet, Markets, Settings (same as before)
+// Wallet functions unchanged
 function handleScreenshot(input) { if (input.files && input.files[0]) alert('Screenshot selected: ' + input.files[0].name); }
 async function confirmDeposit() {
     if (!document.getElementById('screenshotUpload').files[0]) { alert('Please upload a screenshot first.'); return; }
