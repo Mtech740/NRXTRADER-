@@ -1,5 +1,5 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router';
 
 const binanceSymbolMap = {
     'BTC/USDT': 'BTCUSDT',
@@ -16,53 +16,100 @@ const forexApiMap = {
 router.get('/', async (req, res) => {
     try {
         const { symbol } = req.query;
-        if (!symbol) return res.status(400).json({ error: 'Symbol required' });
 
-        // Crypto via Binance
-        if (binanceSymbolMap[symbol]) {
-            const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbolMap[symbol]}`);
-            if (!response.ok) throw new Error('Binance fetch failed');
-            const data = await response.json();
-            return res.json({ price: parseFloat(data.price) });
+        if (!symbol) {
+            return res.status(400).json({
+                error: 'Symbol required'
+            });
         }
 
-        // Forex / Gold
+        // =========================
+        // CRYPTO
+        // =========================
+        if (binanceSymbolMap[symbol]) {
+
+            const response = await fetch(
+                `https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbolMap[symbol]}`
+            );
+
+            if (!response.ok) {
+                throw new Error('Binance request failed');
+            }
+
+            const data = await response.json();
+
+            return res.json({
+                success: true,
+                symbol,
+                price: Number(data.price)
+            });
+        }
+
+        // =========================
+        // FOREX + GOLD
+        // =========================
         if (forexApiMap[symbol]) {
-            const targetCurrency = forexApiMap[symbol];   // <-- THIS WAS MISSING
+
+            const targetCurrency = forexApiMap[symbol];
 
             const fallback = {
-                'EUR': 1.08,
-                'GBP': 1.26,
-                'XAU': 2350
+                EUR: 1.08,
+                GBP: 1.26,
+                XAU: 2350
             };
 
-            // Use Frankfurter for forex (not gold)
-            if (targetCurrency !== 'XAU') {
-                try {
-                    const response = await fetch(`https://api.frankfurter.app/latest?from=${targetCurrency}&to=USD`);
-                    const data = await response.json();
-                    if (data?.rates?.USD) {
-                        return res.json({ price: parseFloat(data.rates.USD) });
-                    }
-                } catch (e) {
-                    console.log('Forex API failed, using fallback');
-                }
-            }
-
-            // Gold fallback (always static for now)
+            // GOLD
             if (targetCurrency === 'XAU') {
-                return res.json({ price: fallback['XAU'] });
+                return res.json({
+                    success: true,
+                    symbol,
+                    price: fallback.XAU
+                });
             }
 
-            // Final fallback
-            return res.json({ price: fallback[targetCurrency] });
+            try {
+
+                const response = await fetch(
+                    `https://api.frankfurter.app/latest?from=${targetCurrency}&to=USD`
+                );
+
+                if (!response.ok) {
+                    throw new Error('Forex API failed');
+                }
+
+                const data = await response.json();
+
+                if (data?.rates?.USD) {
+                    return res.json({
+                        success: true,
+                        symbol,
+                        price: Number(data.rates.USD)
+                    });
+                }
+
+            } catch (e) {
+
+                console.log('Using forex fallback');
+
+                return res.json({
+                    success: true,
+                    symbol,
+                    price: fallback[targetCurrency]
+                });
+            }
         }
 
-        res.status(400).json({ error: 'Unsupported symbol' });
+        return res.status(400).json({
+            error: 'Unsupported symbol'
+        });
 
     } catch (err) {
+
         console.error('Price route error:', err.message);
-        res.status(500).json({ error: 'Internal server error' });
+
+        return res.status(500).json({
+            error: 'Internal server error'
+        });
     }
 });
 
