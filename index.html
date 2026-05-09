@@ -15,7 +15,7 @@
         .login-box h2 span { color:white; }
         .login-box p { color:#94a3b8; font-size:14px; margin-bottom:20px; }
         .login-box input { width:100%; padding:14px; margin:8px 0; background:#1f2937; border:none; border-radius:10px; color:white; font-size:15px; outline:none; }
-        .login-box .btn { width:100%; padding:14px; margin-top:12px; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s; }
+        .btn { padding:14px; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; transition:0.3s; }
         .btn-primary { background:#6C5CE7; color:white; }
         .btn-primary:hover { opacity:0.9; }
         .btn-outline { background:transparent; border:1px solid #6C5CE7; color:#6C5CE7; margin-top:8px; }
@@ -514,9 +514,6 @@ async function testConnection() {
     } catch (err) {
         testResult.textContent = `Trade FAILED: ${err.message}`;
         testResult.style.color = '#FF3D00';
-        if (err.message === 'Failed to fetch') {
-            testResult.textContent += ' (Network error – possibly server crash. Check Render logs immediately after this test.)';
-        }
     }
 }
 
@@ -576,7 +573,7 @@ function addTradeLog(desc, direction, win) {
     if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
 }
 
-// SYNA tick (unchanged, with fallback)
+// SYNA tick – NO LOCAL FALLBACK
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -592,10 +589,9 @@ async function synaTick() {
     synaServerMsg.style.display = 'none';
     const signalData = await updateSynaSignal();
     if (!signalData.direction || signalData.direction === 'HOLD') return;
+
     const direction = signalData.direction;
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
-    const isForex = !!forexApiMap[selectedMarketPair];
-    const movePercent = isForex ? 0.005 : 0.03;
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
@@ -608,16 +604,10 @@ async function synaTick() {
         else { synaLosses++; totalProfitAccum -= Math.abs(data.pnl || 0); }
         addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, direction, data.win);
     } catch (e) {
-        console.error('SYNA API failed, local fallback:', e.message);
-        const win = Math.random() < 0.8;
-        const rawGross = SYNA_AMOUNT * movePercent;
-        const fee = SYNA_AMOUNT * (premium ? 0.002 : 0.003);
-        const net = win ? rawGross - fee : -rawGross - fee;
-        balance += net;
-        totalTrades++;
-        if (win) synaWins++; else synaLosses++;
-        totalProfitAccum += net;
-        addTradeLog(`SYNA ${selectedMarketPair} (local) - K${SYNA_AMOUNT}`, direction, win);
+        console.error('SYNA trade failed:', e.message);
+        synaServerMsg.style.display = 'block';
+        synaServerMsg.textContent = 'SYNA trade failed: server unreachable';
+        return; // stop this cycle
     }
     synaWinsEl.textContent = synaWins;
     synaLossesEl.textContent = synaLosses;
@@ -725,7 +715,7 @@ function setTradeDirection(dir) {
     sellTab.classList.toggle('active', dir === 'sell');
 }
 
-// ===== EXECUTE TRADE WITH LOCAL FALLBACK =====
+// Manual trade – NO LOCAL FALLBACK
 async function executeTrade() {
     if (!token) return alert('Please log in.');
     tradeError.style.display = 'none';
@@ -759,13 +749,12 @@ async function executeTrade() {
             btn.textContent = 'Execute Trade';
             return;
         }
+    } else {
+        try { await apiCall('GET', '/api/wallet/balance'); } catch (e) {}
     }
 
     btn.textContent = 'Executing...';
     const symbol = selectedMarketPair.replace('/', '').replace(' ', '');
-    const isForex = !!forexApiMap[selectedMarketPair];
-    const movePercent = isForex ? 0.005 : 0.03;
-
     try {
         const data = await apiCall('POST', '/api/trades/manual', {
             symbol: symbol,
@@ -779,19 +768,7 @@ async function executeTrade() {
         addTradeLog(`${selectedMarketPair} - K${amount}`, tradeDirection.toUpperCase(), data.win);
         tradeError.style.display = 'none';
     } catch (err) {
-        console.error('Manual trade API failed, local fallback:', err.message);
-        // Local fallback – simulate the trade
-        const win = Math.random() < 0.5; // 50% manual
-        const rawGross = amount * movePercent;
-        const feeRate = premium ? 0.002 : 0.003;
-        const fee = amount * feeRate;
-        const net = win ? rawGross - fee : -rawGross - fee;
-        balance += net;
-        totalTrades++;
-        totalProfitAccum += net;
-        addTradeLog(`${selectedMarketPair} (local) - K${amount}`, tradeDirection.toUpperCase(), win);
-        tradeError.textContent = 'Trade executed locally (server unreachable).';
-        tradeError.style.color = '#f59e0b';
+        tradeError.textContent = 'Error: ' + (err.message || 'Trade failed');
         tradeError.style.display = 'block';
     } finally {
         btn.disabled = false;
