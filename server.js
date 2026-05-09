@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const walletRoutes = require('./routes/wallet');
 const tradesRoutes = require('./routes/trades');
 const premiumRoutes = require('./routes/premium');
+const priceRoutes = require('./routes/price');   // ✅ NEW
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradesRoutes);
 app.use('/api/premium', premiumRoutes);
+app.use('/api/price', priceRoutes);   // ✅ NEW
 
 /* DATABASE */
 initDatabase();
@@ -45,7 +47,6 @@ initDatabase();
 /* ERROR HANDLER */
 app.use((err, req, res, next) => {
     console.error(err);
-
     res.status(500).json({
         error: 'Internal server error'
     });
