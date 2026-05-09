@@ -1,5 +1,6 @@
 require('dotenv').config();
 const initDatabase = require('./dbInit');
+
 const express = require('express');
 const cors = require('cors');
 
@@ -10,26 +11,48 @@ const premiumRoutes = require('./routes/premium');
 
 const app = express();
 
-// 🔥 CORS – allow your frontend explicitly
-app.use(cors({
-    origin: ['https://mtech740.github.io'],
+app.use(express.json());
+
+/* ✅ CORS FIX */
+const corsOptions = {
+    origin: 'https://mtech740.github.io',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
-}));
+};
 
-// Handle preflight for all routes
-app.options('*', cors());
+app.use(cors(corsOptions));
 
-app.use(express.json());
+/* ✅ HANDLE PREFLIGHT */
+app.options(/.*/, cors(corsOptions));
 
+/* ✅ ROOT ROUTE */
+app.get('/', (req, res) => {
+    res.json({
+        status: 'NRXTRADER API ONLINE'
+    });
+});
+
+/* ROUTES */
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradesRoutes);
 app.use('/api/premium', premiumRoutes);
 
-// Initialize database tables
+/* DATABASE */
 initDatabase();
 
+/* ERROR HANDLER */
+app.use((err, req, res, next) => {
+    console.error(err);
+
+    res.status(500).json({
+        error: 'Internal server error'
+    });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`NRXTRADER backend running on port ${PORT}`));
+
+app.listen(PORT, () => {
+    console.log(`NRXTRADER backend running on port ${PORT}`);
+});
