@@ -253,6 +253,7 @@
             <div style="display:flex; gap:8px;">
                 <button class="btn btn-outline" style="padding:8px 12px; font-size:12px;" onclick="wakeServerNow()">Wake Server</button>
                 <button class="btn btn-outline" style="padding:8px 12px; font-size:12px; background:#f59e0b; border-color:#f59e0b; color:white;" onclick="testConnection()">Test Connection</button>
+                <button class="btn btn-outline" style="padding:8px 12px; font-size:12px; background:#6366f1; border-color:#6366f1; color:white;" onclick="testCors()">CORS Test</button>
             </div>
         </div>
         <div id="testResult" style="margin-bottom:15px; font-size:12px; color:#f59e0b; display:none;"></div>
@@ -313,6 +314,7 @@
 
 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <script>
+// ==================== CONFIGURATION ====================
 const API = 'https://nrxtrader-api.onrender.com';
 let token = localStorage.getItem('nrxtrader_token') || null;
 let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
@@ -327,7 +329,7 @@ let selectedMarketPair = 'BTC/USDT';
 let synaActive = false;
 let synaTimer = null;
 let synaWins = 0, synaLosses = 0;
-const SYNA_AMOUNT = 100;
+const SYNA_AMOUNT = 200;   // ✅ Changed from 100 to 200
 let priceHistory = [];
 const MA_PERIOD = 8;
 
@@ -344,6 +346,7 @@ const forexApiMap = {
     'XAU/USD': 'XAU'
 };
 
+// DOM refs (abbreviated for clarity, all included)
 const loginOverlay = document.getElementById('loginOverlay');
 const dashboardContainer = document.getElementById('dashboardContainer');
 const loginError = document.getElementById('loginError');
@@ -443,9 +446,7 @@ async function isServerAwake() {
     try {
         await fetch(API, { method: 'HEAD', cache: 'no-store' });
         return true;
-    } catch (e) {
-        return false;
-    }
+    } catch (e) { return false; }
 }
 
 async function checkServer() {
@@ -467,10 +468,7 @@ async function wakeServerNow() {
     serverStatus.className = 'server-status status-sleep';
     let awake = false;
     for (let i = 1; i <= 80; i++) {
-        if (await isServerAwake()) {
-            awake = true;
-            break;
-        }
+        if (await isServerAwake()) { awake = true; break; }
         await new Promise(r => setTimeout(r, 3000));
     }
     if (!awake) {
@@ -486,6 +484,34 @@ async function wakeServerNow() {
     return true;
 }
 
+// ========== CORS TEST ==========
+async function testCors() {
+    testResult.style.display = 'block';
+    testResult.textContent = 'Sending OPTIONS preflight...';
+    try {
+        const res = await fetch(API + '/api/trades/manual', {
+            method: 'OPTIONS',
+            headers: {
+                'Access-Control-Request-Method': 'POST',
+                'Access-Control-Request-Headers': 'content-type,authorization'
+            }
+        });
+        const headers = [];
+        res.headers.forEach((val, key) => headers.push(`${key}: ${val}`));
+        if (res.ok) {
+            testResult.textContent = `CORS preflight OK. Status ${res.status}. Headers: ${headers.join(', ')}`;
+            testResult.style.color = '#10b981';
+        } else {
+            testResult.textContent = `CORS preflight returned ${res.status}. Headers: ${headers.join(', ')}`;
+            testResult.style.color = '#f59e0b';
+        }
+    } catch (e) {
+        testResult.textContent = `CORS preflight FAILED: ${e.message}`;
+        testResult.style.color = '#FF3D00';
+    }
+}
+
+// ========== TEST CONNECTION (with amount 200) ==========
 async function testConnection() {
     testResult.style.display = 'block';
     testResult.textContent = 'Testing balance with token...';
@@ -507,7 +533,7 @@ async function testConnection() {
         const tradeData = await apiCall('POST', '/api/trades/manual', {
             symbol: 'BTCUSDT',
             direction: 'BUY',
-            amount: 100
+            amount: 200   // ✅ fixed from 100
         });
         testResult.textContent = `Trade SUCCESS! Response: ` + JSON.stringify(tradeData);
         testResult.style.color = '#10b981';
@@ -517,6 +543,7 @@ async function testConnection() {
     }
 }
 
+// Price fetch and SYNA signal update unchanged
 async function fetchLivePrice(symbol) {
     if (binanceSymbolMap[symbol]) {
         try {
@@ -549,6 +576,7 @@ async function updateSynaSignal() {
     synaPrice.textContent = 'K' + price.toLocaleString(undefined, {maximumFractionDigits:2});
     priceHistory.push(price);
     if (priceHistory.length > MA_PERIOD) priceHistory.shift();
+
     let signal = 'HOLD', trendText = 'SIDEWAYS', trendClass = '', confidence = 50;
     if (priceHistory.length >= 2) {
         const sum = priceHistory.reduce((a,b)=>a+b,0);
@@ -573,7 +601,7 @@ function addTradeLog(desc, direction, win) {
     if (recentTradesList.children.length > 10) recentTradesList.lastChild.remove();
 }
 
-// SYNA tick – NO LOCAL FALLBACK
+// SYNA tick – NO LOCAL FALLBACK, fixed error message
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) {
@@ -606,8 +634,8 @@ async function synaTick() {
     } catch (e) {
         console.error('SYNA trade failed:', e.message);
         synaServerMsg.style.display = 'block';
-        synaServerMsg.textContent = 'SYNA trade failed: server unreachable';
-        return; // stop this cycle
+        synaServerMsg.textContent = 'SYNA trade failed: ' + e.message;   // ✅ show real error
+        return;
     }
     synaWinsEl.textContent = synaWins;
     synaLossesEl.textContent = synaLosses;
@@ -622,7 +650,7 @@ function startSyna() {
         return;
     }
     if (balance < SYNA_AMOUNT) {
-        alert('Minimum K100 balance required.');
+        alert('Minimum K' + SYNA_AMOUNT + ' balance required.');
         return;
     }
     synaActive = true;
@@ -715,7 +743,6 @@ function setTradeDirection(dir) {
     sellTab.classList.toggle('active', dir === 'sell');
 }
 
-// Manual trade – NO LOCAL FALLBACK
 async function executeTrade() {
     if (!token) return alert('Please log in.');
     tradeError.style.display = 'none';
@@ -777,7 +804,7 @@ async function executeTrade() {
     }
 }
 
-// Wallet functions unchanged
+// Wallet, Markets, Settings functions (same as before)
 function handleScreenshot(input) { if (input.files && input.files[0]) alert('Screenshot selected: ' + input.files[0].name); }
 async function confirmDeposit() {
     if (!document.getElementById('screenshotUpload').files[0]) { alert('Please upload a screenshot first.'); return; }
