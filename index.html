@@ -281,12 +281,24 @@ let serverAwake = false;
 let synaActive = false, synaTimer = null;
 let synaWins = 0, synaLosses = 0;
 const SYNA_AMOUNT = 200;
-let priceHistory = [];
-const MA_PERIOD = 8;
 
 const binanceSymbolMap = { 'BTC/USDT':'BTCUSDT', 'ETH/USDT':'ETHUSDT', 'XRP/USDT':'XRPUSDT' };
 const forexApiMap = { 'EUR/USD':'EUR', 'GBP/USD':'GBP', 'XAU/USD':'XAU' };
 const symbolMap = { 'BTC/USDT':'BINANCE:BTCUSDT', 'ETH/USDT':'BINANCE:ETHUSDT', 'XRP/USDT':'BINANCE:XRPUSDT', 'EUR/USD':'FX:EURUSD', 'GBP/USD':'FX:GBPUSD', 'XAU/USD':'OANDA:XAUUSD' };
+
+// ✅ FIX 1: trade symbol map
+const tradeSymbolMap = {
+    'BTC/USDT': 'BTCUSDT',
+    'ETH/USDT': 'ETHUSDT',
+    'XRP/USDT': 'XRPUSDT',
+    'EUR/USD': 'EURUSD',
+    'GBP/USD': 'GBPUSD',
+    'XAU/USD': 'XAUUSD'
+};
+
+function getTradeSymbol(pair) {
+    return tradeSymbolMap[pair] || null;
+}
 
 let tvWidget = null;
 function loadChart(symbol) {
@@ -337,24 +349,55 @@ async function fetchLivePrice(symbol) {
     return fb[symbol] || 80000;
 }
 
+// ✅ FIX 2: simple price-change signal
+let lastSynaPrice = null;
+
 async function updateSynaSignal() {
     const price = await fetchLivePrice(selectedMarketPair);
-    document.getElementById('synaPrice').textContent = 'K' + price.toLocaleString(undefined, {maximumFractionDigits:2});
-    priceHistory.push(price);
-    if (priceHistory.length > MA_PERIOD) priceHistory.shift();
-    let signal='HOLD', trend='SIDEWAYS', cls='', conf=50;
-    if (priceHistory.length >= 2) {
-        const ma = priceHistory.reduce((a,b)=>a+b,0)/priceHistory.length;
-        const diff = price - ma;
-        const pct = (diff/ma)*100;
-        if (pct > 0.01) { signal='BUY'; trend='BULLISH'; cls='green'; }
-        else if (pct < -0.01) { signal='SELL'; trend='BEARISH'; cls='red-text'; }
-        conf = Math.min(95, Math.max(50, Math.floor(Math.abs(pct)*30+50)));
+
+    if (price === null) {
+        document.getElementById('synaPrice').textContent = 'N/A';
+        document.getElementById('synaTrend').textContent = 'TREND: WAIT';
+        document.getElementById('synaConf').textContent = '--';
+        return { direction: null, confidence: 0 };
     }
-    document.getElementById('synaTrend').textContent = 'TREND: '+trend;
-    document.getElementById('synaTrend').className = cls;
-    document.getElementById('synaConf').textContent = conf;
-    return { direction: signal, confidence: conf };
+
+    document.getElementById('synaPrice').textContent =
+        'K' + Number(price).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+    if (lastSynaPrice === null) {
+        lastSynaPrice = price;
+        document.getElementById('synaTrend').textContent = 'TREND: ANALYZING';
+        document.getElementById('synaConf').textContent = '55';
+        return { direction: 'HOLD', confidence: 55 };
+    }
+
+    const changePct = ((price - lastSynaPrice) / lastSynaPrice) * 100;
+    lastSynaPrice = price;
+
+    let signal = 'HOLD';
+    let trend = 'SIDEWAYS';
+    let confidence = 55;
+    let cls = '';
+
+    if (changePct > 0.02) {
+        signal = 'BUY';
+        trend = 'BULLISH';
+        confidence = 78;
+        cls = 'green';
+    } else if (changePct < -0.02) {
+        signal = 'SELL';
+        trend = 'BEARISH';
+        confidence = 78;
+        cls = 'red-text';
+    }
+
+    const trendEl = document.getElementById('synaTrend');
+    trendEl.textContent = 'TREND: ' + trend;
+    trendEl.className = cls;
+    document.getElementById('synaConf').textContent = confidence;
+
+    return { direction: signal, confidence };
 }
 
 function addTradeLog(desc, dir, win) {
@@ -375,6 +418,7 @@ function updateBalanceFromTrade(data) {
     }
 }
 
+// ✅ FIX 3 & 4: proper symbol and status messages
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
@@ -385,10 +429,31 @@ async function synaTick() {
         if (!w) return;
     }
     document.getElementById('synaServerMsg').style.display='none';
-    const sig = await updateSynaSignal();
-    if (!sig.direction || sig.direction==='HOLD') return;
 
-    const symbol = selectedMarketPair.replace('/','').replace(' ','');
+    // Block forex/gold for now
+    if (selectedMarketPair === 'EUR/USD' || selectedMarketPair === 'GBP/USD' || selectedMarketPair === 'XAU/USD') {
+        document.getElementById('synaServerMsg').style.display = 'block';
+        document.getElementById('synaServerMsg').textContent = 'SYNA forex/gold not enabled yet.';
+        return;
+    }
+
+    const sig = await updateSynaSignal();
+    if (!sig.direction || sig.direction === 'HOLD') {
+        document.getElementById('synaServerMsg').style.display = 'block';
+        document.getElementById('synaServerMsg').textContent = `Signal: HOLD | Market: ${selectedMarketPair}`;
+        return;
+    }
+
+    document.getElementById('synaServerMsg').style.display = 'block';
+    document.getElementById('synaServerMsg').textContent = `Signal: ${sig.direction} | Market: ${selectedMarketPair}`;
+
+    const symbol = getTradeSymbol(selectedMarketPair);
+    if (!symbol) {
+        document.getElementById('synaServerMsg').style.display = 'block';
+        document.getElementById('synaServerMsg').textContent = 'Unsupported market for SYNA';
+        return;
+    }
+
     try {
         const data = await apiCall('POST','/api/trades/manual',{symbol,direction:sig.direction,amount:SYNA_AMOUNT});
         totalTrades++;
@@ -396,6 +461,7 @@ async function synaTick() {
         if (data.pnl) totalProfitAccum += data.win ? data.pnl : -data.pnl;
         addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, sig.direction, data.win);
         updateBalanceFromTrade(data);
+        document.getElementById('synaServerMsg').style.display = 'none';
     } catch(e) {
         document.getElementById('synaServerMsg').style.display='block';
         document.getElementById('synaServerMsg').textContent = 'Trade failed: ' + e.message;
@@ -407,22 +473,20 @@ async function synaTick() {
     document.getElementById('synaWinRate').textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
 }
 
-// ✅ FIXED START – pre‑load prices so SYNA starts trading instantly
-async function startSyna() {
+function startSyna() {
+    // Block forex/gold at start too
+    if (selectedMarketPair === 'EUR/USD' || selectedMarketPair === 'GBP/USD' || selectedMarketPair === 'XAU/USD') {
+        alert('SYNA forex/gold trading is not enabled yet. Please use crypto pairs.');
+        return;
+    }
     if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
     synaActive = true;
+    lastSynaPrice = null; // reset signal
     document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
     document.getElementById('synaToggleBtn').style.background = 'var(--red)';
     document.getElementById('synaServerMsg').style.display = 'none';
-
-    // Build initial price history to avoid HOLD on first tick
-    for (let i = 0; i < MA_PERIOD + 1; i++) {
-        await fetchLivePrice(selectedMarketPair);
-        await new Promise(r => setTimeout(r, 200)); // small delay
-    }
-
     wakeServerNow().then(() => {
-        synaTick(); // fire first trade immediately
+        synaTick(); // first trade immediately
         synaTimer = setInterval(synaTick, 30000);
     });
 }
@@ -450,7 +514,7 @@ async function executeTrade(direction) {
     if (amount > max) { document.getElementById('tradeError').textContent=`Maximum trade for your plan is K${max}.`; document.getElementById('tradeError').style.display='block'; return; }
     if (balance < amount) { document.getElementById('tradeError').textContent='Insufficient balance.'; document.getElementById('tradeError').style.display='block'; return; }
     if (!serverAwake) { const woke=await wakeServerNow(); if(!woke){ document.getElementById('tradeError').textContent='Server is asleep. Please try again.'; document.getElementById('tradeError').style.display='block'; return; } }
-    const orderData = { symbol: selectedMarketPair.replace('/', '').replace(' ', ''), direction: direction.toUpperCase(), amount, orderType:'market', stopLoss: parseFloat(document.getElementById('stopLossInput').value)||null, takeProfit: parseFloat(document.getElementById('takeProfitInput').value)||null };
+    const orderData = { symbol: getTradeSymbol(selectedMarketPair), direction: direction.toUpperCase(), amount, orderType:'market', stopLoss: parseFloat(document.getElementById('stopLossInput').value)||null, takeProfit: parseFloat(document.getElementById('takeProfitInput').value)||null };
     try {
         const data = await apiCall('POST','/api/trades/manual', orderData);
         totalTrades++;
