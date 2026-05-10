@@ -43,24 +43,6 @@ app.use('/api/premium', premiumRoutes);
 app.use('/api/price', priceRoutes);
 app.use('/api/stats', statsRoutes);
 
-// ========== TEMPORARY SETUP ROUTE (delete after first use) ==========
-app.get('/api/setup', async (req, res) => {
-    const pool = require('./config/db');
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS platform_stats (
-                key VARCHAR PRIMARY KEY,
-                value INTEGER DEFAULT 0
-            );
-            INSERT INTO platform_stats (key, value) VALUES ('total_trades', 0) ON CONFLICT (key) DO NOTHING;
-        `);
-        res.send('Database setup complete! You may now delete this route.');
-    } catch (err) {
-        res.status(500).send('Setup failed: ' + err.message);
-    }
-});
-// ===============================================================
-
 /* DATABASE */
 initDatabase();
 
