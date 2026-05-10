@@ -1,82 +1,49 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
+const pool = require('../config/db');
 
-/*
-    TEST MANUAL TRADE ROUTE
-    This version confirms:
-    - POST requests work
-    - CORS works
-    - Frontend/backend communication works
-*/
+// House edge parameters
+const WIN_RATE = 0.45;           // 45% chance trader wins
+const PROFIT_PERCENT = 0.02;     // 2% profit on win
+const LOSS_PERCENT = 0.03;       // 3% loss on loss
+const FEE_RATE = 0.003;          // 0.3% trade fee
 
-router.post('/manual', async (req, res) => {
-
+router.post('/manual', auth, async (req, res) => {
     try {
-
-        console.log("TRADE ROUTE HIT");
-        console.log("BODY:", req.body);
-
-        // Extract request data
         const { symbol, direction, amount } = req.body;
-
-        // Validate fields
         if (!symbol || !direction || !amount) {
-            return res.status(400).json({
-                error: "Missing fields"
-            });
+            return res.status(400).json({ error: 'Missing fields' });
         }
 
-        // Validate amount
-        if (amount < 200) {
-            return res.status(400).json({
-                error: "Minimum trade amount is K200"
-            });
-        }
+        const fee = amount * FEE_RATE;
+        const win = Math.random() < WIN_RATE;
+        const pnl = win ? amount * PROFIT_PERCENT : -amount * LOSS_PERCENT;
+        const net = pnl - fee;
 
-        // Validate direction
-        if (
-            direction !== 'BUY' &&
-            direction !== 'SELL'
-        ) {
-            return res.status(400).json({
-                error: "Invalid direction"
-            });
-        }
+        await pool.query(
+            'UPDATE users SET balance_zmw = balance_zmw + $1 WHERE id = $2',
+            [net, req.userId]
+        );
 
-        // Simulate trade result
-        const win = Math.random() > 0.5;
+        const newBal = await pool.query(
+            'SELECT balance_zmw FROM users WHERE id = $1',
+            [req.userId]
+        );
 
-        // Simulated profit/loss
-        const pnl = win ? amount * 0.12 : -(amount * 0.08);
-
-        // Simulated balance
-        const new_balance = win
-            ? 5000 + pnl
-            : 5000 + pnl;
-
-        console.log("TRADE SUCCESS");
-
-        // Send response
-        return res.json({
+        res.json({
             success: true,
             symbol,
             direction,
             amount,
             pnl,
             win,
-            new_balance
+            new_balance: newBal.rows[0].balance_zmw
         });
-
     } catch (err) {
-
-        console.error("TRADE ERROR:", err);
-
-        return res.status(500).json({
-            error: "Internal server error"
-        });
-
+        console.error('Trade error:', err);
+        res.status(500).json({ error: 'Server error' });
     }
-
 });
 
 module.exports = router;
