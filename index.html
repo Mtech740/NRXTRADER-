@@ -52,12 +52,13 @@
         .status-badge { display:inline-block; padding:4px 10px; border-radius:10px; font-size:11px; font-weight:500; }
         .status-ok { background:rgba(0,200,83,0.15); color:var(--green); }
         .status-sleep { background:rgba(245,158,11,0.15); color:var(--warning); }
-        .chart-trade-row { display:grid; grid-template-columns:2fr 1fr; gap:16px; min-height:0; }
+        /* ✅ BIGGER CHART */
+        .chart-trade-row { display:grid; grid-template-columns:3fr 1fr; gap:16px; min-height:0; }
         .chart-box { background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); padding:14px; display:flex; flex-direction:column; }
         .chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
         .chart-header h2 { font-size:18px; font-weight:600; }
         .chart-header select { background:var(--surface); border:1px solid var(--border); color:white; padding:6px 10px; border-radius:6px; font-size:12px; outline:none; }
-        .chart { flex:1; border-radius:10px; overflow:hidden; min-height:280px; }
+        .chart { flex:1; border-radius:10px; overflow:hidden; min-height:400px; }
         .trade-ticket { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; display:flex; flex-direction:column; gap:10px; }
         .trade-ticket h3 { font-size:16px; font-weight:600; }
         .input-label { font-size:12px; color:var(--text-secondary); margin-bottom:2px; }
@@ -355,7 +356,6 @@ async function updateSynaSignal() {
 
     if (lastSynaPrice === null) {
         lastSynaPrice = price;
-        // Send a random first signal so we trade immediately
         const firstDirection = Math.random() < 0.5 ? 'BUY' : 'SELL';
         document.getElementById('synaTrend').textContent = 'TREND: FIRST TRADE';
         document.getElementById('synaTrend').className = 'green';
@@ -366,22 +366,9 @@ async function updateSynaSignal() {
     const changePct = ((price - lastSynaPrice) / lastSynaPrice) * 100;
     lastSynaPrice = price;
 
-    // Ultra-sensitive: trade on any change, or randomly if unchanged
-    let signal = 'BUY';
-    let trend = 'BULLISH';
-    let confidence = 60;
-    let cls = 'green';
-
-    if (changePct < 0) {
-        signal = 'SELL';
-        trend = 'BEARISH';
-        cls = 'red-text';
-    } else if (changePct === 0) {
-        // If price is static, pick random direction
-        signal = Math.random() < 0.5 ? 'BUY' : 'SELL';
-        trend = signal === 'BUY' ? 'BULLISH' : 'BEARISH';
-        cls = signal === 'BUY' ? 'green' : 'red-text';
-    }
+    let signal = 'BUY', trend = 'BULLISH', confidence = 60, cls = 'green';
+    if (changePct < 0) { signal = 'SELL'; trend = 'BEARISH'; cls = 'red-text'; }
+    else if (changePct === 0) { signal = Math.random() < 0.5 ? 'BUY' : 'SELL'; trend = signal === 'BUY' ? 'BULLISH' : 'BEARISH'; cls = signal === 'BUY' ? 'green' : 'red-text'; }
 
     document.getElementById('synaTrend').textContent = 'TREND: ' + trend;
     document.getElementById('synaTrend').className = cls;
@@ -420,7 +407,6 @@ async function synaTick() {
     }
     document.getElementById('synaServerMsg').style.display='none';
 
-    // Allow forex/gold attempts – they may fail at backend but won't block
     const sig = await updateSynaSignal();
     const symbol = getTradeSymbol(selectedMarketPair);
     if (!symbol) {
