@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NRXTRADER – Oracle Trading Engine</title>
+    <title>NRXTRADER – SYNA Trading Engine</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -61,7 +61,6 @@
         .sidebar {
             width: 240px; background: var(--surface); padding: 24px 16px;
             border-right: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 24px;
-            position: sticky; top: 0; height: 100vh; overflow-y: auto;
         }
         .logo { font-size: 26px; font-weight: 800; color: var(--accent); }
         .logo span { color: white; }
@@ -88,7 +87,7 @@
             cursor: pointer;
         }
 
-        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
         .card {
             background: var(--surface); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border);
             transition: 0.2s; cursor: pointer;
@@ -107,7 +106,7 @@
         .status-sleep { background: rgba(245,158,11,0.15); color: var(--warning); }
 
         .chart-trade-row {
-            display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; min-height: 500px;
+            display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; min-height: 480px;
         }
         .chart-box {
             background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border);
@@ -121,7 +120,7 @@
             background: var(--surface); border: 1px solid var(--border); color: white; padding: 8px 12px;
             border-radius: 8px; font-size: 13px; outline: none;
         }
-        .chart { flex: 1; border-radius: 10px; overflow: hidden; min-height: 400px; }
+        .chart { flex: 1; border-radius: 10px; overflow: hidden; min-height: 380px; }
 
         .trade-ticket {
             background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -150,8 +149,8 @@
         .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
         .panel h3 { font-size: 16px; margin-bottom: 12px; color: var(--accent); font-weight: 600; }
-        .oracle-stats { display: flex; justify-content: space-around; margin: 12px 0; font-size: 14px; color: var(--text-secondary); }
-        .oracle-stats strong { color: white; }
+        .syna-stats { display: flex; justify-content: space-around; margin: 12px 0; font-size: 14px; color: var(--text-secondary); }
+        .syna-stats strong { color: white; }
         .recent-list { max-height: 220px; overflow-y: auto; font-size: 13px; }
         .trade-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
         .trade-item .buy { color: var(--green); }
@@ -182,17 +181,16 @@
             padding: 8px; border-radius: 8px; margin: 8px 0;
         }
 
-        /* 👁️ Candle Eye Core emblem */
-        .oracle-emblem {
+        /* Candle Eye Core emblem for SYNA */
+        .syna-emblem {
             width: 72px; height: 72px; margin: 0 auto 12px auto; position: relative;
         }
-        .oracle-emblem svg { width: 100%; height: 100%; }
+        .syna-emblem svg { width: 100%; height: 100%; }
 
         @media (max-width: 1024px) {
-            .chart-trade-row { grid-template-columns: 1fr; min-height: auto; }
-            .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; padding: 12px; }
-            .sidebar ul { flex-direction: row; overflow-x: auto; }
-            .sidebar li { white-space: nowrap; }
+            .chart-trade-row { grid-template-columns: 1fr; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; padding: 12px; overflow-x: auto; }
+            .sidebar ul { flex-direction: row; }
             .main { padding: 16px; }
             .cards { grid-template-columns: repeat(2,1fr); }
             .bottom-row { grid-template-columns: 1fr; }
@@ -283,14 +281,14 @@
             <li class="active" data-tab="dashboard">Dashboard</li>
             <li data-tab="trade">Trade</li>
             <li data-tab="markets">Markets</li>
-            <li data-tab="oracle">Oracle</li>
+            <li data-tab="syna">S.Y.N.A</li>
             <li data-tab="wallet">Wallet</li>
             <li data-tab="settings">Settings</li>
         </ul>
     </div>
     <div class="main">
         <div class="topbar">
-            <h1>Oracle Trading Active</h1>
+            <h1>SYNA Trading Active</h1>
             <div class="topbar-right">
                 <span class="status-badge" id="serverStatus">Checking...</span>
                 <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;width:auto;" onclick="wakeServerNow()">Wake Server</button>
@@ -361,10 +359,8 @@
 
         <div class="bottom-row">
             <div class="panel">
-                <!-- 👁️ Candle Eye Core emblem -->
-                <div class="oracle-emblem">
+                <div class="syna-emblem">
                     <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Outer glow -->
                         <circle cx="36" cy="36" r="34" stroke="url(#grad1)" stroke-width="2" opacity="0.6"/>
                         <defs>
                             <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -376,17 +372,13 @@
                                 <stop offset="100%" stop-color="#6C5CE7" stop-opacity="0"/>
                             </radialGradient>
                         </defs>
-                        <!-- Candle iris -->
                         <g transform="translate(20, 20)">
-                            <!-- green candles -->
                             <rect x="9" y="2" width="4" height="12" fill="#10b981" rx="1"/>
                             <rect x="15" y="6" width="4" height="16" fill="#10b981" rx="1"/>
                             <rect x="22" y="4" width="4" height="20" fill="#10b981" rx="1"/>
-                            <!-- red candles -->
                             <rect x="4" y="8" width="4" height="10" fill="#ef4444" rx="1"/>
                             <rect x="0" y="14" width="4" height="18" fill="#ef4444" rx="1"/>
                             <rect x="7" y="18" width="4" height="8" fill="#ef4444" rx="1"/>
-                            <!-- wicks -->
                             <line x1="11" y1="0" x2="11" y2="2" stroke="#10b981" stroke-width="1.5"/>
                             <line x1="17" y1="4" x2="17" y2="6" stroke="#10b981" stroke-width="1.5"/>
                             <line x1="24" y1="2" x2="24" y2="4" stroke="#10b981" stroke-width="1.5"/>
@@ -394,26 +386,24 @@
                             <line x1="2" y1="10" x2="2" y2="14" stroke="#ef4444" stroke-width="1.5"/>
                             <line x1="9" y1="16" x2="9" y2="18" stroke="#ef4444" stroke-width="1.5"/>
                         </g>
-                        <!-- Glowing core -->
                         <circle cx="36" cy="36" r="10" fill="url(#grad2)" opacity="0.9"/>
                         <circle cx="36" cy="36" r="4" fill="#6C5CE7"/>
-                        <!-- Outer ring pulse -->
                         <circle cx="36" cy="36" r="28" stroke="#6C5CE7" stroke-width="1" stroke-dasharray="3 3" opacity="0.4"/>
                     </svg>
                 </div>
-                <h3 style="text-align:center;">Oracle Intelligence (Auto)</h3>
+                <h3 style="text-align:center;">S.Y.N.A Intelligence (Auto)</h3>
                 <div style="text-align:center;">
-                    <div style="font-size:12px;color:var(--text-secondary);">Price: <strong id="oraclePrice">---</strong></div>
-                    <p class="green" id="oracleTrend" style="margin:6px 0;">TREND: --</p>
-                    <p style="font-size:13px;">Confidence: <span id="oracleConf">--</span>%</p>
-                    <div class="oracle-stats">
-                        <span>Wins: <strong id="oracleWins">0</strong></span>
-                        <span>Losses: <strong id="oracleLosses">0</strong></span>
-                        <span>Rate: <strong id="oracleWinRate">0%</strong></span>
+                    <div style="font-size:12px;color:var(--text-secondary);">Price: <strong id="synaPrice">---</strong></div>
+                    <p class="green" id="synaTrend" style="margin:6px 0;">TREND: --</p>
+                    <p style="font-size:13px;">Confidence: <span id="synaConf">--</span>%</p>
+                    <div class="syna-stats">
+                        <span>Wins: <strong id="synaWins">0</strong></span>
+                        <span>Losses: <strong id="synaLosses">0</strong></span>
+                        <span>Rate: <strong id="synaWinRate">0%</strong></span>
                     </div>
-                    <p id="oracleForexNote" style="color:var(--warning);font-size:11px;display:none;"></p>
-                    <div id="oracleServerMsg" style="color:var(--warning);font-size:11px;display:none;"></div>
-                    <button class="btn btn-primary" id="oracleToggleBtn" onclick="toggleOracle()" style="margin-top:8px;">Start Oracle</button>
+                    <p id="synaForexNote" style="color:var(--warning);font-size:11px;display:none;"></p>
+                    <div id="synaServerMsg" style="color:var(--warning);font-size:11px;display:none;"></div>
+                    <button class="btn btn-primary" id="synaToggleBtn" onclick="toggleSyna()" style="margin-top:8px;">Start SYNA</button>
                 </div>
             </div>
             <div class="panel">
@@ -436,9 +426,9 @@ let selectedMarketPair = 'BTC/USDT';
 let totalTrades = 0, totalProfitAccum = 0;
 let serverAwake = false;
 
-let oracleActive = false, oracleTimer = null;
-let oracleWins = 0, oracleLosses = 0;
-const ORACLE_AMOUNT = 200;
+let synaActive = false, synaTimer = null;
+let synaWins = 0, synaLosses = 0;
+const SYNA_AMOUNT = 200;
 
 let autoTradeActive = false, autoTradeTimer = null;
 const AUTO_TRADE_INTERVAL = 5000;
@@ -507,26 +497,26 @@ async function fetchLivePrice(symbol) {
     return fb[symbol] || 80000;
 }
 
-let lastOraclePrice = null;
-async function updateOracleSignal() {
+let lastSynaPrice = null;
+async function updateSynaSignal() {
     const price = await fetchLivePrice(selectedMarketPair);
-    document.getElementById('oraclePrice').textContent = 'K' + Number(price).toLocaleString(undefined, {maximumFractionDigits:2});
-    if (lastOraclePrice === null) {
-        lastOraclePrice = price;
+    document.getElementById('synaPrice').textContent = 'K' + Number(price).toLocaleString(undefined, {maximumFractionDigits:2});
+    if (lastSynaPrice === null) {
+        lastSynaPrice = price;
         const firstDir = Math.random() < 0.5 ? 'BUY' : 'SELL';
-        document.getElementById('oracleTrend').textContent = 'TREND: FIRST TRADE';
-        document.getElementById('oracleTrend').className = 'green';
-        document.getElementById('oracleConf').textContent = '75';
+        document.getElementById('synaTrend').textContent = 'TREND: FIRST TRADE';
+        document.getElementById('synaTrend').className = 'green';
+        document.getElementById('synaConf').textContent = '75';
         return { direction: firstDir, confidence: 75 };
     }
-    const changePct = ((price - lastOraclePrice) / lastOraclePrice) * 100;
-    lastOraclePrice = price;
+    const changePct = ((price - lastSynaPrice) / lastSynaPrice) * 100;
+    lastSynaPrice = price;
     let signal = 'BUY', trend = 'BULLISH', cls = 'green', conf = 60;
     if (changePct < 0) { signal = 'SELL'; trend = 'BEARISH'; cls = 'red-text'; }
     else if (changePct === 0) { signal = Math.random() < 0.5 ? 'BUY' : 'SELL'; trend = signal === 'BUY' ? 'BULLISH' : 'BEARISH'; cls = signal === 'BUY' ? 'green' : 'red-text'; }
-    document.getElementById('oracleTrend').textContent = 'TREND: ' + trend;
-    document.getElementById('oracleTrend').className = cls;
-    document.getElementById('oracleConf').textContent = conf;
+    document.getElementById('synaTrend').textContent = 'TREND: ' + trend;
+    document.getElementById('synaTrend').className = cls;
+    document.getElementById('synaConf').textContent = conf;
     return { direction: signal, confidence: conf };
 }
 
@@ -548,61 +538,61 @@ function updateBalanceFromTrade(data) {
     }
 }
 
-async function oracleTick() {
-    if (!oracleActive) return;
-    if (balance < ORACLE_AMOUNT) { stopOracle(); alert('Oracle stopped: insufficient balance.'); return; }
+async function synaTick() {
+    if (!synaActive) return;
+    if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
     if (!serverAwake) {
-        document.getElementById('oracleServerMsg').style.display='block';
-        document.getElementById('oracleServerMsg').textContent = 'Waiting for server...';
+        document.getElementById('synaServerMsg').style.display='block';
+        document.getElementById('synaServerMsg').textContent = 'Waiting for server...';
         const w = await wakeServerNow();
         if (!w) return;
     }
-    document.getElementById('oracleServerMsg').style.display='none';
-    const sig = await updateOracleSignal();
+    document.getElementById('synaServerMsg').style.display='none';
+    const sig = await updateSynaSignal();
     const symbol = getTradeSymbol(selectedMarketPair);
     if (!symbol) {
-        document.getElementById('oracleServerMsg').textContent = 'Unsupported market';
+        document.getElementById('synaServerMsg').textContent = 'Unsupported market';
         return;
     }
-    document.getElementById('oracleServerMsg').style.display='block';
-    document.getElementById('oracleServerMsg').textContent = `Trading: ${sig.direction} ${selectedMarketPair}`;
+    document.getElementById('synaServerMsg').style.display='block';
+    document.getElementById('synaServerMsg').textContent = `Trading: ${sig.direction} ${selectedMarketPair}`;
     try {
-        const data = await apiCall('POST','/api/trades/manual',{symbol,direction:sig.direction,amount:ORACLE_AMOUNT});
+        const data = await apiCall('POST','/api/trades/manual',{symbol,direction:sig.direction,amount:SYNA_AMOUNT});
         totalTrades++;
-        if (data.win) oracleWins++; else oracleLosses++;
+        if (data.win) synaWins++; else synaLosses++;
         if (data.pnl) totalProfitAccum += data.win ? data.pnl : -data.pnl;
-        addTradeLog(`Oracle ${selectedMarketPair} - K${ORACLE_AMOUNT}`, sig.direction, data.win);
+        addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, sig.direction, data.win);
         updateBalanceFromTrade(data);
-        document.getElementById('oracleServerMsg').style.display='none';
+        document.getElementById('synaServerMsg').style.display='none';
     } catch(e) {
-        document.getElementById('oracleServerMsg').textContent = 'Trade failed: ' + e.message;
+        document.getElementById('synaServerMsg').textContent = 'Trade failed: ' + e.message;
         return;
     }
-    document.getElementById('oracleWins').textContent = oracleWins;
-    document.getElementById('oracleLosses').textContent = oracleLosses;
-    const total = oracleWins+oracleLosses;
-    document.getElementById('oracleWinRate').textContent = total ? ((oracleWins/total)*100).toFixed(1)+'%' : '0%';
+    document.getElementById('synaWins').textContent = synaWins;
+    document.getElementById('synaLosses').textContent = synaLosses;
+    const total = synaWins+synaLosses;
+    document.getElementById('synaWinRate').textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
 }
 
-function startOracle() {
-    if (balance < ORACLE_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
-    oracleActive = true;
-    lastOraclePrice = null;
-    document.getElementById('oracleToggleBtn').textContent = 'Stop Oracle';
-    document.getElementById('oracleToggleBtn').style.background = 'var(--red)';
-    document.getElementById('oracleServerMsg').style.display = 'none';
+function startSyna() {
+    if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
+    synaActive = true;
+    lastSynaPrice = null;
+    document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
+    document.getElementById('synaToggleBtn').style.background = 'var(--red)';
+    document.getElementById('synaServerMsg').style.display = 'none';
     wakeServerNow().then(() => {
-        oracleTick();
-        oracleTimer = setInterval(oracleTick, 30000);
+        synaTick();
+        synaTimer = setInterval(synaTick, 30000);
     });
 }
-function stopOracle() {
-    oracleActive = false;
-    document.getElementById('oracleToggleBtn').textContent = 'Start Oracle';
-    document.getElementById('oracleToggleBtn').style.background = 'var(--accent)';
-    if (oracleTimer) { clearInterval(oracleTimer); oracleTimer = null; }
+function stopSyna() {
+    synaActive = false;
+    document.getElementById('synaToggleBtn').textContent = 'Start SYNA';
+    document.getElementById('synaToggleBtn').style.background = 'var(--accent)';
+    if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
 }
-function toggleOracle() { oracleActive ? stopOracle() : startOracle(); }
+function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
 
 async function executeTrade(direction) {
     if (!token) return alert('Please log in.');
@@ -689,7 +679,7 @@ async function handleRegister() {
     }catch(e){document.getElementById('loginError').textContent=e.message;}
 }
 function logout() {
-    stopOracle(); stopAutoTrade(); token=null; user=null;
+    stopSyna(); stopAutoTrade(); token=null; user=null;
     if(tvWidget&&typeof tvWidget.remove==='function')tvWidget.remove();
     localStorage.clear();
     balance=0;premium=false;trial=false;totalTrades=0;totalProfitAccum=0;
@@ -716,8 +706,8 @@ async function handleWithdraw() {
 }
 function openMarkets() { document.getElementById('marketsModal').style.display='flex'; }
 function closeMarkets() { document.getElementById('marketsModal').style.display='none'; }
-function selectMarket(pair) { selectedMarketPair=pair; document.getElementById('selectedMarket').textContent=pair; document.getElementById('marketSelector').value=pair; closeMarkets(); loadChart(selectedMarketPair); updateOracleSignal(); }
-function changeMarket() { selectedMarketPair=document.getElementById('marketSelector').value; document.getElementById('selectedMarket').textContent=selectedMarketPair; loadChart(selectedMarketPair); updateOracleSignal(); }
+function selectMarket(pair) { selectedMarketPair=pair; document.getElementById('selectedMarket').textContent=pair; document.getElementById('marketSelector').value=pair; closeMarkets(); loadChart(selectedMarketPair); updateSynaSignal(); }
+function changeMarket() { selectedMarketPair=document.getElementById('marketSelector').value; document.getElementById('selectedMarket').textContent=selectedMarketPair; loadChart(selectedMarketPair); updateSynaSignal(); }
 function openSettings() { document.getElementById('settingsModal').style.display='flex'; document.getElementById('settingsEmail').textContent=user?user.email:''; document.getElementById('settingsPlan').textContent=premium?(trial?'Trial Pro':'Pro'):'Free'; document.getElementById('settingsBalance').textContent='ZMW '+balance.toLocaleString(undefined,{minimumFractionDigits:2}); }
 function closeSettings() { document.getElementById('settingsModal').style.display='none'; }
 async function handlePremium() {
@@ -737,7 +727,7 @@ document.querySelectorAll('.sidebar li').forEach(li => {
         if (tab === 'settings') openSettings();
         if (tab === 'dashboard') { closeMarkets(); closeWallet(); closeSettings(); }
         if (tab === 'trade') document.getElementById('tradeAmountInput').focus();
-        if (tab === 'oracle') document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
+        if (tab === 'syna') document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
     });
 });
 
