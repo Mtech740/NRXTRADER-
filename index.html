@@ -59,8 +59,15 @@
             display: flex; min-height: 100vh; max-width: 1400px; margin: 0 auto;
         }
         .sidebar {
-            width: 240px; background: var(--surface); padding: 24px 16px;
-            border-right: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 24px;
+            width: 240px;
+            background: rgba(17,24,39,0.75);
+            backdrop-filter: blur(14px);
+            padding: 24px 16px;
+            border-right: 1px solid var(--border);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
         }
         .logo { font-size: 26px; font-weight: 800; color: var(--accent); }
         .logo span { color: white; }
@@ -70,7 +77,11 @@
             font-size: 14px; font-weight: 500; transition: 0.2s; display: flex; align-items: center; gap: 10px;
         }
         .sidebar li:hover { background: rgba(59,130,246,0.1); color: white; }
-        .sidebar li.active { background: var(--accent); color: white; }
+        .sidebar li.active {
+            background: rgba(59,130,246,0.15);
+            border: 1px solid rgba(59,130,246,0.4);
+            color: white;
+        }
 
         .main {
             flex: 1; padding: 24px 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px;
@@ -187,18 +198,78 @@
         }
         .syna-emblem svg { width: 100%; height: 100%; }
 
+        /* ========== RESPONSIVE ========== */
         @media (max-width: 1024px) {
-            .chart-trade-row { grid-template-columns: 1fr; }
-            .sidebar { width: 100%; height: auto; flex-direction: row; padding: 12px; overflow-x: auto; }
-            .sidebar ul { flex-direction: row; }
-            .main { padding: 16px; }
-            .cards { grid-template-columns: repeat(2,1fr); }
-            .bottom-row { grid-template-columns: 1fr; }
+            .dashboard {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 14px;
+                overflow-x: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .sidebar ul {
+                flex-direction: row;
+                gap: 8px;
+                flex-wrap: nowrap;
+            }
+            .sidebar li {
+                white-space: nowrap;
+                padding: 10px 14px;
+                font-size: 13px;
+            }
+            .main {
+                width: 100%;
+                padding: 16px;
+            }
+            .chart-trade-row {
+                grid-template-columns: 1fr;
+            }
+            .bottom-row {
+                grid-template-columns: 1fr;
+            }
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
+
         @media (max-width: 640px) {
-            .cards { grid-template-columns: 1fr; }
-            .topbar { flex-wrap: wrap; gap: 8px; }
-            .topbar h1 { font-size: 22px; }
+            .cards {
+                grid-template-columns: 1fr;
+            }
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .topbar h1 {
+                font-size: 20px;
+            }
+            .sidebar {
+                padding: 8px;
+            }
+            .logo {
+                font-size: 18px;
+            }
+            .sidebar li {
+                font-size: 12px;
+                padding: 8px 10px;
+            }
+            .main {
+                padding: 12px;
+            }
+            .chart {
+                min-height: 280px;
+            }
+            .trade-ticket {
+                width: 100%;
+            }
         }
     </style>
 </head>
