@@ -110,12 +110,6 @@
         .red-text { color: var(--red); }
         .sub-text { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
 
-        .status-badge {
-            display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
-        }
-        .status-ok { background: rgba(16,185,129,0.15); color: var(--green); }
-        .status-sleep { background: rgba(245,158,11,0.15); color: var(--warning); }
-
         .chart-trade-row {
             display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; min-height: 480px;
         }
@@ -361,8 +355,6 @@
         <div class="topbar">
             <h1>SYNA Trading Active</h1>
             <div class="topbar-right">
-                <span class="status-badge" id="serverStatus">Checking...</span>
-                <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;width:auto;" onclick="wakeServerNow()">Wake Server</button>
                 <div class="profile-circle" id="profilePic" onclick="openSettings()">T</div>
             </div>
         </div>
@@ -495,7 +487,6 @@ let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
 let balance = 0, premium = false, trial = false;
 let selectedMarketPair = 'BTC/USDT';
 let totalTrades = 0, totalProfitAccum = 0;
-let serverAwake = false;
 
 let synaActive = false, synaTimer = null;
 let synaWins = 0, synaLosses = 0;
@@ -545,21 +536,13 @@ async function apiCall(method, path, body) {
 }
 
 async function isServerAwake() { try { await fetch(API,{method:'HEAD',cache:'no-store'}); return true; } catch(e) { return false; } }
-async function checkServer() {
-    const a = await isServerAwake();
-    serverAwake = a;
-    document.getElementById('serverStatus').textContent = a?'Online':'Asleep';
-    document.getElementById('serverStatus').className = `status-badge ${a?'status-ok':'status-sleep'}`;
-    return a;
-}
-async function wakeServerNow() {
-    document.getElementById('serverStatus').textContent = 'Waking...';
-    for(let i=1; i<=20; i++) { if(await isServerAwake()) break; await new Promise(r=>setTimeout(r,3000)); }
-    serverAwake = await isServerAwake();
-    document.getElementById('serverStatus').textContent = serverAwake?'Online':'Asleep';
-    document.getElementById('serverStatus').className = `status-badge ${serverAwake?'status-ok':'status-sleep'}`;
-    if(serverAwake) try{await apiCall('GET','/api/wallet/balance');}catch(e){}
-    return serverAwake;
+async function wakeServerIfNeeded() {
+    if (await isServerAwake()) return true;
+    for(let i=1; i<=20; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        if (await isServerAwake()) return true;
+    }
+    return false;
 }
 
 async function fetchLivePrice(symbol) {
@@ -612,13 +595,15 @@ function updateBalanceFromTrade(data) {
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
-    if (!serverAwake) {
+
+    const awake = await wakeServerIfNeeded();
+    if (!awake) {
         document.getElementById('synaServerMsg').style.display='block';
-        document.getElementById('synaServerMsg').textContent = 'Waiting for server...';
-        const w = await wakeServerNow();
-        if (!w) return;
+        document.getElementById('synaServerMsg').textContent = 'Server asleep, retrying...';
+        return;
     }
     document.getElementById('synaServerMsg').style.display='none';
+
     const sig = await updateSynaSignal();
     const symbol = getTradeSymbol(selectedMarketPair);
     if (!symbol) {
@@ -645,18 +630,35 @@ async function synaTick() {
     document.getElementById('synaWinRate').textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
 }
 
-function startSyna() {
+// ✅ PREMIUM GATE for SYNA
+async function startSyna() {
     if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
+
+    // Check if promo period is over and user is not premium
+    if (!premium) {
+        try {
+            const stats = await apiCall('GET', '/api/stats/totalTrades');
+            if (stats.total_trades >= 1000) {
+                const upgrade = confirm('SYNA is now a premium feature. Upgrade to NRX Pro for K200/month?');
+                if (upgrade) {
+                    handlePremium();
+                }
+                return;
+            }
+        } catch (e) { /* ignore – allow access if endpoint fails */ }
+    }
+
     synaActive = true;
     lastSynaPrice = null;
     document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
     document.getElementById('synaToggleBtn').style.background = 'var(--red)';
     document.getElementById('synaServerMsg').style.display = 'none';
-    wakeServerNow().then(() => {
+    wakeServerIfNeeded().then(() => {
         synaTick();
         synaTimer = setInterval(synaTick, 30000);
     });
 }
+
 function stopSyna() {
     synaActive = false;
     document.getElementById('synaToggleBtn').textContent = 'Start SYNA';
@@ -673,7 +675,10 @@ async function executeTrade(direction) {
     const max = premium ? 2000 : 500;
     if (amount > max) { document.getElementById('tradeError').textContent=`Maximum trade for your plan is K${max}.`; document.getElementById('tradeError').style.display='block'; return; }
     if (balance < amount) { document.getElementById('tradeError').textContent='Insufficient balance.'; document.getElementById('tradeError').style.display='block'; return; }
-    if (!serverAwake) { const woke=await wakeServerNow(); if(!woke){ document.getElementById('tradeError').textContent='Server is asleep.'; document.getElementById('tradeError').style.display='block'; return; } }
+
+    const awake = await wakeServerIfNeeded();
+    if (!awake) { document.getElementById('tradeError').textContent='Server is temporarily unavailable. Please try again.'; document.getElementById('tradeError').style.display='block'; return; }
+
     const orderData = { symbol: getTradeSymbol(selectedMarketPair), direction: direction.toUpperCase(), amount, orderType:'market', stopLoss: parseFloat(document.getElementById('stopLossInput').value)||null, takeProfit: parseFloat(document.getElementById('takeProfitInput').value)||null };
     try {
         const data = await apiCall('POST','/api/trades/manual', orderData);
@@ -734,7 +739,7 @@ async function handleLogin() {
         localStorage.setItem('nrxtrader_token',token);localStorage.setItem('nrxtrader_user',JSON.stringify(user));
         document.getElementById('loginOverlay').style.display='none';
         document.getElementById('dashboardContainer').style.display='flex';
-        refreshUI();loadChart(selectedMarketPair);checkServer();
+        refreshUI();loadChart(selectedMarketPair);
     }catch(e){document.getElementById('loginError').textContent=e.message;}
 }
 async function handleRegister() {
@@ -804,16 +809,14 @@ document.querySelectorAll('.sidebar li').forEach(li => {
 
 window.onload = () => {
     if (token && user) {
-        checkServer().then(() => {
-            apiCall('GET','/api/wallet/balance').then(data => {
-                balance = parseFloat(data.balance_zmw)||0;
-                premium = data.is_premium||false;
-                trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date())||false;
-                document.getElementById('loginOverlay').style.display='none';
-                document.getElementById('dashboardContainer').style.display='flex';
-                refreshUI(); loadChart(selectedMarketPair);
-            }).catch(() => { logout(); });
-        });
+        apiCall('GET','/api/wallet/balance').then(data => {
+            balance = parseFloat(data.balance_zmw)||0;
+            premium = data.is_premium||false;
+            trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date())||false;
+            document.getElementById('loginOverlay').style.display='none';
+            document.getElementById('dashboardContainer').style.display='flex';
+            refreshUI(); loadChart(selectedMarketPair);
+        }).catch(() => { logout(); });
     } else { document.getElementById('loginOverlay').style.display='flex'; }
 };
 </script>
