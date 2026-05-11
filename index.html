@@ -23,8 +23,10 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
             color: var(--text);
-            min-height: 100vh; line-height: 1.5;
+            min-height: 100vh;
+            line-height: 1.5;
         }
+
         .login-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; z-index:1000; }
         .login-box { background:var(--surface); padding:40px 30px; border-radius:20px; width:90%; max-width:420px; text-align:center; border:1px solid var(--border); box-shadow:0 8px 32px rgba(0,0,0,0.4); }
         .login-box h2 { color:var(--accent); margin-bottom:8px; font-size:32px; font-weight:700; }
@@ -183,7 +185,7 @@
         <button class="btn btn-primary" style="background:var(--green);margin-top:6px;width:100%;" onclick="addTestFunds()">Add Test Funds K500</button>
         <hr style="border-color:var(--border);margin:10px 0;">
         <h4 style="color:var(--red);">Withdrawal</h4>
-        <p style="font-size:11px;color:var(--text-secondary);">Min K200 | Fee: <span id="withdrawFee">1%</span></p>
+        <p style="font-size:11px;color:var(--text-secondary);">Min K5000 | Fee: <span id="withdrawFee">1%</span></p>
         <button class="btn btn-primary" style="background:var(--red);width:100%;" onclick="handleWithdraw()">Withdraw</button>
         <button class="close-btn" onclick="closeWallet()">Close</button>
     </div>
@@ -383,7 +385,6 @@ function loadChart(symbol) {
     });
 }
 
-// ==================== API CALL ====================
 async function apiCall(method, path, body) {
     const headers = { 'Content-Type':'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -397,7 +398,6 @@ async function apiCall(method, path, body) {
     } catch(e) { clearTimeout(t); throw e; }
 }
 
-// ==================== SERVER WAKE ====================
 async function isServerAwake() { try { await fetch(API,{method:'HEAD',cache:'no-store'}); return true; } catch(e) { return false; } }
 async function wakeServerIfNeeded() {
     if (await isServerAwake()) return true;
@@ -408,7 +408,6 @@ async function wakeServerIfNeeded() {
     return false;
 }
 
-// ==================== PRICE FETCH ====================
 async function fetchLivePrice(symbol) {
     try { const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`); const data = await res.json(); if (data.price) return data.price; } catch(e) {}
     const fb = { 'BTC/USDT':80000, 'ETH/USDT':4000, 'XRP/USDT':0.5, 'EUR/USD':1.08, 'GBP/USD':1.26, 'XAU/USD':2350 };
@@ -442,7 +441,6 @@ async function updateSynaSignal() {
 async function synaTick() {
     if (!synaActive) return;
     if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
-
     const awake = await wakeServerIfNeeded();
     if (!awake) {
         document.getElementById('synaServerMsg').style.display='block';
@@ -450,7 +448,6 @@ async function synaTick() {
         return;
     }
     document.getElementById('synaServerMsg').style.display='none';
-
     const sig = await updateSynaSignal();
     const symbol = getTradeSymbol(selectedMarketPair);
     if (!symbol) { document.getElementById('synaServerMsg').textContent = 'Unsupported market'; return; }
@@ -651,13 +648,24 @@ async function addTestFunds() {
 }
 function openWallet() { document.getElementById('walletModal').style.display='flex'; document.getElementById('walletBalance').textContent='ZMW '+balance.toLocaleString(undefined,{minimumFractionDigits:2}); }
 function closeWallet() { document.getElementById('walletModal').style.display='none'; }
+
+// ✅ Updated withdrawal: minimum K5000
 async function handleWithdraw() {
-    if(!token) return alert('Log in first.');
-    const feeRate=premium?0.008:0.01;
-    const amt=parseFloat(prompt(`Min K200. Fee: ${(feeRate*100).toFixed(1)}%\nEnter amount:`));
-    if(isNaN(amt)||amt<200) return alert('Min K200.');
-    if(balance<amt*(1+feeRate)) return alert('Insufficient balance.');
-    try { const d=await apiCall('POST','/api/wallet/withdraw',{amount:amt}); balance=d.new_balance; refreshUI(); } catch(e) { alert(e.message); }
+    if (!token) return alert('Log in first.');
+    const feeRate = premium ? 0.008 : 0.01;
+    const amt = parseFloat(prompt(`Minimum K5000. Fee: ${(feeRate*100).toFixed(1)}%\nEnter amount:`));
+    if (isNaN(amt) || amt < 5000) return alert('Minimum withdrawal is K5000.');
+    const total = amt + (amt * feeRate);
+    if (balance < total) return alert('Insufficient balance.');
+    try {
+        const d = await apiCall('POST','/api/wallet/withdraw',{ amount: amt });
+        balance = d.new_balance;
+        refreshUI();
+        alert('Withdrawal submitted. Admin notified.');
+        const phone = '260772566084';
+        const msg = `NRXTRADER Withdrawal:\nUser: ${user.email}\nAmount: K${amt}\nFee: K${(amt*feeRate).toFixed(2)}`;
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+    } catch(e) { alert(e.message); }
 }
 
 // ==================== MODALS ====================
