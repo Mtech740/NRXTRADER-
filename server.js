@@ -19,23 +19,28 @@ const corsOptions = {
         'https://trader.nrxproject.com'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 };
 
-// Explicit CORS headers for every request
+// CORS headers
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    const origin = req.headers.origin;
+
+    if (origin && corsOptions.origin.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
+
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
     next();
 });
 
 app.use(cors(corsOptions));
 
-// Handle preflight cleanly
-app.options('*', (req, res) => {
-    res.sendStatus(204);
-});
+// Preflight
+app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
 
@@ -44,7 +49,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok', server: 'NRXTRADER API ONLINE' });
 });
 
 app.use('/api/auth', authRoutes);
