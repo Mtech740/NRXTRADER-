@@ -397,10 +397,10 @@ async function apiCall(method, path, body) {
     } catch(e) { clearTimeout(t); throw e; }
 }
 
-// ✅ UPDATED: uses /api/health instead of root with no-cors
+// Fixed: use root path '/' instead of '/api/health'
 async function isServerAwake() {
     try {
-        await fetch(API + '/api/health', { cache: 'no-store' });
+        await fetch(API + '/', { cache: 'no-store' });
         return true;
     } catch(e) {
         return false;
@@ -409,7 +409,7 @@ async function isServerAwake() {
 
 async function wakeServerIfNeeded() {
     try {
-        await fetch(API + '/api/health', { cache: 'no-store' });
+        await fetch(API + '/', { cache: 'no-store' });
         return true;
     } catch (e) {
         return false;
@@ -728,9 +728,9 @@ document.querySelectorAll('.sidebar li').forEach(li => {
     });
 });
 
-// ✅ UPDATED: pre‑wake uses /api/health
+// Fixed: pre‑wake uses root path '/'
 window.onload = () => {
-    fetch(API + '/api/health', { cache: 'no-store' }).catch(() => {});
+    fetch(API + '/', { cache: 'no-store' }).catch(() => {});
 
     if (token && user) {
         apiCall('GET','/api/wallet/balance').then(data => {
