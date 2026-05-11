@@ -397,10 +397,10 @@ async function apiCall(method, path, body) {
     } catch(e) { clearTimeout(t); throw e; }
 }
 
-// ✅ FIXED: uses no-cors on root URL to wake the server
+// ✅ UPDATED: uses /api/health instead of root with no-cors
 async function isServerAwake() {
     try {
-        await fetch(API + '/', { mode: 'no-cors', cache: 'no-store' });
+        await fetch(API + '/api/health', { cache: 'no-store' });
         return true;
     } catch(e) {
         return false;
@@ -408,10 +408,12 @@ async function isServerAwake() {
 }
 
 async function wakeServerIfNeeded() {
-    // Fire a no-cors ping to wake the server, then wait 5 seconds
-    fetch(API + '/', { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
-    await new Promise(r => setTimeout(r, 5000));
-    return true;
+    try {
+        await fetch(API + '/api/health', { cache: 'no-store' });
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 async function fetchLivePrice(symbol) {
@@ -726,9 +728,9 @@ document.querySelectorAll('.sidebar li').forEach(li => {
     });
 });
 
-// ✅ FIXED: pre‑wake uses no-cors on root
+// ✅ UPDATED: pre‑wake uses /api/health
 window.onload = () => {
-    fetch(API + '/', { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+    fetch(API + '/api/health', { cache: 'no-store' }).catch(() => {});
 
     if (token && user) {
         apiCall('GET','/api/wallet/balance').then(data => {
