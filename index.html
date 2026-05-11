@@ -26,7 +26,6 @@
             min-height: 100vh;
             line-height: 1.5;
         }
-
         .login-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; z-index:1000; }
         .login-box { background:var(--surface); padding:40px 30px; border-radius:20px; width:90%; max-width:420px; text-align:center; border:1px solid var(--border); box-shadow:0 8px 32px rgba(0,0,0,0.4); }
         .login-box h2 { color:var(--accent); margin-bottom:8px; font-size:32px; font-weight:700; }
@@ -599,12 +598,24 @@ function refreshUI() {
     document.getElementById('profilePic').textContent = (user?.email?user.email[0]:'T').toUpperCase();
 }
 
-// ==================== AUTH ====================
+// ==================== AUTH (WITH WAKE-UP) ====================
 async function handleLogin() {
-    document.getElementById('loginError').textContent='';
-    const email=document.getElementById('loginEmail').value.trim();
-    const password=document.getElementById('loginPassword').value.trim();
-    if(!email||!password){document.getElementById('loginError').textContent='Email and password required';return;}
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if(!email||!password){ document.getElementById('loginError').textContent='Email and password required'; return; }
+
+    // Wake server
+    document.getElementById('loginError').textContent = 'Connecting...';
+    document.getElementById('loginError').style.color = 'var(--warning)';
+    const awake = await wakeServerIfNeeded();
+    if (!awake) {
+        document.getElementById('loginError').textContent = 'Server unavailable. Please try again later.';
+        document.getElementById('loginError').style.color = 'var(--red)';
+        return;
+    }
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('loginError').style.color = 'var(--red)';
+
     try{
         const data=await apiCall('POST','/api/auth/login',{email,password});
         token=data.token;user=data.user;
@@ -613,20 +624,34 @@ async function handleLogin() {
         document.getElementById('loginOverlay').style.display='none';
         document.getElementById('dashboardContainer').style.display='flex';
         refreshUI();loadChart(selectedMarketPair);
-    }catch(e){document.getElementById('loginError').textContent=e.message;}
+    }catch(e){ document.getElementById('loginError').textContent=e.message; }
 }
+
 async function handleRegister() {
-    document.getElementById('loginError').textContent='';
-    const email=document.getElementById('loginEmail').value.trim();
-    const phone=document.getElementById('loginPhone').value.trim();
-    const password=document.getElementById('loginPassword').value.trim();
-    if(!email||!password){document.getElementById('loginError').textContent='Email and password required';return;}
+    const email = document.getElementById('loginEmail').value.trim();
+    const phone = document.getElementById('loginPhone').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    if(!email||!password){ document.getElementById('loginError').textContent='Email and password required'; return; }
+
+    // Wake server
+    document.getElementById('loginError').textContent = 'Connecting...';
+    document.getElementById('loginError').style.color = 'var(--warning)';
+    const awake = await wakeServerIfNeeded();
+    if (!awake) {
+        document.getElementById('loginError').textContent = 'Server unavailable. Please try again later.';
+        document.getElementById('loginError').style.color = 'var(--red)';
+        return;
+    }
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('loginError').style.color = 'var(--red)';
+
     try{
         await apiCall('POST','/api/auth/register',{email,password,phone:phone||undefined});
         document.getElementById('loginError').textContent='Account created! You can now log in.';
         document.getElementById('loginError').style.color='#00C853';
-    }catch(e){document.getElementById('loginError').textContent=e.message;}
+    }catch(e){ document.getElementById('loginError').textContent=e.message; }
 }
+
 function logout() {
     stopSyna(); stopAutoTrade(); token=null; user=null;
     if(tvWidget&&typeof tvWidget.remove==='function')tvWidget.remove();
@@ -649,7 +674,6 @@ async function addTestFunds() {
 function openWallet() { document.getElementById('walletModal').style.display='flex'; document.getElementById('walletBalance').textContent='ZMW '+balance.toLocaleString(undefined,{minimumFractionDigits:2}); }
 function closeWallet() { document.getElementById('walletModal').style.display='none'; }
 
-// ✅ Updated withdrawal: minimum K5000
 async function handleWithdraw() {
     if (!token) return alert('Log in first.');
     const feeRate = premium ? 0.008 : 0.01;
