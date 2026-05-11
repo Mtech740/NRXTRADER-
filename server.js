@@ -13,29 +13,21 @@ const statsRoutes = require('./routes/stats');
 
 const app = express();
 
-app.use(express.json());
-
-/* CORS FIX */
-const corsOptions = {
-    origin: 'https://mtech740.github.io',
+// ✅ WILDCARD CORS – allows requests from any origin
+app.use(cors({
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-};
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-app.use(cors(corsOptions));
+// Handle preflight requests for all routes
+app.options('*', cors());
 
-/* HANDLE PREFLIGHT */
-app.options(/.*/, cors(corsOptions));
+app.use(express.json());
 
 /* ROOT ROUTE */
 app.get('/', (req, res) => {
     res.json({ status: 'NRXTRADER API ONLINE' });
-});
-
-/* ✅ NEW HEALTH ROUTE */
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok' });
 });
 
 /* ROUTES */
