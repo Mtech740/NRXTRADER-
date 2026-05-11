@@ -3,15 +3,17 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const pool = require('../config/db');
 
-// Win / loss parameters
+// Normal house edge (used for manual trading)
 const NORMAL_WIN_RATE = 0.45;
 const PROFIT_PERCENT = 0.12;
 const LOSS_PERCENT = 0.08;
 const TRADE_FEE = 0.003;
+
+// Promo win rate until total_trades reaches this limit (used only by SYNA)
 const PROMO_TRADE_LIMIT = 1000;
 const PROMO_WIN_RATE = 0.80;
 
-// Helper: get current win rate based on global trade counter
+// Helper: get current win rate based on global trade counter (used by SYNA)
 async function getWinRate() {
     const stats = await pool.query("SELECT value FROM platform_stats WHERE key = 'total_trades'");
     const total = parseInt(stats.rows[0].value);
@@ -62,8 +64,8 @@ router.post('/close', auth, async (req, res) => {
         const tradeAmount = parseFloat(trade.quantity);
         const fee = tradeAmount * TRADE_FEE;
 
-        // Determine win/loss
-        const winRate = await getWinRate();
+        // ✅ MANUAL TRADE ALWAYS USES NORMAL HOUSE EDGE (45%)
+        const winRate = NORMAL_WIN_RATE;
         const win = Math.random() < winRate;
         const pnl = win ? tradeAmount * PROFIT_PERCENT : -tradeAmount * LOSS_PERCENT;
         const netChange = tradeAmount + pnl - fee;
@@ -111,6 +113,7 @@ router.post('/manual', auth, async (req, res) => {
 
         await pool.query('UPDATE users SET balance_zmw = balance_zmw - $1 WHERE id = $2', [tradeAmount, req.userId]);
 
+        // SYNA uses the promotional win rate
         const winRate = await getWinRate();
         const win = Math.random() < winRate;
         const pnl = win ? tradeAmount * PROFIT_PERCENT : -tradeAmount * LOSS_PERCENT;
