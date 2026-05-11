@@ -281,7 +281,6 @@
             </div>
         </div>
 
-        <!-- Open Positions + SYNA -->
         <div class="bottom-row">
             <div class="panel">
                 <h3>Open Positions</h3>
@@ -339,7 +338,6 @@
             </div>
         </div>
 
-        <!-- Recent Trades -->
         <div class="panel">
             <h3>Recent Trades</h3>
             <div class="recent-list" id="recentTradesList">
@@ -361,18 +359,16 @@ let totalTrades = 0, totalProfitAccum = 0;
 let synaActive = false, synaTimer = null;
 let synaWins = 0, synaLosses = 0;
 const SYNA_AMOUNT = 200;
+let lastSynaPrice = null;
 
 let autoTradeActive = false, autoTradeTimer = null;
-const AUTO_TRADE_INTERVAL = 8000; // 8 seconds
+const AUTO_TRADE_INTERVAL = 8000;
+let lastAutoDirection = 'BUY';
 
-// Maps
 const binanceSymbolMap = { 'BTC/USDT':'BTCUSDT', 'ETH/USDT':'ETHUSDT', 'XRP/USDT':'XRPUSDT' };
 const forexApiMap = { 'EUR/USD':'EUR', 'GBP/USD':'GBP', 'XAU/USD':'XAU' };
 const symbolMap = { 'BTC/USDT':'BINANCE:BTCUSDT', 'ETH/USDT':'BINANCE:ETHUSDT', 'XRP/USDT':'BINANCE:XRPUSDT', 'EUR/USD':'FX:EURUSD', 'GBP/USD':'FX:GBPUSD', 'XAU/USD':'OANDA:XAUUSD' };
-const tradeSymbolMap = {
-    'BTC/USDT': 'BTCUSDT', 'ETH/USDT': 'ETHUSDT', 'XRP/USDT': 'XRPUSDT',
-    'EUR/USD': 'EURUSD', 'GBP/USD': 'GBPUSD', 'XAU/USD': 'XAUUSD'
-};
+const tradeSymbolMap = { 'BTC/USDT':'BTCUSDT','ETH/USDT':'ETHUSDT','XRP/USDT':'XRPUSDT','EUR/USD':'EURUSD','GBP/USD':'GBPUSD','XAU/USD':'XAUUSD' };
 function getTradeSymbol(pair) { return tradeSymbolMap[pair] || null; }
 
 let tvWidget = null;
@@ -387,6 +383,7 @@ function loadChart(symbol) {
     });
 }
 
+// ==================== API CALL ====================
 async function apiCall(method, path, body) {
     const headers = { 'Content-Type':'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -400,6 +397,7 @@ async function apiCall(method, path, body) {
     } catch(e) { clearTimeout(t); throw e; }
 }
 
+// ==================== SERVER WAKE ====================
 async function isServerAwake() { try { await fetch(API,{method:'HEAD',cache:'no-store'}); return true; } catch(e) { return false; } }
 async function wakeServerIfNeeded() {
     if (await isServerAwake()) return true;
@@ -410,76 +408,154 @@ async function wakeServerIfNeeded() {
     return false;
 }
 
-// ---------- MANUAL TRADE (open position) ----------
+// ==================== PRICE FETCH ====================
+async function fetchLivePrice(symbol) {
+    try { const res = await fetch(`${API}/api/price?symbol=${encodeURIComponent(symbol)}`); const data = await res.json(); if (data.price) return data.price; } catch(e) {}
+    const fb = { 'BTC/USDT':80000, 'ETH/USDT':4000, 'XRP/USDT':0.5, 'EUR/USD':1.08, 'GBP/USD':1.26, 'XAU/USD':2350 };
+    return fb[symbol] || 80000;
+}
+
+// ==================== SYNA SIGNAL ====================
+async function updateSynaSignal() {
+    const price = await fetchLivePrice(selectedMarketPair);
+    document.getElementById('synaPrice').textContent = 'K' + Number(price).toLocaleString(undefined, {maximumFractionDigits:2});
+    if (lastSynaPrice === null) {
+        lastSynaPrice = price;
+        const firstDir = Math.random() < 0.5 ? 'BUY' : 'SELL';
+        document.getElementById('synaTrend').textContent = 'TREND: FIRST TRADE';
+        document.getElementById('synaTrend').className = 'green';
+        document.getElementById('synaConf').textContent = '75';
+        return { direction: firstDir, confidence: 75 };
+    }
+    const changePct = ((price - lastSynaPrice) / lastSynaPrice) * 100;
+    lastSynaPrice = price;
+    let signal = 'BUY', trend = 'BULLISH', cls = 'green', conf = 60;
+    if (changePct < 0) { signal = 'SELL'; trend = 'BEARISH'; cls = 'red-text'; }
+    else if (changePct === 0) { signal = Math.random() < 0.5 ? 'BUY' : 'SELL'; trend = signal === 'BUY' ? 'BULLISH' : 'BEARISH'; cls = signal === 'BUY' ? 'green' : 'red-text'; }
+    document.getElementById('synaTrend').textContent = 'TREND: ' + trend;
+    document.getElementById('synaTrend').className = cls;
+    document.getElementById('synaConf').textContent = conf;
+    return { direction: signal, confidence: conf };
+}
+
+// ==================== SYNA TICK ====================
+async function synaTick() {
+    if (!synaActive) return;
+    if (balance < SYNA_AMOUNT) { stopSyna(); alert('SYNA stopped: insufficient balance.'); return; }
+
+    const awake = await wakeServerIfNeeded();
+    if (!awake) {
+        document.getElementById('synaServerMsg').style.display='block';
+        document.getElementById('synaServerMsg').textContent = 'Server asleep, retrying...';
+        return;
+    }
+    document.getElementById('synaServerMsg').style.display='none';
+
+    const sig = await updateSynaSignal();
+    const symbol = getTradeSymbol(selectedMarketPair);
+    if (!symbol) { document.getElementById('synaServerMsg').textContent = 'Unsupported market'; return; }
+    document.getElementById('synaServerMsg').style.display='block';
+    document.getElementById('synaServerMsg').textContent = `Trading: ${sig.direction} ${selectedMarketPair}`;
+    try {
+        const data = await apiCall('POST','/api/trades/manual',{symbol,direction:sig.direction,amount:SYNA_AMOUNT});
+        totalTrades++;
+        if (data.win) synaWins++; else synaLosses++;
+        if (data.pnl) totalProfitAccum += data.win ? data.pnl : -data.pnl;
+        addTradeLog(`SYNA ${selectedMarketPair} - K${SYNA_AMOUNT}`, sig.direction, data.win);
+        updateBalanceFromTrade(data);
+        document.getElementById('synaServerMsg').style.display='none';
+    } catch(e) {
+        document.getElementById('synaServerMsg').textContent = 'Trade failed: ' + e.message;
+        return;
+    }
+    document.getElementById('synaWins').textContent = synaWins;
+    document.getElementById('synaLosses').textContent = synaLosses;
+    const total = synaWins+synaLosses;
+    document.getElementById('synaWinRate').textContent = total ? ((synaWins/total)*100).toFixed(1)+'%' : '0%';
+}
+
+// ==================== SYNA START/STOP ====================
+async function startSyna() {
+    if (balance < SYNA_AMOUNT) { alert('Minimum K200 balance required. Deposit first.'); return; }
+    if (!premium) {
+        try {
+            const stats = await apiCall('GET', '/api/stats/totalTrades');
+            if (stats.total_trades >= 1000) {
+                const upgrade = confirm('SYNA is now a premium feature. Upgrade to NRX Pro for K200/month?');
+                if (upgrade) handlePremium();
+                return;
+            }
+        } catch (e) {}
+    }
+    synaActive = true;
+    lastSynaPrice = null;
+    document.getElementById('synaToggleBtn').textContent = 'Stop SYNA';
+    document.getElementById('synaToggleBtn').style.background = 'var(--red)';
+    document.getElementById('synaServerMsg').style.display = 'none';
+    wakeServerIfNeeded().then(() => {
+        synaTick();
+        synaTimer = setInterval(synaTick, 30000);
+    });
+}
+function stopSyna() {
+    synaActive = false;
+    document.getElementById('synaToggleBtn').textContent = 'Start SYNA';
+    document.getElementById('synaToggleBtn').style.background = 'var(--accent)';
+    if (synaTimer) { clearInterval(synaTimer); synaTimer = null; }
+}
+function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
+
+// ==================== MANUAL TRADE (margin) ====================
 async function openManualTrade(direction) {
     if (!token) return alert('Please log in.');
     document.getElementById('tradeError').style.display = 'none';
     const amount = parseFloat(document.getElementById('tradeAmountInput').value);
-    if (isNaN(amount) || amount < 200) { document.getElementById('tradeError').textContent='Minimum trade amount is K200.'; document.getElementById('tradeError').style.display='block'; return; }
+    if (isNaN(amount) || amount < 200) { document.getElementById('tradeError').textContent='Minimum K200.'; document.getElementById('tradeError').style.display='block'; return; }
     const max = premium ? 2000 : 500;
-    if (amount > max) { document.getElementById('tradeError').textContent=`Maximum trade for your plan is K${max}.`; document.getElementById('tradeError').style.display='block'; return; }
+    if (amount > max) { document.getElementById('tradeError').textContent=`Max trade K${max}.`; document.getElementById('tradeError').style.display='block'; return; }
     if (balance < amount) { document.getElementById('tradeError').textContent='Insufficient balance.'; document.getElementById('tradeError').style.display='block'; return; }
-
     const awake = await wakeServerIfNeeded();
-    if (!awake) { document.getElementById('tradeError').textContent='Server is temporarily unavailable.'; document.getElementById('tradeError').style.display='block'; return; }
-
-    const orderData = {
-        symbol: getTradeSymbol(selectedMarketPair),
-        direction: direction.toUpperCase(),
-        amount: amount
-    };
-
+    if (!awake) { document.getElementById('tradeError').textContent='Server unavailable.'; document.getElementById('tradeError').style.display='block'; return; }
     try {
-        const data = await apiCall('POST', '/api/trades/open', orderData);
-        balance -= amount; // used margin
+        const data = await apiCall('POST','/api/trades/open',{symbol:getTradeSymbol(selectedMarketPair),direction:direction.toUpperCase(),amount});
+        balance -= amount;
         refreshUI();
         addOpenPosition(data.position_id, selectedMarketPair, direction.toUpperCase(), amount);
-        // Auto-close after 5 seconds
         setTimeout(() => closeManualTrade(data.position_id), 5000);
-    } catch (err) {
-        document.getElementById('tradeError').textContent = 'Failed: ' + (err.message||'Trade failed');
-        document.getElementById('tradeError').style.display = 'block';
+    } catch(err) {
+        document.getElementById('tradeError').textContent = 'Failed: '+(err.message||'Trade failed');
+        document.getElementById('tradeError').style.display='block';
     }
 }
-
 async function closeManualTrade(positionId) {
     try {
-        const data = await apiCall('POST', '/api/trades/close', { position_id: positionId });
+        const data = await apiCall('POST','/api/trades/close',{position_id:positionId});
         balance = data.new_balance;
         totalTrades++;
-        if (data.win) totalProfitAccum += (data.pnl||0);
-        else totalProfitAccum -= (Math.abs(data.pnl)||0);
+        if (data.win) totalProfitAccum += (data.pnl||0); else totalProfitAccum -= (Math.abs(data.pnl)||0);
         addTradeLog(`${data.symbol} - K${data.amount}`, data.direction, data.win);
         removeOpenPosition(positionId);
         refreshUI();
-    } catch (err) {
-        alert('Failed to close trade: ' + err.message);
-    }
+    } catch(err) { alert('Close failed: '+err.message); }
 }
-
-// Open positions UI
 function addOpenPosition(id, market, dir, amount) {
     const list = document.getElementById('openPositionsList');
     const noT = list.querySelector('.no-trades');
     if (noT) noT.remove();
-
     const div = document.createElement('div');
     div.className = 'position-item';
-    div.id = 'pos-' + id;
-    div.innerHTML = `<span>${market} - ${dir} K${amount} (open)</span>
-                     <button class="close-pos-btn" onclick="closeManualTrade('${id}')">Close</button>`;
+    div.id = 'pos-'+id;
+    div.innerHTML = `<span>${market} - ${dir} K${amount} (open)</span><button class="close-pos-btn" onclick="closeManualTrade('${id}')">Close</button>`;
     list.prepend(div);
 }
 function removeOpenPosition(id) {
-    const el = document.getElementById('pos-' + id);
+    const el = document.getElementById('pos-'+id);
     if (el) el.remove();
     const list = document.getElementById('openPositionsList');
-    if (list.children.length === 0) {
-        list.innerHTML = '<div class="no-trades">No open positions</div>';
-    }
+    if (list.children.length === 0) list.innerHTML = '<div class="no-trades">No open positions</div>';
 }
 
-// Recent trades log
+// ==================== TRADE LOG ====================
 function addTradeLog(desc, dir, win) {
     const d = document.createElement('div');
     d.className = 'trade-item';
@@ -490,24 +566,13 @@ function addTradeLog(desc, dir, win) {
     const list = document.getElementById('recentTradesList');
     if (list.children.length > 10) list.lastChild.remove();
 }
-
-// SYNA (unchanged, uses instant /manual route)
-async function updateSynaSignal() { /* same as before */ }
-async function synaTick() { /* same as before */ }
-function startSyna() { /* premium gate + start logic */ }
-function stopSyna() { /* stop logic */ }
-function toggleSyna() { synaActive ? stopSyna() : startSyna(); }
-
-// Auto trade (uses open/close with a short timer)
-async function autoTradeTick() {
-    if (!autoTradeActive) return;
-    await openManualTrade(lastAutoDirection);
+function updateBalanceFromTrade(data) {
+    if (data && typeof data.new_balance === 'number') { balance = data.new_balance; refreshUI(); }
 }
-let lastAutoDirection = 'BUY';
-function toggleAutoTrade() {
-    if (document.getElementById('autoTradeToggle').checked) { startAutoTrade(); }
-    else { stopAutoTrade(); }
-}
+
+// ==================== AUTO TRADE ====================
+async function autoTradeTick() { if (!autoTradeActive) return; await openManualTrade(lastAutoDirection); }
+function toggleAutoTrade() { document.getElementById('autoTradeToggle').checked ? startAutoTrade() : stopAutoTrade(); }
 function startAutoTrade() {
     if (!token) { alert('Please log in.'); document.getElementById('autoTradeToggle').checked=false; return; }
     autoTradeActive = true;
@@ -524,6 +589,7 @@ document.querySelector('.action-buttons').addEventListener('click', (e) => {
     else if (e.target.textContent.includes('Sell')) lastAutoDirection = 'SELL';
 });
 
+// ==================== UI HELPERS ====================
 function refreshUI() {
     document.getElementById('balValue').textContent = 'ZMW ' + balance.toLocaleString(undefined,{minimumFractionDigits:2});
     document.getElementById('walletBalance').textContent = 'ZMW ' + balance.toLocaleString(undefined,{minimumFractionDigits:2});
@@ -536,7 +602,7 @@ function refreshUI() {
     document.getElementById('profilePic').textContent = (user?.email?user.email[0]:'T').toUpperCase();
 }
 
-// Auth, wallet, modals (unchanged)
+// ==================== AUTH ====================
 async function handleLogin() {
     document.getElementById('loginError').textContent='';
     const email=document.getElementById('loginEmail').value.trim();
@@ -572,8 +638,11 @@ function logout() {
     document.getElementById('loginOverlay').style.display='flex';
     document.getElementById('dashboardContainer').style.display='none';
     document.getElementById('recentTradesList').innerHTML='<div class="no-trades">No trades yet</div>';
+    document.getElementById('openPositionsList').innerHTML='<div class="no-trades">No open positions</div>';
     closeWallet();closeSettings();closeMarkets();
 }
+
+// ==================== WALLET ====================
 function handleScreenshot(input) { if(input.files&&input.files[0]) alert('Screenshot: '+input.files[0].name); }
 async function confirmDeposit() { if(!document.getElementById('screenshotUpload').files[0]){alert('Upload screenshot first.');return;} alert('Deposit submitted for verification.'); }
 async function addTestFunds() {
@@ -590,10 +659,12 @@ async function handleWithdraw() {
     if(balance<amt*(1+feeRate)) return alert('Insufficient balance.');
     try { const d=await apiCall('POST','/api/wallet/withdraw',{amount:amt}); balance=d.new_balance; refreshUI(); } catch(e) { alert(e.message); }
 }
+
+// ==================== MODALS ====================
 function openMarkets() { document.getElementById('marketsModal').style.display='flex'; }
 function closeMarkets() { document.getElementById('marketsModal').style.display='none'; }
-function selectMarket(pair) { selectedMarketPair=pair; document.getElementById('selectedMarket').textContent=pair; document.getElementById('marketSelector').value=pair; closeMarkets(); loadChart(selectedMarketPair); updateSynaSignal(); }
-function changeMarket() { selectedMarketPair=document.getElementById('marketSelector').value; document.getElementById('selectedMarket').textContent=selectedMarketPair; loadChart(selectedMarketPair); updateSynaSignal(); }
+function selectMarket(pair) { selectedMarketPair=pair; document.getElementById('selectedMarket').textContent=pair; document.getElementById('marketSelector').value=pair; closeMarkets(); loadChart(selectedMarketPair); }
+function changeMarket() { selectedMarketPair=document.getElementById('marketSelector').value; document.getElementById('selectedMarket').textContent=selectedMarketPair; loadChart(selectedMarketPair); }
 function openSettings() { document.getElementById('settingsModal').style.display='flex'; document.getElementById('settingsEmail').textContent=user?user.email:''; document.getElementById('settingsPlan').textContent=premium?(trial?'Trial Pro':'Pro'):'Free'; document.getElementById('settingsBalance').textContent='ZMW '+balance.toLocaleString(undefined,{minimumFractionDigits:2}); }
 function closeSettings() { document.getElementById('settingsModal').style.display='none'; }
 async function handlePremium() {
@@ -603,9 +674,33 @@ async function handlePremium() {
     if(confirm('Start 7-day free trial of NRX Pro?')){ try{await apiCall('POST','/api/premium/trial');trial=true;premium=true;refreshUI();}catch(e){alert(e.message);} }
 }
 
-// SYNA logic (same as before, using instant /manual)
-// ... (include updateSynaSignal, synaTick, startSyna, stopSyna as before, but note startSyna has premium gate)
-// For brevity, the full SYNA block is identical to the previous final version.
+// ==================== SIDEBAR ====================
+document.querySelectorAll('.sidebar li').forEach(li => {
+    li.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar li').forEach(x => x.classList.remove('active'));
+        li.classList.add('active');
+        const tab = li.dataset.tab;
+        if (tab === 'markets') openMarkets();
+        if (tab === 'wallet') openWallet();
+        if (tab === 'settings') openSettings();
+        if (tab === 'dashboard') { closeMarkets(); closeWallet(); closeSettings(); }
+        if (tab === 'trade') document.getElementById('tradeAmountInput').focus();
+        if (tab === 'syna') document.querySelector('.panel').scrollIntoView({ behavior:'smooth' });
+    });
+});
+
+window.onload = () => {
+    if (token && user) {
+        apiCall('GET','/api/wallet/balance').then(data => {
+            balance = parseFloat(data.balance_zmw)||0;
+            premium = data.is_premium||false;
+            trial = (user.premium_trial_ends_at && new Date(user.premium_trial_ends_at) > new Date())||false;
+            document.getElementById('loginOverlay').style.display='none';
+            document.getElementById('dashboardContainer').style.display='flex';
+            refreshUI(); loadChart(selectedMarketPair);
+        }).catch(() => { logout(); });
+    } else { document.getElementById('loginOverlay').style.display='flex'; }
+};
 </script>
 </body>
 </html>
