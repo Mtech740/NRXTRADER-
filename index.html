@@ -604,7 +604,6 @@ async function handleLogin() {
     const password = document.getElementById('loginPassword').value.trim();
     if(!email||!password){ document.getElementById('loginError').textContent='Email and password required'; return; }
 
-    // Wake server
     document.getElementById('loginError').textContent = 'Connecting...';
     document.getElementById('loginError').style.color = 'var(--warning)';
     const awake = await wakeServerIfNeeded();
@@ -633,7 +632,6 @@ async function handleRegister() {
     const password = document.getElementById('loginPassword').value.trim();
     if(!email||!password){ document.getElementById('loginError').textContent='Email and password required'; return; }
 
-    // Wake server
     document.getElementById('loginError').textContent = 'Connecting...';
     document.getElementById('loginError').style.color = 'var(--warning)';
     const awake = await wakeServerIfNeeded();
@@ -722,6 +720,9 @@ document.querySelectorAll('.sidebar li').forEach(li => {
 });
 
 window.onload = () => {
+    // Pre‑wake the server on page load
+    fetch(API, { method: 'HEAD', cache: 'no-store' }).catch(() => {});
+
     if (token && user) {
         apiCall('GET','/api/wallet/balance').then(data => {
             balance = parseFloat(data.balance_zmw)||0;
