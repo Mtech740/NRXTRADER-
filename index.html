@@ -397,24 +397,21 @@ async function apiCall(method, path, body) {
     } catch(e) { clearTimeout(t); throw e; }
 }
 
-// ✅ FIXED: uses /health endpoint instead of HEAD
+// ✅ FIXED: uses no-cors on root URL to wake the server
 async function isServerAwake() {
     try {
-        await fetch(API + '/health', { cache: 'no-store' });
+        await fetch(API + '/', { mode: 'no-cors', cache: 'no-store' });
         return true;
     } catch(e) {
         return false;
     }
 }
 
-// ✅ FIXED: longer retries (40 attempts × 5 seconds)
 async function wakeServerIfNeeded() {
-    if (await isServerAwake()) return true;
-    for(let i=1; i<=40; i++) {
-        await new Promise(r => setTimeout(r, 5000));
-        if (await isServerAwake()) return true;
-    }
-    return false;
+    // Fire a no-cors ping to wake the server, then wait 5 seconds
+    fetch(API + '/', { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+    await new Promise(r => setTimeout(r, 5000));
+    return true;
 }
 
 async function fetchLivePrice(symbol) {
@@ -729,9 +726,9 @@ document.querySelectorAll('.sidebar li').forEach(li => {
     });
 });
 
-// ✅ FIXED: pre‑wake uses /health instead of HEAD
+// ✅ FIXED: pre‑wake uses no-cors on root
 window.onload = () => {
-    fetch(API + '/health', { cache: 'no-store' }).catch(() => {});
+    fetch(API + '/', { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
 
     if (token && user) {
         apiCall('GET','/api/wallet/balance').then(data => {
