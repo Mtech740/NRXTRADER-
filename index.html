@@ -397,11 +397,21 @@ async function apiCall(method, path, body) {
     } catch(e) { clearTimeout(t); throw e; }
 }
 
-async function isServerAwake() { try { await fetch(API,{method:'HEAD',cache:'no-store'}); return true; } catch(e) { return false; } }
+// ✅ FIXED: uses /health endpoint instead of HEAD
+async function isServerAwake() {
+    try {
+        await fetch(API + '/health', { cache: 'no-store' });
+        return true;
+    } catch(e) {
+        return false;
+    }
+}
+
+// ✅ FIXED: longer retries (40 attempts × 5 seconds)
 async function wakeServerIfNeeded() {
     if (await isServerAwake()) return true;
-    for(let i=1; i<=20; i++) {
-        await new Promise(r => setTimeout(r, 3000));
+    for(let i=1; i<=40; i++) {
+        await new Promise(r => setTimeout(r, 5000));
         if (await isServerAwake()) return true;
     }
     return false;
@@ -719,9 +729,9 @@ document.querySelectorAll('.sidebar li').forEach(li => {
     });
 });
 
+// ✅ FIXED: pre‑wake uses /health instead of HEAD
 window.onload = () => {
-    // Pre‑wake the server on page load
-    fetch(API, { method: 'HEAD', cache: 'no-store' }).catch(() => {});
+    fetch(API + '/health', { cache: 'no-store' }).catch(() => {});
 
     if (token && user) {
         apiCall('GET','/api/wallet/balance').then(data => {
