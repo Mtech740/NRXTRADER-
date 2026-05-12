@@ -13,24 +13,27 @@ const statsRoutes = require('./routes/stats');
 
 const app = express();
 
+// ✅ Updated CORS options – allow multiple origins
 const corsOptions = {
     origin: [
         'https://mtech740.github.io',
-        'https://trader.nrxproject.com'
+        'https://trader.nrxproject.com',
+        'http://localhost:5500',
+        'http://127.0.0.1:5500',
+        'http://localhost:3000',
+        'http://localhost:8080'
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 };
 
-// CORS headers
+// Manual CORS headers (optional, but kept for compatibility)
 app.use((req, res, next) => {
     const origin = req.headers.origin;
-
     if (origin && corsOptions.origin.includes(origin)) {
         res.header('Access-Control-Allow-Origin', origin);
     }
-
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -38,8 +41,6 @@ app.use((req, res, next) => {
 });
 
 app.use(cors(corsOptions));
-
-// Preflight
 app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
