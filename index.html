@@ -6,6 +6,7 @@
     <title>NRXTRADER – SYNA Trading Engine</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* (Your existing CSS unchanged) */
         :root {
             --bg: #0a0e17;
             --surface: #111827;
@@ -397,12 +398,13 @@ async function apiCall(method, path, body) {
     } catch(e) { clearTimeout(t); throw e; }
 }
 
-// Fixed: use root path '/' instead of '/api/health'
+// Wake check still exists but we won't use it for login/register
 async function isServerAwake() {
     try {
         await fetch(API + '/', { cache: 'no-store' });
         return true;
     } catch(e) {
+        console.warn('Server wake check failed:', e);
         return false;
     }
 }
@@ -412,6 +414,7 @@ async function wakeServerIfNeeded() {
         await fetch(API + '/', { cache: 'no-store' });
         return true;
     } catch (e) {
+        console.warn('Server wake check failed:', e);
         return false;
     }
 }
@@ -607,7 +610,7 @@ function refreshUI() {
     document.getElementById('profilePic').textContent = (user?.email?user.email[0]:'T').toUpperCase();
 }
 
-// ==================== AUTH (WITH WAKE-UP) ====================
+// ==================== AUTH (WITHOUT SERVER WAKE CHECK) ====================
 async function handleLogin() {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
@@ -615,12 +618,7 @@ async function handleLogin() {
 
     document.getElementById('loginError').textContent = 'Connecting...';
     document.getElementById('loginError').style.color = 'var(--warning)';
-    const awake = await wakeServerIfNeeded();
-    if (!awake) {
-        document.getElementById('loginError').textContent = 'Server unavailable. Please try again later.';
-        document.getElementById('loginError').style.color = 'var(--red)';
-        return;
-    }
+    // Removed awake check – go directly to API call
     document.getElementById('loginError').textContent = '';
     document.getElementById('loginError').style.color = 'var(--red)';
 
@@ -632,7 +630,10 @@ async function handleLogin() {
         document.getElementById('loginOverlay').style.display='none';
         document.getElementById('dashboardContainer').style.display='flex';
         refreshUI();loadChart(selectedMarketPair);
-    }catch(e){ document.getElementById('loginError').textContent=e.message; }
+    }catch(e){ 
+        console.error('Login error:', e);
+        document.getElementById('loginError').textContent = e.message || 'Login failed. Check console for details.';
+    }
 }
 
 async function handleRegister() {
@@ -643,12 +644,7 @@ async function handleRegister() {
 
     document.getElementById('loginError').textContent = 'Connecting...';
     document.getElementById('loginError').style.color = 'var(--warning)';
-    const awake = await wakeServerIfNeeded();
-    if (!awake) {
-        document.getElementById('loginError').textContent = 'Server unavailable. Please try again later.';
-        document.getElementById('loginError').style.color = 'var(--red)';
-        return;
-    }
+    // Removed awake check
     document.getElementById('loginError').textContent = '';
     document.getElementById('loginError').style.color = 'var(--red)';
 
@@ -656,7 +652,10 @@ async function handleRegister() {
         await apiCall('POST','/api/auth/register',{email,password,phone:phone||undefined});
         document.getElementById('loginError').textContent='Account created! You can now log in.';
         document.getElementById('loginError').style.color='#00C853';
-    }catch(e){ document.getElementById('loginError').textContent=e.message; }
+    }catch(e){ 
+        console.error('Register error:', e);
+        document.getElementById('loginError').textContent = e.message || 'Registration failed. Check console.';
+    }
 }
 
 function logout() {
@@ -728,7 +727,6 @@ document.querySelectorAll('.sidebar li').forEach(li => {
     });
 });
 
-// Fixed: pre‑wake uses root path '/'
 window.onload = () => {
     fetch(API + '/', { cache: 'no-store' }).catch(() => {});
 
