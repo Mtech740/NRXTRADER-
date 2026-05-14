@@ -3,6 +3,8 @@ const initDatabase = require('./dbInit');
 
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const WebSocket = require('ws');
 
 const authRoutes = require('./routes/auth');
 const walletRoutes = require('./routes/wallet');
@@ -10,10 +12,14 @@ const tradesRoutes = require('./routes/trades');
 const premiumRoutes = require('./routes/premium');
 const priceRoutes = require('./routes/price');
 const statsRoutes = require('./routes/stats');
+const mt5Routes = require('./routes/mt5');        // new: EA registration, API keys
+const wsHandler = require('./websocket');         // new: WebSocket signal handler
 
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-// ✅ Updated CORS options – allow multiple origins
+// CORS configuration (already correct)
 const corsOptions = {
     origin: [
         'https://mtech740.github.io',
@@ -28,7 +34,6 @@ const corsOptions = {
     credentials: true
 };
 
-// Manual CORS headers (optional, but kept for compatibility)
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin && corsOptions.origin.includes(origin)) {
@@ -42,32 +47,34 @@ app.use((req, res, next) => {
 
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
-
 app.use(express.json());
 
+// Health check
 app.get('/', (req, res) => {
     res.json({ status: 'NRXTRADER API ONLINE' });
 });
-
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', server: 'NRXTRADER API ONLINE' });
 });
 
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradesRoutes);
 app.use('/api/premium', premiumRoutes);
 app.use('/api/price', priceRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/mt5', mt5Routes);   // MT5 registration & status
+
+// WebSocket connection handling
+wss.on('connection', (ws, req) => {
+    wsHandler(ws, req, wss);
+});
 
 initDatabase();
 
-app.use((err, req, res, next) => {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-});
-
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`NRXTRADER backend running on port ${PORT}`);
+    console.log(`WebSocket server ready at ws://localhost:${PORT}`);
 });
