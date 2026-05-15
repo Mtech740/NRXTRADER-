@@ -1,4 +1,4 @@
--- MT5 accounts linked to users
+-- MT5 accounts table
 CREATE TABLE IF NOT EXISTS mt5_accounts (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -8,13 +8,13 @@ CREATE TABLE IF NOT EXISTS mt5_accounts (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Track trial signal usage (3 free signals for new users)
+-- Trial usage (3 free signals)
 CREATE TABLE IF NOT EXISTS mt5_trial_usage (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     remaining_signals INTEGER DEFAULT 3
 );
 
--- Log of signals sent to EA
+-- Optional: logs for signals sent to MT5
 CREATE TABLE IF NOT EXISTS mt5_signal_history (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS mt5_signal_history (
     sent_at TIMESTAMP DEFAULT NOW()
 );
 
--- Log of trade results reported by EA
+-- Optional: logs for trade results from EA
 CREATE TABLE IF NOT EXISTS mt5_trade_logs (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
