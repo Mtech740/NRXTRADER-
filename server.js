@@ -12,14 +12,14 @@ const tradesRoutes = require('./routes/trades');
 const premiumRoutes = require('./routes/premium');
 const priceRoutes = require('./routes/price');
 const statsRoutes = require('./routes/stats');
-const mt5Routes = require('./routes/mt5');        // new: EA registration, API keys
-const wsHandler = require('./websocket');         // new: WebSocket signal handler
+const mt5Routes = require('./routes/mt5');        // EA registration, API keys
+const wsHandler = require('./websocket');         // WebSocket signal handler
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// CORS configuration (already correct)
+// CORS configuration
 const corsOptions = {
     origin: [
         'https://mtech740.github.io',
@@ -65,6 +65,55 @@ app.use('/api/premium', premiumRoutes);
 app.use('/api/price', priceRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/mt5', mt5Routes);   // MT5 registration & status
+
+// 🔧 TEMPORARY: Create MT5 tables (remove after running once)
+app.get('/api/setup-mt5-tables', async (req, res) => {
+    try {
+        const pool = require('./config/db');
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS mt5_accounts (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                api_key TEXT NOT NULL UNIQUE,
+                account_id TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS mt5_trial_usage (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                remaining_signals INTEGER DEFAULT 3
+            );
+            CREATE TABLE IF NOT EXISTS mt5_signal_history (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                account_id TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                action TEXT NOT NULL,
+                lot_size DECIMAL(10,2),
+                stop_loss DECIMAL(10,5),
+                take_profit DECIMAL(10,5),
+                sent_at TIMESTAMP DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS mt5_trade_logs (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                account_id TEXT NOT NULL,
+                request_id TEXT,
+                symbol TEXT,
+                action TEXT,
+                lot_size DECIMAL(10,2),
+                status TEXT,
+                order_id INTEGER,
+                error TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        res.send('MT5 tables created successfully!');
+    } catch (err) {
+        console.error('Setup error:', err);
+        res.status(500).send('Error: ' + err.message);
+    }
+});
 
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
