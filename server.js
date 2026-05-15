@@ -15,9 +15,12 @@ app.get('/api/setup-mt5-tables', async (req, res) => {
                 remaining_signals INTEGER DEFAULT 3
             );
             
-            -- Safer foreign key creation using DO block
+            -- Safely create the foreign key constraint
             DO $$ BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mt5_accounts_user_id_fkey') THEN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint 
+                    WHERE conname = 'mt5_accounts_user_id_fkey'
+                ) THEN
                     ALTER TABLE mt5_accounts
                     ADD CONSTRAINT mt5_accounts_user_id_fkey
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
