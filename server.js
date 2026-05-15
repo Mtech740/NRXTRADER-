@@ -67,29 +67,33 @@ app.use('/api/mt5', mt5Routes);
 app.get('/api/setup-mt5-tables', async (req, res) => {
     try {
         const pool = require('./config/db');
+        // Drop old tables if they exist (clean slate)
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS mt5_accounts (
+            DROP TABLE IF EXISTS mt5_trade_logs;
+            DROP TABLE IF EXISTS mt5_signal_history;
+            DROP TABLE IF EXISTS mt5_trial_usage;
+            DROP TABLE IF EXISTS mt5_accounts;
+        `);
+        // Create tables with correct UUID foreign keys
+        await pool.query(`
+            CREATE TABLE mt5_accounts (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
+                user_id UUID NOT NULL,
                 api_key TEXT NOT NULL UNIQUE,
                 account_id TEXT NOT NULL UNIQUE,
                 created_at TIMESTAMP DEFAULT NOW(),
                 updated_at TIMESTAMP DEFAULT NOW()
             );
-            CREATE TABLE IF NOT EXISTS mt5_trial_usage (
-                user_id INTEGER PRIMARY KEY,
+            CREATE TABLE mt5_trial_usage (
+                user_id UUID PRIMARY KEY,
                 remaining_signals INTEGER DEFAULT 3
             );
-            DO $$ BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mt5_accounts_user_id_fkey') THEN
-                    ALTER TABLE mt5_accounts
-                    ADD CONSTRAINT mt5_accounts_user_id_fkey
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-                END IF;
-            END $$;
-            CREATE TABLE IF NOT EXISTS mt5_signal_history (
+            ALTER TABLE mt5_accounts
+                ADD CONSTRAINT mt5_accounts_user_id_fkey
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+            CREATE TABLE mt5_signal_history (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
+                user_id UUID NOT NULL,
                 account_id TEXT NOT NULL,
                 symbol TEXT NOT NULL,
                 action TEXT NOT NULL,
@@ -98,9 +102,9 @@ app.get('/api/setup-mt5-tables', async (req, res) => {
                 take_profit DECIMAL(10,5),
                 sent_at TIMESTAMP DEFAULT NOW()
             );
-            CREATE TABLE IF NOT EXISTS mt5_trade_logs (
+            CREATE TABLE mt5_trade_logs (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
+                user_id UUID NOT NULL,
                 account_id TEXT NOT NULL,
                 request_id TEXT,
                 symbol TEXT,
@@ -112,7 +116,7 @@ app.get('/api/setup-mt5-tables', async (req, res) => {
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `);
-        res.send('MT5 tables created successfully!');
+        res.send('MT5 tables created successfully with UUID foreign keys!');
     } catch (err) {
         console.error('Setup error:', err);
         res.status(500).send('Error: ' + err.message);
