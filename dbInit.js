@@ -14,6 +14,8 @@ async function initDatabase() {
                 is_premium BOOLEAN DEFAULT false,
                 premium_trial_ends_at TIMESTAMP,
                 premium_subscription_end TIMESTAMP,
+                telegram_id VARCHAR(50) UNIQUE,
+                subscription_plan VARCHAR(20) DEFAULT 'free',
                 created_at TIMESTAMP DEFAULT NOW()
             );
 
@@ -55,6 +57,52 @@ async function initDatabase() {
                 ended_at TIMESTAMP,
                 status VARCHAR DEFAULT 'active'
             );
+
+            -- MT5 tables (UUID foreign keys)
+            CREATE TABLE IF NOT EXISTS mt5_accounts (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL,
+                api_key TEXT NOT NULL UNIQUE,
+                account_id TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS mt5_trial_usage (
+                user_id UUID PRIMARY KEY,
+                remaining_signals INTEGER DEFAULT 3
+            );
+
+            CREATE TABLE IF NOT EXISTS mt5_signal_history (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL,
+                account_id TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                action TEXT NOT NULL,
+                lot_size DECIMAL(10,2),
+                stop_loss DECIMAL(10,5),
+                take_profit DECIMAL(10,5),
+                sent_at TIMESTAMP DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS mt5_trade_logs (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL,
+                account_id TEXT NOT NULL,
+                request_id TEXT,
+                symbol TEXT,
+                action TEXT,
+                lot_size DECIMAL(10,2),
+                status TEXT,
+                order_id INTEGER,
+                error TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+
+            -- Add foreign key constraints for mt5 tables (if not already added)
+            ALTER TABLE mt5_accounts
+                ADD CONSTRAINT IF NOT EXISTS mt5_accounts_user_id_fkey
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
         `);
         console.log('Database tables ready.');
     } catch (err) {
