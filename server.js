@@ -14,6 +14,7 @@ const priceRoutes = require('./routes/price');
 const statsRoutes = require('./routes/stats');
 const mt5Routes = require('./routes/mt5');
 const wsHandler = require('./websocket');
+const { bot, sendSignalToTelegram } = require('./telegramBot'); // ✅ Telegram bot
 
 const app = express();
 const server = http.createServer(app);
@@ -55,6 +56,7 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', server: 'NRXTRADER API ONLINE' });
 });
 
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradesRoutes);
@@ -63,6 +65,28 @@ app.use('/api/price', priceRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/mt5', mt5Routes);
 
+// ✅ New route: Link Telegram ID to logged-in user
+app.post('/api/link-telegram', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.userId;
+        const { telegram_id } = req.body;
+        if (!telegram_id) return res.status(400).json({ error: 'telegram_id required' });
+        const pool = require('./config/db');
+        await pool.query('UPDATE users SET telegram_id = $1 WHERE id = $2', [telegram_id, userId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Link telegram error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// WebSocket connection handling
 wss.on('connection', (ws, req) => {
     wsHandler(ws, req, wss);
 });
@@ -74,3 +98,6 @@ server.listen(PORT, () => {
     console.log(`NRXTRADER backend running on port ${PORT}`);
     console.log(`WebSocket server ready at ws://localhost:${PORT}`);
 });
+
+// Make sendSignalToTelegram available globally if needed (optional)
+module.exports = { sendSignalToTelegram };
