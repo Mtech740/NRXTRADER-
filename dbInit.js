@@ -16,6 +16,8 @@ async function initDatabase() {
                 premium_subscription_end TIMESTAMP,
                 telegram_id VARCHAR(50) UNIQUE,
                 subscription_plan VARCHAR(20) DEFAULT 'free',
+                trial_signals_used INTEGER DEFAULT 0,
+                signal_subscription_end TIMESTAMP,
                 created_at TIMESTAMP DEFAULT NOW()
             );
 
@@ -97,6 +99,37 @@ async function initDatabase() {
                 order_id INTEGER,
                 error TEXT,
                 created_at TIMESTAMP DEFAULT NOW()
+            );
+
+            -- New tables for WhatsApp signal dispatch system
+            CREATE TABLE IF NOT EXISTS user_assets (
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                asset_symbol VARCHAR(20) NOT NULL,
+                PRIMARY KEY (user_id, asset_symbol)
+            );
+
+            CREATE TABLE IF NOT EXISTS auto_signals (
+                id SERIAL PRIMARY KEY,
+                asset_symbol VARCHAR(20) NOT NULL,
+                signal_type VARCHAR(4) CHECK (signal_type IN ('BUY','SELL')),
+                entry_price DECIMAL(10,5),
+                take_profit DECIMAL(10,5),
+                stop_loss DECIMAL(10,5),
+                confidence VARCHAR(20),
+                generated_at TIMESTAMP DEFAULT NOW(),
+                sent_to_admin BOOLEAN DEFAULT FALSE
+            );
+
+            CREATE TABLE IF NOT EXISTS signal_delivery_log (
+                id SERIAL PRIMARY KEY,
+                user_id UUID REFERENCES users(id),
+                asset_symbol VARCHAR(20),
+                signal_type VARCHAR(4),
+                entry_price DECIMAL(10,5),
+                take_profit DECIMAL(10,5),
+                stop_loss DECIMAL(10,5),
+                confidence VARCHAR(20),
+                sent_at TIMESTAMP DEFAULT NOW()
             );
 
             -- Add foreign key constraints for mt5 tables (if not already added)
