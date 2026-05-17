@@ -14,9 +14,9 @@ const premiumRoutes = require('./routes/premium');
 const priceRoutes = require('./routes/price');
 const statsRoutes = require('./routes/stats');
 const mt5Routes = require('./routes/mt5');
-const userRoutes = require('./routes/user');          // ✅ new: user assets & trial
+const userRoutes = require('./routes/user');
 const wsHandler = require('./websocket');
-// const { bot, sendSignalToTelegram } = require('./telegramBot'); // ✅ optional, comment out for now
+// const { bot, sendSignalToTelegram } = require('./telegramBot'); // optional
 
 const app = express();
 const server = http.createServer(app);
@@ -66,9 +66,9 @@ app.use('/api/premium', premiumRoutes);
 app.use('/api/price', priceRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/mt5', mt5Routes);
-app.use('/api/user', userRoutes);                    // ✅ user asset selection & trial
+app.use('/api/user', userRoutes);
 
-// ✅ Telegram linking (optional – keep if you want to support later)
+// Optional Telegram linking (keep or remove)
 app.post('/api/link-telegram', async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -90,7 +90,6 @@ app.post('/api/link-telegram', async (req, res) => {
 });
 
 // ===================== ADMIN SIGNAL PANEL =====================
-// Serve a simple admin panel (password protected by secret key)
 app.get('/admin', (req, res) => {
     const secret = req.query.secret;
     if (!secret || secret !== process.env.ADMIN_SECRET) {
@@ -187,29 +186,21 @@ app.get('/admin', (req, res) => {
     `);
 });
 
-// API endpoint: get latest unsent signal + recipient numbers
-app.post('/api/admin/latest-signal', async (req, res) => {
+// GET latest unsent signal (admin panel uses GET)
+app.get('/api/admin/latest-signal', async (req, res) => {
     const { secret } = req.query;
     if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     try {
         const pool = require('./config/db');
-        // Get the most recent unsent signal
         const signalResult = await pool.query(`
             SELECT * FROM auto_signals WHERE sent_to_admin = FALSE ORDER BY generated_at DESC LIMIT 1
         `);
-        if (signalResult.rows.length === 0) {
-            return res.json({ error: 'No pending signals' });
-        }
+        if (signalResult.rows.length === 0) return res.json({ error: 'No pending signals' });
         const signal = signalResult.rows[0];
-        // Get WhatsApp numbers of users who selected this asset and have active subscription or trial remaining
         const usersResult = await pool.query(`
             SELECT u.phone FROM users u
             JOIN user_assets ua ON u.id = ua.user_id
-            WHERE ua.asset_symbol = $1
-            AND (
-                u.signal_subscription_end > NOW()
-                OR u.trial_signals_used < 3
-            )
+            WHERE ua.asset_symbol = $1 AND (u.signal_subscription_end > NOW() OR u.trial_signals_used < 3)
         `, [signal.asset_symbol]);
         const whatsapp_numbers = usersResult.rows.map(r => r.phone).filter(p => p);
         res.json({
@@ -231,7 +222,7 @@ app.post('/api/admin/latest-signal', async (req, res) => {
     }
 });
 
-// Mark a signal as sent (so it won't appear again)
+// Mark a signal as sent
 app.post('/api/admin/mark-sent', async (req, res) => {
     const { secret, signal_id } = req.body;
     if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
@@ -245,12 +236,45 @@ app.post('/api/admin/mark-sent', async (req, res) => {
     }
 });
 
+// Admin: manually activate subscription after payment verification
+app.post('/api/admin/activate-subscription', async (req, res) => {
+    const { secret, userId, plan, durationDays = 30 } = req.body;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    if (!userId || !plan) return res.status(400).json({ error: 'userId and plan required' });
+    try {
+        const pool = require('./config/db');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + durationDays);
+        await pool.query(
+            `UPDATE users SET subscription_plan = $1, signal_subscription_end = $2, trial_signals_used = 3 WHERE id = $3`,
+            [plan, expiresAt, userId]
+        );
+        res.json({ success: true, message: `User ${userId} activated on ${plan} plan until ${expiresAt}` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
     wsHandler(ws, req, wss);
 });
 
 initDatabase();
+
+// ===================== OPTIONAL: Automatic signal generation cron job =====================
+// Uncomment the following block if you want SYNA to automatically generate signals every minute
+/*
+const { generateAndStoreSignal } = require('./routes/trades');
+const SUPPORTED_ASSETS = ['XAUUSD', 'US30', 'NAS100', 'EURUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'BTCUSD', 'ETHUSD'];
+setInterval(async () => {
+    for (const asset of SUPPORTED_ASSETS) {
+        try { await generateAndStoreSignal(asset); } catch(e) { console.error(`Signal generation error for ${asset}:`, e); }
+    }
+    console.log('Auto signal generation tick');
+}, 60000); // every minute
+*/
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
