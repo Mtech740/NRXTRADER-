@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
+const auth = require('../middleware/auth'); // we need auth middleware
 
 router.post('/register', async (req, res) => {
     const { email, phone, password } = req.body;
@@ -42,6 +43,37 @@ router.post('/login', async (req, res) => {
             }
         });
     } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ==================== NEW ENDPOINTS for frontend ====================
+
+// Get current user's subscription info and phone
+router.get('/me', auth, async (req, res) => {
+    try {
+        const user = await pool.query(
+            `SELECT email, phone, subscription_plan, signal_subscription_end, trial_signals_used 
+             FROM users WHERE id = $1`,
+            [req.userId]
+        );
+        if (user.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json(user.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Update WhatsApp phone number
+router.post('/update-phone', auth, async (req, res) => {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Phone required' });
+    try {
+        await pool.query('UPDATE users SET phone = $1 WHERE id = $2', [phone, req.userId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ error: 'Server error' });
     }
 });
