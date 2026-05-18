@@ -14,7 +14,6 @@ const premiumRoutes = require('./routes/premium');
 const priceRoutes = require('./routes/price');
 const statsRoutes = require('./routes/stats');
 const mt5Routes = require('./routes/mt5');
-const userRoutes = require('./routes/user');
 const wsHandler = require('./websocket');
 
 const app = express();
@@ -57,6 +56,7 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', server: 'NRXTRADER API ONLINE' });
 });
 
+// ======================== API ROUTES ========================
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/trades', tradesRoutes);
@@ -64,9 +64,52 @@ app.use('/api/premium', premiumRoutes);
 app.use('/api/price', priceRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/mt5', mt5Routes);
-app.use('/api/user', userRoutes);
 
-// ===================== ADMIN PANEL =====================
+// ======================== USER ASSET & TRIAL ROUTES (inline) ========================
+const authMiddleware = require('./middleware/auth');
+const pool = require('./config/db');
+
+app.get('/api/user/assets', authMiddleware, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT asset_symbol FROM user_assets WHERE user_id = $1', [req.userId]);
+        res.json({ assets: result.rows.map(r => r.asset_symbol) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/user/assets', authMiddleware, async (req, res) => {
+    const { assets } = req.body;
+    if (!Array.isArray(assets)) return res.status(400).json({ error: 'Assets must be an array' });
+    try {
+        await pool.query('BEGIN');
+        await pool.query('DELETE FROM user_assets WHERE user_id = $1', [req.userId]);
+        for (const asset of assets) {
+            await pool.query('INSERT INTO user_assets (user_id, asset_symbol) VALUES ($1, $2)', [req.userId, asset]);
+        }
+        await pool.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await pool.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.get('/api/user/trial-remaining', authMiddleware, async (req, res) => {
+    try {
+        const user = await pool.query('SELECT trial_signals_used FROM users WHERE id = $1', [req.userId]);
+        const used = parseInt(user.rows[0].trial_signals_used) || 0;
+        const remaining = Math.max(0, 3 - used);
+        res.json({ remaining });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ======================== ADMIN PANEL ========================
 app.get('/admin', (req, res) => {
     const secret = req.query.secret;
     if (!secret || secret !== process.env.ADMIN_SECRET) {
@@ -136,7 +179,6 @@ app.get('/api/admin/latest-signal', async (req, res) => {
     const { secret } = req.query;
     if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     try {
-        const pool = require('./config/db');
         const signalResult = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin = FALSE ORDER BY generated_at DESC LIMIT 1`);
         if (signalResult.rows.length === 0) return res.json({ error: 'No pending signals' });
         const signal = signalResult.rows[0];
@@ -145,18 +187,35 @@ app.get('/api/admin/latest-signal', async (req, res) => {
             JOIN user_assets ua ON u.id = ua.user_id
             WHERE ua.asset_symbol = $1 AND (u.signal_subscription_end > NOW() OR u.trial_signals_used < 3)
         `, [signal.asset_symbol]);
-        res.json({ signal: { id: signal.id, asset_symbol: signal.asset_symbol, signal_type: signal.signal_type, entry_price: parseFloat(signal.entry_price), take_profit: parseFloat(signal.take_profit), stop_loss: parseFloat(signal.stop_loss), confidence: signal.confidence, generated_at: signal.generated_at }, whatsapp_numbers: usersResult.rows.map(r => r.phone).filter(p => p) });
-    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+        res.json({
+            signal: {
+                id: signal.id,
+                asset_symbol: signal.asset_symbol,
+                signal_type: signal.signal_type,
+                entry_price: parseFloat(signal.entry_price),
+                take_profit: parseFloat(signal.take_profit),
+                stop_loss: parseFloat(signal.stop_loss),
+                confidence: signal.confidence,
+                generated_at: signal.generated_at
+            },
+            whatsapp_numbers: usersResult.rows.map(r => r.phone).filter(p => p)
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 app.post('/api/admin/mark-sent', async (req, res) => {
     const { secret, signal_id } = req.body;
     if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     try {
-        const pool = require('./config/db');
         await pool.query('UPDATE auto_signals SET sent_to_admin = TRUE WHERE id = $1', [signal_id]);
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 app.post('/api/admin/activate-subscription', async (req, res) => {
@@ -164,15 +223,27 @@ app.post('/api/admin/activate-subscription', async (req, res) => {
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     if (!userId || !plan) return res.status(400).json({ error: 'userId and plan required' });
     try {
-        const pool = require('./config/db');
-        const expiresAt = new Date(Date.now() + durationDays * 86400000);
-        await pool.query(`UPDATE users SET subscription_plan = $1, signal_subscription_end = $2, trial_signals_used = 3 WHERE id = $3`, [plan, expiresAt, userId]);
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + durationDays);
+        await pool.query(
+            `UPDATE users SET subscription_plan = $1, signal_subscription_end = $2, trial_signals_used = 3 WHERE id = $3`,
+            [plan, expiresAt, userId]
+        );
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
-wss.on('connection', (ws, req) => { wsHandler(ws, req, wss); });
+// ======================== WEBSOCKET & SERVER START ========================
+wss.on('connection', (ws, req) => {
+    wsHandler(ws, req, wss);
+});
+
 initDatabase();
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => { console.log(`NRXTRADER backend running on port ${PORT}`); });
+server.listen(PORT, () => {
+    console.log(`NRXTRADER backend running on port ${PORT}`);
+});
