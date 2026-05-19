@@ -6,291 +6,133 @@
     <title>NRXTRADER – SYNA Signals</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: #0a0e17;
-            color: #e2e8f0;
-            line-height: 1.5;
-            padding: 16px;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .card {
-            background: #111827;
-            border: 1px solid #1f2937;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        h1, h2, h3 { color: #3b82f6; }
-        button, .btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        button:hover { filter: brightness(1.1); }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #3b82f6;
-            color: #3b82f6;
-        }
-        input, select {
-            background: #0a0e17;
-            border: 1px solid #1f2937;
-            padding: 10px;
-            border-radius: 8px;
-            color: white;
-            width: 100%;
-            margin-bottom: 12px;
-        }
-        .assets-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 10px;
-            margin: 16px 0;
-        }
-        .asset-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #0a0e17;
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid #1f2937;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .active { background: #10b98120; color: #10b981; }
-        .inactive { background: #ef444420; color: #ef4444; }
-        .plan-card {
-            background: #0a0e17;
-            border: 1px solid #1f2937;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .phone-input { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .error { color: #ef4444; margin-top: 8px; }
-        .success { color: #10b981; }
-        .flex-between { display: flex; justify-content: space-between; align-items: center; }
-        @media (max-width: 640px) {
-            .assets-grid { grid-template-columns: 1fr 1fr; }
-            .plan-card { flex-direction: column; align-items: stretch; }
-        }
+        body { font-family: system-ui; background: #0a0e17; color: #e2e8f0; padding: 16px; }
+        .card { background: #111827; border: 1px solid #1f2937; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+        button { background: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+        input { background: #0a0e17; border: 1px solid #1f2937; padding: 10px; border-radius: 8px; color: white; width: 100%; margin-bottom: 12px; }
+        .assets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 10px; margin: 16px 0; }
+        .asset-checkbox { display: flex; align-items: center; gap: 8px; background: #0a0e17; padding: 8px; border-radius: 8px; }
+        .flex { display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
-<div class="container">
-    <!-- LOGIN / REGISTER PANEL -->
-    <div id="authPanel" class="card" style="max-width: 450px; margin: 20px auto;">
-        <h2>NRX<span style="color:white;">TRADER</span> · SYNA Signals</h2>
-        <p>High-confidence trading signals via WhatsApp</p>
-        <input type="email" id="loginEmail" placeholder="Email">
-        <input type="text" id="loginPhone" placeholder="WhatsApp number (e.g., +26096XXXXXX)">
-        <input type="password" id="loginPassword" placeholder="Password">
-        <div id="authError" class="error"></div>
-        <button id="loginBtn" style="width:100%; margin-bottom:8px;">Log In</button>
-        <button id="registerBtn" class="btn-outline" style="width:100%;">Create Account</button>
-    </div>
+<div id="auth" class="card" style="max-width:400px; margin:0 auto;">
+    <h2>NRXTRADER · SYNA Signals</h2>
+    <p>High-confidence trading signals via WhatsApp</p>
+    <input type="email" id="email" placeholder="Email">
+    <input type="text" id="phone" placeholder="WhatsApp number (e.g., 0977123456)">
+    <input type="password" id="password" placeholder="Password">
+    <div id="error" style="color:#ef4444; margin-bottom:10px;"></div>
+    <button id="loginBtn" style="width:100%; margin-bottom:8px;">Log In</button>
+    <button id="registerBtn" style="width:100%; background:transparent; border:1px solid #3b82f6;">Create Account</button>
+</div>
 
-    <!-- DASHBOARD (visible after login) -->
-    <div id="dashboard" style="display:none;">
-        <div class="flex-between">
-            <h1>📡 SYNA Signals</h1>
-            <button id="logoutBtn" class="btn-outline">Logout</button>
-        </div>
-
-        <!-- Trial & subscription status -->
-        <div class="card">
-            <h3>Your Status</h3>
-            <p><strong>Plan:</strong> <span id="planDisplay">Free Trial</span></p>
-            <p><strong>Free signals left:</strong> <span id="trialRemaining">3</span> / 3</p>
-            <p><strong>Subscription expires:</strong> <span id="expiryDisplay">—</span></p>
-        </div>
-
-        <!-- WhatsApp number update -->
-        <div class="card">
-            <h3>📱 WhatsApp Number</h3>
-            <div class="phone-input">
-                <input type="text" id="userPhone" placeholder="+260XXXXXXXXX" style="flex:1;">
-                <button id="updatePhoneBtn">Update</button>
-            </div>
-            <div id="phoneStatus" class="success" style="font-size:13px;"></div>
-        </div>
-
-        <!-- Asset selection -->
-        <div class="card">
-            <h3>📊 Select Assets You Want Signals For</h3>
-            <div id="assetsGrid" class="assets-grid"></div>
-            <button id="saveAssetsBtn">Save Selection</button>
-        </div>
-
-        <!-- Subscription plans -->
-        <div class="card">
-            <h3>💰 Subscription Plans</h3>
-            <div class="plan-card">
-                <div><strong>Basic Plan</strong><br>$5/month · Daily signals, major forex & gold</div>
-                <button class="btn" onclick="showPaymentModal('basic',5)">Subscribe $5</button>
-            </div>
-            <div class="plan-card">
-                <div><strong>Premium Plan</strong><br>$15/month · Priority signals, more assets, crypto & indices</div>
-                <button class="btn" onclick="showPaymentModal('premium',15)">Subscribe $15</button>
-            </div>
-            <p style="margin-top:12px; font-size:13px; color:#94a3b8;">First 3 signals are free. After that, subscribe to continue receiving signals.</p>
-        </div>
-
-        <!-- Manual payment instructions modal -->
-        <div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:1000;">
-            <div style="background:#111827; padding:24px; border-radius:16px; max-width:350px;">
-                <h3>Manual Payment</h3>
-                <p>Send <strong id="modalAmount">$5</strong> (approx ZMW equivalent) to:</p>
-                <p><strong>MTN Mobile Money:</strong> <code>0960168307</code></p>
-                <p>After payment, send screenshot + your email to our WhatsApp support: <strong>+260 96 016 8307</strong>. We'll activate your subscription within 12 hours.</p>
-                <button onclick="closePaymentModal()" style="margin-top:16px;">Close</button>
-            </div>
-        </div>
-    </div>
+<div id="dashboard" style="display:none;">
+    <div class="flex"><h2>📡 SYNA Dashboard</h2><button id="logoutBtn">Logout</button></div>
+    <div class="card"><p>✅ Logged in as: <span id="userEmail"></span></p><p>📱 WhatsApp: <span id="userPhone"></span></p></div>
+    <div class="card"><h3>Select Assets</h3><div id="assetsGrid" class="assets-grid"></div><button id="saveAssetsBtn">Save Selection</button></div>
+    <div class="card"><button id="genSignalBtn">🚀 Generate Test Signal (XAUUSD)</button><div id="signalResult" style="margin-top:10px;"></div></div>
+    <div class="card"><h3>Admin Panel</h3><p>Open: <a href="#" id="adminLink" target="_blank">https://nrxtrader-api.onrender.com/admin?secret=YOUR_SECRET</a></p></div>
 </div>
 
 <script>
-    const API = 'https://nrxtrader-api.onrender.com';
-    let token = localStorage.getItem('token');
-    let userId = null;
+const API = 'https://nrxtrader-api.onrender.com';
+let token = localStorage.getItem('token');
+let userId = null;
 
-    // Helper fetch with auth
-    async function apiCall(method, path, body = null) {
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Request failed');
-        }
-        return res.json();
-    }
+async function apiCall(method, path, body = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
+    if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
+    return res.json();
+}
 
-    // Load user data after login
-    async function loadDashboard() {
-        try {
-            const me = await apiCall('GET', '/api/auth/me');
-            document.getElementById('planDisplay').innerText = me.subscription_plan === 'free' ? 'Free Trial' : me.subscription_plan.toUpperCase();
-            const remaining = me.trial_signals_used !== undefined ? Math.max(0, 3 - me.trial_signals_used) : 3;
-            document.getElementById('trialRemaining').innerText = remaining;
-            if (me.signal_subscription_end) {
-                document.getElementById('expiryDisplay').innerText = new Date(me.signal_subscription_end).toLocaleDateString();
-            } else {
-                document.getElementById('expiryDisplay').innerText = '—';
-            }
-            if (me.phone) document.getElementById('userPhone').value = me.phone;
+async function loadDashboard() {
+    if (!token) return;
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    document.getElementById('userEmail').innerText = user.email;
+    document.getElementById('userPhone').innerText = user.phone;
+    // load assets
+    try {
+        const assetsRes = await apiCall('GET', '/api/user/assets');
+        renderAssets(assetsRes.assets);
+    } catch(e) { renderAssets([]); }
+}
 
-            // Load user assets
-            const assetsRes = await apiCall('GET', '/api/user/assets');
-            renderAssetCheckboxes(assetsRes.assets);
-        } catch(e) { console.error(e); alert('Failed to load dashboard'); }
-    }
+function renderAssets(selected = []) {
+    const list = ['XAUUSD','US30','NAS100','EURUSD','GBPUSD','BTCUSD'];
+    const grid = document.getElementById('assetsGrid');
+    grid.innerHTML = '';
+    list.forEach(asset => {
+        const checked = selected.includes(asset);
+        grid.innerHTML += `<label class="asset-checkbox"><input type="checkbox" value="${asset}" ${checked ? 'checked' : ''}> ${asset}</label>`;
+    });
+}
 
-    const ASSET_LIST = ['XAUUSD', 'US30', 'NAS100', 'EURUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'BTCUSD', 'ETHUSD'];
-    function renderAssetCheckboxes(selectedAssets = []) {
-        const grid = document.getElementById('assetsGrid');
-        if (!grid) return;
-        grid.innerHTML = '';
-        ASSET_LIST.forEach(asset => {
-            const checked = selectedAssets.includes(asset);
-            grid.innerHTML += `
-                <label class="asset-checkbox">
-                    <input type="checkbox" value="${asset}" ${checked ? 'checked' : ''}> ${asset}
-                </label>
-            `;
-        });
-    }
+async function saveAssets() {
+    const checkboxes = document.querySelectorAll('#assetsGrid input');
+    const assets = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+    try {
+        await apiCall('POST', '/api/user/assets', { assets });
+        alert('Assets saved!');
+    } catch(e) { alert('Error: ' + e.message); }
+}
 
-    async function saveAssets() {
-        const checkboxes = document.querySelectorAll('#assetsGrid input[type="checkbox"]');
-        const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-        try {
-            await apiCall('POST', '/api/user/assets', { assets: selected });
-            alert('Assets saved! You will now receive signals for those assets.');
-        } catch(e) { alert('Error saving assets: ' + e.message); }
-    }
+async function generateSignal() {
+    try {
+        const res = await apiCall('POST', '/api/trades/generate-signal', { assetSymbol: 'XAUUSD' });
+        if (res.success) alert('Signal generated! Check admin panel.');
+        else alert('Failed: ' + (res.error || 'Unknown'));
+    } catch(e) { alert('Error: ' + e.message); }
+}
 
-    async function updatePhone() {
-        const phone = document.getElementById('userPhone').value.trim();
-        if (!phone) { alert('Enter WhatsApp number'); return; }
-        try {
-            await apiCall('POST', '/api/auth/update-phone', { phone });
-            document.getElementById('phoneStatus').innerText = 'Phone number updated!';
-            setTimeout(() => { document.getElementById('phoneStatus').innerText = ''; }, 3000);
-        } catch(e) { alert('Error: ' + e.message); }
-    }
-
-    // Auth
-    async function handleLogin() {
-        const email = document.getElementById('loginEmail').value.trim();
-        const password = document.getElementById('loginPassword').value;
-        if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
-        try {
-            const data = await apiCall('POST', '/api/auth/login', { email, password });
-            token = data.token;
-            userId = data.user.id;
-            localStorage.setItem('token', token);
-            document.getElementById('authPanel').style.display = 'none';
-            document.getElementById('dashboard').style.display = 'block';
-            loadDashboard();
-        } catch(e) { document.getElementById('authError').innerText = e.message; }
-    }
-
-    async function handleRegister() {
-        const email = document.getElementById('loginEmail').value.trim();
-        const phone = document.getElementById('loginPhone').value.trim();
-        const password = document.getElementById('loginPassword').value;
-        if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
-        try {
-            await apiCall('POST', '/api/auth/register', { email, password, phone });
-            document.getElementById('authError').innerText = 'Account created! Please log in.';
-            document.getElementById('authError').style.color = '#10b981';
-        } catch(e) { document.getElementById('authError').innerText = e.message; }
-    }
-
-    function logout() {
-        localStorage.removeItem('token');
-        location.reload();
-    }
-
-    function showPaymentModal(plan, amount) {
-        document.getElementById('modalAmount').innerText = `$${amount}`;
-        document.getElementById('paymentModal').style.display = 'flex';
-    }
-    function closePaymentModal() {
-        document.getElementById('paymentModal').style.display = 'none';
-    }
-
-    // Event listeners
-    document.getElementById('loginBtn').onclick = handleLogin;
-    document.getElementById('registerBtn').onclick = handleRegister;
-    document.getElementById('logoutBtn').onclick = logout;
-    document.getElementById('saveAssetsBtn').onclick = saveAssets;
-    document.getElementById('updatePhoneBtn').onclick = updatePhone;
-
-    // Check if already logged in
-    if (token) {
-        document.getElementById('authPanel').style.display = 'none';
+// Auth
+document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const phone = document.getElementById('phone').value.trim();
+    if (!email || !password) { document.getElementById('error').innerText = 'Email and password required'; return; }
+    try {
+        const data = await apiCall('POST', '/api/auth/login', { email, password });
+        token = data.token;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        document.getElementById('auth').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         loadDashboard();
-    }
+    } catch(e) { document.getElementById('error').innerText = e.message; }
+};
+
+document.getElementById('registerBtn').onclick = async () => {
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value;
+    if (!email || !password) { document.getElementById('error').innerText = 'Email and password required'; return; }
+    try {
+        await apiCall('POST', '/api/auth/register', { email, phone, password });
+        document.getElementById('error').innerText = 'Account created! Please log in.';
+        document.getElementById('error').style.color = '#10b981';
+    } catch(e) { document.getElementById('error').innerText = e.message; }
+};
+
+document.getElementById('logoutBtn').onclick = () => {
+    localStorage.clear();
+    location.reload();
+};
+
+document.getElementById('saveAssetsBtn').onclick = saveAssets;
+document.getElementById('genSignalBtn').onclick = generateSignal;
+
+// Admin link
+const adminSecret = 'A8dF8d9B2cE5fG1hJ3kL6zX7cV9bN4mQ';
+document.getElementById('adminLink').href = `https://nrxtrader-api.onrender.com/admin?secret=${adminSecret}`;
+
+if (token) {
+    document.getElementById('auth').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadDashboard();
+}
 </script>
 </body>
 </html>
