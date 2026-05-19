@@ -2,335 +2,295 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>NRXTRADER – SYNA Signals</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg: #0a0e17;
-            --surface: #111827;
-            --border: #1f2937;
-            --text: #e2e8f0;
-            --text-secondary: #94a3b8;
-            --accent: #3b82f6;
-            --green: #10b981;
-            --red: #ef4444;
-            --radius: 12px;
-        }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0e17;
+            color: #e2e8f0;
             line-height: 1.5;
+            padding: 16px;
         }
-        .login-overlay {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center;
-            z-index: 1000;
-        }
-        .login-box {
-            background: var(--surface); padding: 40px 30px; border-radius: 20px;
-            width: 90%; max-width: 420px; border: 1px solid var(--border);
-            text-align: center;
-        }
-        .login-box h2 { color: var(--accent); font-size: 32px; margin-bottom: 8px; }
-        .login-box input {
-            width: 100%; padding: 14px; margin: 8px 0;
-            background: var(--bg); border: 1px solid var(--border);
-            border-radius: 10px; color: white; font-size: 15px;
-        }
-        .btn {
-            padding: 12px 24px; border: none; border-radius: 10px;
-            font-weight: 600; cursor: pointer; display: inline-block;
-        }
-        .btn-primary { background: var(--accent); color: white; width: 100%; }
-        .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
-        .dashboard {
-            display: flex; min-height: 100vh; max-width: 1400px; margin: 0 auto;
-        }
-        .sidebar {
-            width: 240px; background: rgba(17,24,39,0.75); backdrop-filter: blur(14px);
-            padding: 24px 16px; border-right: 1px solid var(--border);
-        }
-        .logo { font-size: 26px; font-weight: 800; color: var(--accent); }
-        .logo span { color: white; }
-        .sidebar ul { list-style: none; margin-top: 24px; }
-        .sidebar li {
-            padding: 12px 14px; border-radius: 8px; cursor: pointer;
-            color: var(--text-secondary); display: flex; align-items: center; gap: 10px;
-        }
-        .sidebar li.active, .sidebar li:hover {
-            background: rgba(59,130,246,0.15); color: white;
-        }
-        .main {
-            flex: 1; padding: 24px 32px; overflow-y: auto;
-        }
+        .container { max-width: 1200px; margin: 0 auto; }
         .card {
-            background: var(--surface); padding: 20px; border-radius: var(--radius);
-            border: 1px solid var(--border); margin-bottom: 20px;
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
         }
-        .plan-card {
-            display: flex; justify-content: space-between; align-items: center;
-            background: var(--surface); padding: 20px; border-radius: var(--radius);
-            margin-bottom: 16px; border: 1px solid var(--border);
+        h1, h2, h3 { color: #3b82f6; }
+        button, .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { filter: brightness(1.1); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        input, select {
+            background: #0a0e17;
+            border: 1px solid #1f2937;
+            padding: 10px;
+            border-radius: 8px;
+            color: white;
+            width: 100%;
+            margin-bottom: 12px;
         }
         .assets-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
-            gap: 12px; margin: 16px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin: 16px 0;
         }
         .asset-checkbox {
-            background: var(--bg); padding: 8px 12px; border-radius: 8px;
-            border: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #0a0e17;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #1f2937;
         }
         .status-badge {
-            display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px;
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
         }
-        .status-active { background: rgba(16,185,129,0.2); color: var(--green); }
-        .status-inactive { background: rgba(239,68,68,0.2); color: var(--red); }
-        @media (max-width: 768px) { .sidebar { width: 100%; flex-direction: row; overflow-x: auto; } .dashboard { flex-direction: column; } }
+        .active { background: #10b98120; color: #10b981; }
+        .inactive { background: #ef444420; color: #ef4444; }
+        .plan-card {
+            background: #0a0e17;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .phone-input { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .error { color: #ef4444; margin-top: 8px; }
+        .success { color: #10b981; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        @media (max-width: 640px) {
+            .assets-grid { grid-template-columns: 1fr 1fr; }
+            .plan-card { flex-direction: column; align-items: stretch; }
+        }
     </style>
 </head>
 <body>
-
-<!-- LOGIN MODAL -->
-<div id="loginOverlay" class="login-overlay">
-    <div class="login-box">
-        <h2>NRX<span style="color:white;">TRADER</span></h2>
-        <p>Get high‑confidence trading signals via WhatsApp</p>
-        <input type="email" id="loginEmail" placeholder="Email address">
-        <input type="text" id="loginPhone" placeholder="WhatsApp number (with country code)">
+<div class="container">
+    <!-- LOGIN / REGISTER PANEL -->
+    <div id="authPanel" class="card" style="max-width: 450px; margin: 20px auto;">
+        <h2>NRX<span style="color:white;">TRADER</span> · SYNA Signals</h2>
+        <p>High-confidence trading signals via WhatsApp</p>
+        <input type="email" id="loginEmail" placeholder="Email">
+        <input type="text" id="loginPhone" placeholder="WhatsApp number (e.g., +26096XXXXXX)">
         <input type="password" id="loginPassword" placeholder="Password">
-        <div id="loginError" class="login-error" style="color:var(--red); margin-top:10px;"></div>
-        <button class="btn btn-primary" onclick="handleLogin()">Log In</button>
-        <button class="btn btn-outline" onclick="handleRegister()" style="margin-top:8px;">Create Account</button>
+        <div id="authError" class="error"></div>
+        <button id="loginBtn" style="width:100%; margin-bottom:8px;">Log In</button>
+        <button id="registerBtn" class="btn-outline" style="width:100%;">Create Account</button>
     </div>
-</div>
 
-<!-- DASHBOARD -->
-<div id="dashboardContainer" style="display:none;">
-    <div class="dashboard">
-        <div class="sidebar">
-            <div class="logo">NRX<span>TRADER</span></div>
-            <ul>
-                <li class="active" data-tab="dashboard">Dashboard</li>
-                <li data-tab="assets">📊 My Assets</li>
-                <li data-tab="plans">💎 Plans & Subscription</li>
-                <li data-tab="settings">⚙️ Settings</li>
-            </ul>
+    <!-- DASHBOARD (visible after login) -->
+    <div id="dashboard" style="display:none;">
+        <div class="flex-between">
+            <h1>📡 SYNA Signals</h1>
+            <button id="logoutBtn" class="btn-outline">Logout</button>
         </div>
-        <div class="main">
-            <!-- Dashboard tab -->
-            <div id="dashboardContent">
-                <h1>Welcome, <span id="userName"></span></h1>
-                <div class="card">
-                    <h3>📱 Your Signal Status</h3>
-                    <p><strong>Subscription Plan:</strong> <span id="planDisplay">Free Trial</span></p>
-                    <p><strong>Free signals remaining:</strong> <span id="trialRemaining">3</span> / 3</p>
-                    <p><strong>Subscription expires:</strong> <span id="expiryDisplay">—</span></p>
-                </div>
-                <div class="card">
-                    <h3>📈 How SYNA works</h3>
-                    <p>SYNA analyses markets in real time. When a high‑confidence setup appears, it generates a signal.<br>
-                    You will receive signals via <strong>WhatsApp</strong> to the number you registered.<br>
-                    First 3 signals are free. After that, subscribe to continue.</p>
-                </div>
-            </div>
 
-            <!-- Assets tab -->
-            <div id="assetsContent" style="display:none;">
-                <h2>📌 Select the assets you want signals for</h2>
-                <div class="assets-grid" id="assetsGrid"></div>
-                <button class="btn btn-primary" id="saveAssetsBtn" onclick="saveSelectedAssets()">Save Selection</button>
-                <div class="card" style="margin-top:20px;">
-                    <h3>💡 Supported assets (Phase 1)</h3>
-                    <ul>
-                        <li>XAUUSD (Gold)</li><li>US30 (Dow Jones)</li><li>NAS100 (Nasdaq)</li>
-                        <li>EURUSD, GBPUSD, USDJPY, GBPJPY, AUDUSD</li>
-                        <li>BTCUSD, ETHUSD</li>
-                    </ul>
-                </div>
-            </div>
+        <!-- Trial & subscription status -->
+        <div class="card">
+            <h3>Your Status</h3>
+            <p><strong>Plan:</strong> <span id="planDisplay">Free Trial</span></p>
+            <p><strong>Free signals left:</strong> <span id="trialRemaining">3</span> / 3</p>
+            <p><strong>Subscription expires:</strong> <span id="expiryDisplay">—</span></p>
+        </div>
 
-            <!-- Plans tab -->
-            <div id="plansContent" style="display:none;">
-                <h2>💰 Subscription Plans</h2>
-                <div class="plan-card">
-                    <div><h3>Basic Plan</h3><p>$5 / month<br>Daily signals, Forex + Gold, WhatsApp delivery</p></div>
-                    <button class="btn btn-primary" onclick="showPaymentModal('basic',5)">Subscribe $5</button>
-                </div>
-                <div class="plan-card">
-                    <div><h3>Premium Plan</h3><p>$15 / month<br>Priority signals, more assets, crypto + indices</p></div>
-                    <button class="btn btn-primary" onclick="showPaymentModal('premium',15)">Subscribe $15</button>
-                </div>
-                <div class="card">
-                    <h3>💳 How to pay (Manual)</h3>
-                    <p><strong>MTN Mobile Money (Zambia):</strong> <code>0960168307</code><br>
-                    Send the exact amount ($5 or $15 equivalent in ZMW). After payment, send a screenshot + your email to our WhatsApp support.<br>
-                    Your subscription will be activated within 12 hours.</p>
-                    <p><em>Future: automated payment via mobile money API.</em></p>
-                </div>
+        <!-- WhatsApp number update -->
+        <div class="card">
+            <h3>📱 WhatsApp Number</h3>
+            <div class="phone-input">
+                <input type="text" id="userPhone" placeholder="+260XXXXXXXXX" style="flex:1;">
+                <button id="updatePhoneBtn">Update</button>
             </div>
+            <div id="phoneStatus" class="success" style="font-size:13px;"></div>
+        </div>
 
-            <!-- Settings tab -->
-            <div id="settingsContent" style="display:none;">
-                <div class="card">
-                    <h3>Account Information</h3>
-                    <p><strong>Email:</strong> <span id="settingsEmail"></span></p>
-                    <p><strong>WhatsApp number:</strong> <span id="settingsPhone"></span></p>
-                    <button class="btn btn-outline" onclick="logout()">Logout</button>
-                </div>
+        <!-- Asset selection -->
+        <div class="card">
+            <h3>📊 Select Assets You Want Signals For</h3>
+            <div id="assetsGrid" class="assets-grid"></div>
+            <button id="saveAssetsBtn">Save Selection</button>
+        </div>
+
+        <!-- Subscription plans -->
+        <div class="card">
+            <h3>💰 Subscription Plans</h3>
+            <div class="plan-card">
+                <div><strong>Basic Plan</strong><br>$5/month · Daily signals, major forex & gold</div>
+                <button class="btn" onclick="showPaymentModal('basic',5)">Subscribe $5</button>
+            </div>
+            <div class="plan-card">
+                <div><strong>Premium Plan</strong><br>$15/month · Priority signals, more assets, crypto & indices</div>
+                <button class="btn" onclick="showPaymentModal('premium',15)">Subscribe $15</button>
+            </div>
+            <p style="margin-top:12px; font-size:13px; color:#94a3b8;">First 3 signals are free. After that, subscribe to continue receiving signals.</p>
+        </div>
+
+        <!-- Manual payment instructions modal -->
+        <div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:1000;">
+            <div style="background:#111827; padding:24px; border-radius:16px; max-width:350px;">
+                <h3>Manual Payment</h3>
+                <p>Send <strong id="modalAmount">$5</strong> (approx ZMW equivalent) to:</p>
+                <p><strong>MTN Mobile Money:</strong> <code>0960168307</code></p>
+                <p>After payment, send screenshot + your email to our WhatsApp support: <strong>+260 96 016 8307</strong>. We'll activate your subscription within 12 hours.</p>
+                <button onclick="closePaymentModal()" style="margin-top:16px;">Close</button>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Payment Modal (manual instructions) -->
-<div id="paymentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:1001;">
-    <div style="background:var(--surface); padding:24px; border-radius:var(--radius); max-width:400px;">
-        <h3>Manual Payment Instructions</h3>
-        <p>Send <span id="modalAmount">$5</span> (approx ZMW equivalent) to:</p>
-        <p><strong>MTN MoMo</strong> <code>0960168307</code></p>
-        <p>After payment, send screenshot + your email to:<br>
-        <strong>WhatsApp: +260 96 016 8307</strong> (our support)<br>
-        We will activate your subscription manually.</p>
-        <button class="btn btn-primary" onclick="closePaymentModal()">Close</button>
     </div>
 </div>
 
 <script>
-const API = 'https://nrxtrader-api.onrender.com';
-let token = localStorage.getItem('nrxtrader_token');
-let user = JSON.parse(localStorage.getItem('nrxtrader_user') || 'null');
+    const API = 'https://nrxtrader-api.onrender.com';
+    let token = localStorage.getItem('token');
+    let userId = null;
 
-// Helper API calls
-async function apiCall(method, path, body) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(API+path, { method, headers, body: body ? JSON.stringify(body) : null });
-    if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
-    return res.json();
-}
-
-// Load user data after login
-async function loadUserData() {
-    if (!user) return;
-    document.getElementById('userName').innerText = user.email.split('@')[0];
-    document.getElementById('settingsEmail').innerText = user.email;
-    document.getElementById('settingsPhone').innerText = user.phone || '—';
-    // Load trial remaining
-    try {
-        const trialData = await apiCall('GET', '/api/user/trial-remaining');
-        document.getElementById('trialRemaining').innerText = trialData.remaining;
-        // Load subscription info (plan + expiry)
-        const userInfo = await apiCall('GET', '/api/auth/me'); // you need to add /api/auth/me endpoint
-        if (userInfo.subscription_plan && userInfo.subscription_plan !== 'free') {
-            document.getElementById('planDisplay').innerText = userInfo.subscription_plan.toUpperCase();
-            document.getElementById('expiryDisplay').innerText = new Date(userInfo.signal_subscription_end).toLocaleDateString();
-        } else {
-            document.getElementById('planDisplay').innerText = 'Free Trial';
+    // Helper fetch with auth
+    async function apiCall(method, path, body = null) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Request failed');
         }
-    } catch(e) { console.error(e); }
-    // Load user's selected assets
-    try {
-        const assetsRes = await apiCall('GET', '/api/user/assets');
-        renderAssetsCheckbox(assetsRes.assets);
-    } catch(e) { console.error(e); }
-}
-
-// Render asset checkboxes
-const ASSET_LIST = ['XAUUSD', 'US30', 'NAS100', 'EURUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'BTCUSD', 'ETHUSD'];
-function renderAssetsCheckbox(selected = []) {
-    const grid = document.getElementById('assetsGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    ASSET_LIST.forEach(asset => {
-        const checked = selected.includes(asset);
-        grid.innerHTML += `
-            <label class="asset-checkbox">
-                <input type="checkbox" value="${asset}" ${checked ? 'checked' : ''}> ${asset}
-            </label>
-        `;
-    });
-}
-
-async function saveSelectedAssets() {
-    const checkboxes = document.querySelectorAll('#assetsGrid input[type="checkbox"]');
-    const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-    try {
-        await apiCall('POST', '/api/user/assets', { assets: selected });
-        alert('Assets saved successfully! You will now receive signals for these assets.');
-    } catch(e) { alert('Error: ' + e.message); }
-}
-
-function showPaymentModal(plan, amount) {
-    document.getElementById('modalAmount').innerText = `$${amount}`;
-    document.getElementById('paymentModal').style.display = 'flex';
-}
-function closePaymentModal() { document.getElementById('paymentModal').style.display = 'none'; }
-
-// Auth
-async function handleLogin() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    const phone = document.getElementById('loginPhone').value.trim();
-    if (!email || !password) { document.getElementById('loginError').innerText = 'Email and password required'; return; }
-    try {
-        const data = await apiCall('POST', '/api/auth/login', { email, password });
-        token = data.token; user = data.user;
-        // If user didn't have phone in DB, update it
-        if (phone && (!user.phone || user.phone !== phone)) {
-            await apiCall('POST', '/api/auth/update-phone', { phone }); // you may need to add this endpoint
-            user.phone = phone;
-        }
-        localStorage.setItem('nrxtrader_token', token);
-        localStorage.setItem('nrxtrader_user', JSON.stringify(user));
-        document.getElementById('loginOverlay').style.display = 'none';
-        document.getElementById('dashboardContainer').style.display = 'block';
-        loadUserData();
-    } catch(e) { document.getElementById('loginError').innerText = e.message; }
-}
-async function handleRegister() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const phone = document.getElementById('loginPhone').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    if (!email || !password) { document.getElementById('loginError').innerText = 'Email and password required'; return; }
-    try {
-        await apiCall('POST', '/api/auth/register', { email, password, phone });
-        document.getElementById('loginError').innerText = 'Account created! Please log in.';
-        document.getElementById('loginError').style.color = '#10b981';
-    } catch(e) { document.getElementById('loginError').innerText = e.message; }
-}
-function logout() {
-    localStorage.clear(); location.reload();
-}
-
-// Tab switching
-document.querySelectorAll('.sidebar li').forEach(li => {
-    li.addEventListener('click', () => {
-        document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
-        li.classList.add('active');
-        const tab = li.dataset.tab;
-        document.getElementById('dashboardContent').style.display = 'none';
-        document.getElementById('assetsContent').style.display = 'none';
-        document.getElementById('plansContent').style.display = 'none';
-        document.getElementById('settingsContent').style.display = 'none';
-        if (tab === 'dashboard') document.getElementById('dashboardContent').style.display = 'block';
-        else if (tab === 'assets') { document.getElementById('assetsContent').style.display = 'block'; loadUserData(); }
-        else if (tab === 'plans') document.getElementById('plansContent').style.display = 'block';
-        else if (tab === 'settings') document.getElementById('settingsContent').style.display = 'block';
-    });
-});
-
-window.onload = () => {
-    if (token && user) {
-        document.getElementById('loginOverlay').style.display = 'none';
-        document.getElementById('dashboardContainer').style.display = 'block';
-        loadUserData();
-    } else {
-        document.getElementById('loginOverlay').style.display = 'flex';
+        return res.json();
     }
-};
+
+    // Load user data after login
+    async function loadDashboard() {
+        try {
+            const me = await apiCall('GET', '/api/auth/me');
+            document.getElementById('planDisplay').innerText = me.subscription_plan === 'free' ? 'Free Trial' : me.subscription_plan.toUpperCase();
+            const remaining = me.trial_signals_used !== undefined ? Math.max(0, 3 - me.trial_signals_used) : 3;
+            document.getElementById('trialRemaining').innerText = remaining;
+            if (me.signal_subscription_end) {
+                document.getElementById('expiryDisplay').innerText = new Date(me.signal_subscription_end).toLocaleDateString();
+            } else {
+                document.getElementById('expiryDisplay').innerText = '—';
+            }
+            if (me.phone) document.getElementById('userPhone').value = me.phone;
+
+            // Load user assets
+            const assetsRes = await apiCall('GET', '/api/user/assets');
+            renderAssetCheckboxes(assetsRes.assets);
+        } catch(e) { console.error(e); alert('Failed to load dashboard'); }
+    }
+
+    const ASSET_LIST = ['XAUUSD', 'US30', 'NAS100', 'EURUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'BTCUSD', 'ETHUSD'];
+    function renderAssetCheckboxes(selectedAssets = []) {
+        const grid = document.getElementById('assetsGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        ASSET_LIST.forEach(asset => {
+            const checked = selectedAssets.includes(asset);
+            grid.innerHTML += `
+                <label class="asset-checkbox">
+                    <input type="checkbox" value="${asset}" ${checked ? 'checked' : ''}> ${asset}
+                </label>
+            `;
+        });
+    }
+
+    async function saveAssets() {
+        const checkboxes = document.querySelectorAll('#assetsGrid input[type="checkbox"]');
+        const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        try {
+            await apiCall('POST', '/api/user/assets', { assets: selected });
+            alert('Assets saved! You will now receive signals for those assets.');
+        } catch(e) { alert('Error saving assets: ' + e.message); }
+    }
+
+    async function updatePhone() {
+        const phone = document.getElementById('userPhone').value.trim();
+        if (!phone) { alert('Enter WhatsApp number'); return; }
+        try {
+            await apiCall('POST', '/api/auth/update-phone', { phone });
+            document.getElementById('phoneStatus').innerText = 'Phone number updated!';
+            setTimeout(() => { document.getElementById('phoneStatus').innerText = ''; }, 3000);
+        } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    // Auth
+    async function handleLogin() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
+        try {
+            const data = await apiCall('POST', '/api/auth/login', { email, password });
+            token = data.token;
+            userId = data.user.id;
+            localStorage.setItem('token', token);
+            document.getElementById('authPanel').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            loadDashboard();
+        } catch(e) { document.getElementById('authError').innerText = e.message; }
+    }
+
+    async function handleRegister() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const phone = document.getElementById('loginPhone').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
+        try {
+            await apiCall('POST', '/api/auth/register', { email, password, phone });
+            document.getElementById('authError').innerText = 'Account created! Please log in.';
+            document.getElementById('authError').style.color = '#10b981';
+        } catch(e) { document.getElementById('authError').innerText = e.message; }
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        location.reload();
+    }
+
+    function showPaymentModal(plan, amount) {
+        document.getElementById('modalAmount').innerText = `$${amount}`;
+        document.getElementById('paymentModal').style.display = 'flex';
+    }
+    function closePaymentModal() {
+        document.getElementById('paymentModal').style.display = 'none';
+    }
+
+    // Event listeners
+    document.getElementById('loginBtn').onclick = handleLogin;
+    document.getElementById('registerBtn').onclick = handleRegister;
+    document.getElementById('logoutBtn').onclick = logout;
+    document.getElementById('saveAssetsBtn').onclick = saveAssets;
+    document.getElementById('updatePhoneBtn').onclick = updatePhone;
+
+    // Check if already logged in
+    if (token) {
+        document.getElementById('authPanel').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        loadDashboard();
+    }
 </script>
 </body>
 </html>
