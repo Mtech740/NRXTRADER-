@@ -90,8 +90,21 @@ app.post('/api/auth/login', async (req, res) => {
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id: user.id, email: user.email, phone: user.phone, is_premium: user.is_premium } });
-    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+        res.json({ 
+            token, 
+            user: { 
+                id: user.id, 
+                email: user.email, 
+                phone: user.phone, 
+                is_premium: user.is_premium || false,
+                subscription_plan: user.subscription_plan || 'free',
+                trial_signals_used: user.trial_signals_used || 0
+            } 
+        });
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: 'Server error' }); 
+    }
 });
 
 app.get('/api/auth/me', async (req, res) => {
@@ -100,9 +113,32 @@ app.get('/api/auth/me', async (req, res) => {
     const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await pool.query('SELECT email, phone, subscription_plan, signal_subscription_end, trial_signals_used FROM users WHERE id = $1', [decoded.userId]);
+        const user = await pool.query(`
+            SELECT 
+                email, 
+                phone, 
+                COALESCE(subscription_plan, 'free') as subscription_plan,
+                signal_subscription_end,
+                COALESCE(trial_signals_used, 0) as trial_signals_used
+            FROM users WHERE id = $1
+        `, [decoded.userId]);
+        if (user.rows.length === 0) return res.status(404).json({ error: 'User not found' });
         res.json(user.rows[0]);
-    } catch (err) { res.status(401).json({ error: 'Invalid token' }); }
+    } catch (err) {
+        console.error(err);
+        // Fallback: return minimal info without the new columns
+        try {
+            const fallback = await pool.query('SELECT email, phone FROM users WHERE id = $1', [decoded.userId]);
+            res.json({ 
+                ...fallback.rows[0], 
+                subscription_plan: 'free', 
+                trial_signals_used: 0, 
+                signal_subscription_end: null 
+            });
+        } catch(e) {
+            res.status(500).json({ error: 'Server error' });
+        }
+    }
 });
 
 app.post('/api/auth/update-phone', async (req, res) => {
