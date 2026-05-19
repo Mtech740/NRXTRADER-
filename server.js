@@ -17,7 +17,25 @@ app.use(express.json());
 app.get('/', (req, res) => res.json({ status: 'NRXTRADER API ONLINE' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// AUTH
+// ==================== TEMPORARY FIX: add missing columns ====================
+app.get('/api/fix-table', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    try {
+        await pool.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20) UNIQUE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(20) DEFAULT 'free';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_signals_used INTEGER DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS signal_subscription_end TIMESTAMP;
+        `);
+        res.send('Table fixed! Now register a new user.');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error: ' + err.message);
+    }
+});
+
+// ==================== AUTH ====================
 app.post('/api/auth/register', async (req, res) => {
     const { email, phone, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -30,6 +48,7 @@ app.post('/api/auth/register', async (req, res) => {
         res.json({ success: true, user: result.rows[0] });
     } catch (err) {
         if (err.code === '23505') return res.status(400).json({ error: 'Email already registered' });
+        console.error(err);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -45,11 +64,14 @@ app.post('/api/auth/login', async (req, res) => {
         if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
         const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { id: user.id, email: user.email, phone: user.phone } });
-    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
-// Assets (simplified)
-const auth = async (req, res, next) => {
+// ==================== USER ASSETS ====================
+const authMiddleware = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'No token' });
     const token = authHeader.split(' ')[1];
@@ -60,14 +82,14 @@ const auth = async (req, res, next) => {
     } catch (err) { res.status(401).json({ error: 'Invalid token' }); }
 };
 
-app.get('/api/user/assets', auth, async (req, res) => {
+app.get('/api/user/assets', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query('SELECT asset_symbol FROM user_assets WHERE user_id = $1', [req.userId]);
         res.json({ assets: result.rows.map(r => r.asset_symbol) });
     } catch (err) { res.json({ assets: [] }); }
 });
 
-app.post('/api/user/assets', auth, async (req, res) => {
+app.post('/api/user/assets', authMiddleware, async (req, res) => {
     const { assets } = req.body;
     if (!Array.isArray(assets)) return res.status(400).json({ error: 'Assets must be an array' });
     try {
@@ -79,12 +101,20 @@ app.post('/api/user/assets', auth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-app.get('/api/user/trial-remaining', auth, async (req, res) => {
-    res.json({ remaining: 3 });
+app.get('/api/user/trial-remaining', authMiddleware, async (req, res) => {
+    const user = await pool.query('SELECT COALESCE(trial_signals_used, 0) as used FROM users WHERE id = $1', [req.userId]);
+    const used = parseInt(user.rows[0]?.used) || 0;
+    res.json({ remaining: Math.max(0, 3 - used) });
 });
 
-// Generate signal
-app.post('/api/trades/generate-signal', auth, async (req, res) => {
+// ==================== PRICE & SIGNAL ====================
+app.get('/api/price', async (req, res) => {
+    const { symbol } = req.query;
+    const fallbacks = { 'XAUUSD': 2350, 'US30': 33500, 'NAS100': 18500, 'EURUSD': 1.08, 'GBPUSD': 1.26, 'BTCUSD': 65000 };
+    res.json({ price: fallbacks[symbol] || 1.0 });
+});
+
+app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
     const { assetSymbol } = req.body;
     if (!assetSymbol) return res.status(400).json({ error: 'Asset symbol required' });
     try {
@@ -101,13 +131,7 @@ app.post('/api/trades/generate-signal', auth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// Price endpoint
-app.get('/api/price', (req, res) => {
-    const fallbacks = { XAUUSD: 2350, US30: 33500, NAS100: 18500 };
-    res.json({ price: fallbacks[req.query.symbol] || 1.0 });
-});
-
-// Admin panel
+// ==================== ADMIN PANEL ====================
 app.get('/admin', (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
@@ -159,7 +183,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
     res.json({ success: true });
 });
 
-// Initialize DB
+// ==================== INITIALIZE DATABASE ====================
 async function initDB() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
@@ -167,6 +191,9 @@ async function initDB() {
             email VARCHAR(255) UNIQUE NOT NULL,
             phone VARCHAR(20) UNIQUE,
             password_hash VARCHAR(255) NOT NULL,
+            subscription_plan VARCHAR(20) DEFAULT 'free',
+            trial_signals_used INTEGER DEFAULT 0,
+            signal_subscription_end TIMESTAMP,
             created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS user_assets (
@@ -186,7 +213,7 @@ async function initDB() {
             sent_to_admin BOOLEAN DEFAULT FALSE
         );
     `);
-    console.log('Database ready');
+    console.log('Database tables ready');
 }
 initDB().catch(console.error);
 
