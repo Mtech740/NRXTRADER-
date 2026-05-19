@@ -19,6 +19,56 @@ app.use(express.json());
 app.get('/', (req, res) => res.json({ status: 'NRXTRADER API ONLINE' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+// ==================== TEMPORARY MIGRATION ENDPOINT ====================
+// Visit: /api/migrate?secret=YOUR_ADMIN_SECRET
+app.get('/api/migrate', async (req, res) => {
+    const secret = req.query.secret;
+    if (!secret || secret !== process.env.ADMIN_SECRET) {
+        return res.status(403).send('Unauthorized. Provide ?secret=YOUR_ADMIN_SECRET');
+    }
+    try {
+        await pool.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(20) DEFAULT 'free';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_signals_used INTEGER DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS signal_subscription_end TIMESTAMP;
+            
+            CREATE TABLE IF NOT EXISTS user_assets (
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                asset_symbol VARCHAR(20) NOT NULL,
+                PRIMARY KEY (user_id, asset_symbol)
+            );
+            
+            CREATE TABLE IF NOT EXISTS auto_signals (
+                id SERIAL PRIMARY KEY,
+                asset_symbol VARCHAR(20) NOT NULL,
+                signal_type VARCHAR(4) CHECK (signal_type IN ('BUY','SELL')),
+                entry_price DECIMAL(10,5),
+                take_profit DECIMAL(10,5),
+                stop_loss DECIMAL(10,5),
+                confidence VARCHAR(20),
+                generated_at TIMESTAMP DEFAULT NOW(),
+                sent_to_admin BOOLEAN DEFAULT FALSE
+            );
+            
+            CREATE TABLE IF NOT EXISTS signal_delivery_log (
+                id SERIAL PRIMARY KEY,
+                user_id UUID REFERENCES users(id),
+                asset_symbol VARCHAR(20),
+                signal_type VARCHAR(4),
+                entry_price DECIMAL(10,5),
+                take_profit DECIMAL(10,5),
+                stop_loss DECIMAL(10,5),
+                confidence VARCHAR(20),
+                sent_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        res.send('Migration completed successfully!');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Migration error: ' + err.message);
+    }
+});
+
 // ==================== AUTH ====================
 app.post('/api/auth/register', async (req, res) => {
     const { email, phone, password } = req.body;
