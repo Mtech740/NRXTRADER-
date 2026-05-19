@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Database connection using Render's DATABASE_URL
+// Database connection
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
@@ -15,29 +15,24 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-// Health check
+// Health checks
 app.get('/', (req, res) => res.json({ status: 'NRXTRADER API ONLINE' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // ==================== TEMPORARY MIGRATION ENDPOINT ====================
-// Visit: /api/migrate?secret=YOUR_ADMIN_SECRET
 app.get('/api/migrate', async (req, res) => {
     const secret = req.query.secret;
-    if (!secret || secret !== process.env.ADMIN_SECRET) {
-        return res.status(403).send('Unauthorized. Provide ?secret=YOUR_ADMIN_SECRET');
-    }
+    if (!secret || secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
     try {
         await pool.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(20) DEFAULT 'free';
             ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_signals_used INTEGER DEFAULT 0;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS signal_subscription_end TIMESTAMP;
-            
             CREATE TABLE IF NOT EXISTS user_assets (
                 user_id UUID REFERENCES users(id) ON DELETE CASCADE,
                 asset_symbol VARCHAR(20) NOT NULL,
                 PRIMARY KEY (user_id, asset_symbol)
             );
-            
             CREATE TABLE IF NOT EXISTS auto_signals (
                 id SERIAL PRIMARY KEY,
                 asset_symbol VARCHAR(20) NOT NULL,
@@ -49,7 +44,6 @@ app.get('/api/migrate', async (req, res) => {
                 generated_at TIMESTAMP DEFAULT NOW(),
                 sent_to_admin BOOLEAN DEFAULT FALSE
             );
-            
             CREATE TABLE IF NOT EXISTS signal_delivery_log (
                 id SERIAL PRIMARY KEY,
                 user_id UUID REFERENCES users(id),
@@ -168,7 +162,6 @@ app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
     const { assetSymbol } = req.body;
     if (!assetSymbol) return res.status(400).json({ error: 'Asset symbol required' });
     try {
-        // Simple signal generator (replace with your real analysis later)
         const direction = Date.now() % 2 === 0 ? 'BUY' : 'SELL';
         const entry = 100.0;
         const tp = entry * (direction === 'BUY' ? 1.005 : 0.995);
@@ -243,7 +236,22 @@ app.post('/api/admin/activate-subscription', async (req, res) => {
     res.json({ success: true });
 });
 
-// ==================== INITIALIZE DATABASE TABLES ====================
+// ==================== DELETE USER (TEMPORARY) ====================
+app.post('/api/admin/delete-user', async (req, res) => {
+    const { secret, email } = req.body;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    try {
+        const result = await pool.query('DELETE FROM users WHERE email = $1 RETURNING id', [email]);
+        if (result.rows.length === 0) return res.json({ error: 'User not found' });
+        res.json({ success: true, message: `User ${email} deleted` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ==================== INITIALIZE DATABASE ====================
 async function initDB() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
