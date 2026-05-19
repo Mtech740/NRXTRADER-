@@ -17,7 +17,7 @@ app.use(express.json());
 app.get('/', (req, res) => res.json({ status: 'NRXTRADER API ONLINE' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// ==================== TEMPORARY FIX: add missing columns ====================
+// ==================== TEMPORARY FIX (optional) ====================
 app.get('/api/fix-table', async (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
@@ -185,6 +185,8 @@ app.post('/api/admin/delete-user', async (req, res) => {
 
 // ==================== INITIALIZE DATABASE ====================
 async function initDB() {
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
+
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -196,11 +198,17 @@ async function initDB() {
             signal_subscription_end TIMESTAMP,
             created_at TIMESTAMP DEFAULT NOW()
         );
+    `);
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS user_assets (
             user_id UUID REFERENCES users(id) ON DELETE CASCADE,
             asset_symbol VARCHAR(20) NOT NULL,
             PRIMARY KEY (user_id, asset_symbol)
         );
+    `);
+
+    await pool.query(`
         CREATE TABLE IF NOT EXISTS auto_signals (
             id SERIAL PRIMARY KEY,
             asset_symbol VARCHAR(20) NOT NULL,
@@ -213,6 +221,7 @@ async function initDB() {
             sent_to_admin BOOLEAN DEFAULT FALSE
         );
     `);
+
     console.log('Database tables ready');
 }
 initDB().catch(console.error);
