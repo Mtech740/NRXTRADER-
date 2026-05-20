@@ -17,7 +17,7 @@ app.use(express.json());
 app.get('/', (req, res) => res.json({ status: 'NRXTRADER API ONLINE' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// ==================== TEMPORARY FIX (optional) ====================
+// ==================== TEMPORARY FIX ====================
 app.get('/api/fix-table', async (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
@@ -131,21 +131,95 @@ app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// ==================== ADMIN PANEL ====================
+// ==================== ADMIN PANEL (with WhatsApp send buttons) ====================
 app.get('/admin', (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
     res.send(`
         <!DOCTYPE html>
-        <html><head><title>SYNA Admin</title></head><body>
-        <h1>SYNA Signal Panel</h1>
-        <pre id="info">Loading...</pre>
-        <script>
-            fetch('/api/admin/latest-signal?secret=${secret}')
-                .then(r => r.json())
-                .then(d => document.getElementById('info').innerText = JSON.stringify(d, null, 2));
-        </script>
-        </body></html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>SYNA Admin Console</title>
+            <style>
+                body { font-family: monospace; background: #0a0e17; color: #e2e8f0; padding: 20px; }
+                .signal-card { background: #111827; border-left: 4px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+                .numbers-list { background: #0a0e17; border-radius: 8px; padding: 12px; margin-top: 12px; }
+                .number-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #1f2937; }
+                .send-btn { background: #25D366; color: black; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; }
+                button { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+            </style>
+        </head>
+        <body>
+            <h1>SYNA Signal Dispatch</h1>
+            <div id="signalCard" class="signal-card">
+                <h2>Latest Signal</h2>
+                <div id="signalDetails">Loading...</div>
+                <div id="numbersContainer"></div>
+                <button id="markSentBtn">Mark as Sent</button>
+            </div>
+            <script>
+                const ADMIN_SECRET = "${secret}";
+                let currentSignalId = null;
+
+                async function fetchLatest() {
+                    const res = await fetch('/api/admin/latest-signal?secret=' + ADMIN_SECRET);
+                    const data = await res.json();
+                    if (data.error) {
+                        document.getElementById('signalDetails').innerHTML = '<p style="color:#ef4444">' + data.error + '</p>';
+                        document.getElementById('numbersContainer').innerHTML = '';
+                        return;
+                    }
+                    currentSignalId = data.signal.id;
+                    const sig = data.signal;
+                    document.getElementById('signalDetails').innerHTML = \`
+                        <p><strong>Asset:</strong> \${sig.asset_symbol}</p>
+                        <p><strong>Action:</strong> \${sig.signal_type}</p>
+                        <p><strong>Entry:</strong> \${sig.entry_price}</p>
+                        <p><strong>Take Profit:</strong> \${sig.take_profit}</p>
+                        <p><strong>Stop Loss:</strong> \${sig.stop_loss}</p>
+                        <p><strong>Confidence:</strong> \${sig.confidence}</p>
+                        <p><strong>Generated:</strong> \${new Date(sig.generated_at).toLocaleString()}</p>
+                    \`;
+                    if (data.whatsapp_numbers && data.whatsapp_numbers.length) {
+                        let numbersHtml = '<h3>WhatsApp Recipients</h3><div class="numbers-list">';
+                        for (let phone of data.whatsapp_numbers) {
+                            let cleanPhone = phone.replace(/\\D/g, '');
+                            if (!cleanPhone.startsWith('260') && phone.includes('+260')) cleanPhone = phone.replace('+', '');
+                            const message = \`📢 SYNA SIGNAL\\nAsset: \${sig.asset_symbol}\\nAction: \${sig.signal_type}\\nEntry: \${sig.entry_price}\\nTP: \${sig.take_profit}\\nSL: \${sig.stop_loss}\\nConfidence: \${sig.confidence}\`;
+                            const waLink = \`https://wa.me/\${cleanPhone}?text=\${encodeURIComponent(message)}\`;
+                            numbersHtml += \`
+                                <div class="number-item">
+                                    <span>\${phone}</span>
+                                    <a href="\${waLink}" target="_blank" class="send-btn">Send via WhatsApp</a>
+                                </div>
+                            \`;
+                        }
+                        numbersHtml += '</div>';
+                        document.getElementById('numbersContainer').innerHTML = numbersHtml;
+                    } else {
+                        document.getElementById('numbersContainer').innerHTML = '<p>No active subscribers for this asset.</p>';
+                    }
+                }
+
+                document.getElementById('markSentBtn').onclick = async () => {
+                    if (!currentSignalId) return alert('No signal to mark');
+                    const res = await fetch('/api/admin/mark-sent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ secret: ADMIN_SECRET, signal_id: currentSignalId })
+                    });
+                    const data = await res.json();
+                    if (data.success) { alert('Signal marked as sent'); fetchLatest(); }
+                    else alert('Error: ' + data.error);
+                };
+
+                fetchLatest();
+                setInterval(fetchLatest, 30000);
+            </script>
+        </body>
+        </html>
     `);
 });
 
@@ -186,7 +260,6 @@ app.post('/api/admin/delete-user', async (req, res) => {
 // ==================== INITIALIZE DATABASE ====================
 async function initDB() {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
-
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -199,7 +272,6 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT NOW()
         );
     `);
-
     await pool.query(`
         CREATE TABLE IF NOT EXISTS user_assets (
             user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -207,7 +279,6 @@ async function initDB() {
             PRIMARY KEY (user_id, asset_symbol)
         );
     `);
-
     await pool.query(`
         CREATE TABLE IF NOT EXISTS auto_signals (
             id SERIAL PRIMARY KEY,
@@ -221,7 +292,6 @@ async function initDB() {
             sent_to_admin BOOLEAN DEFAULT FALSE
         );
     `);
-
     console.log('Database tables ready');
 }
 initDB().catch(console.error);
