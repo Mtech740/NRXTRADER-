@@ -4,6 +4,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fetch = require('node-fetch'); // <-- add this
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -129,6 +130,27 @@ app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
         );
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ==================== NOTIFICATION ENDPOINT (for frontend) ====================
+app.post('/api/admin/notify-signal', async (req, res) => {
+    const { secret, userId, assetSymbol } = req.body;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    try {
+        // Increment trial usage counter
+        await pool.query('UPDATE users SET trial_signals_used = trial_signals_used + 1 WHERE id = $1', [userId]);
+        // Send push notification via ntfy.sh
+        const ntfyTopic = process.env.NTFY_TOPIC || 'syna_alerts';
+        fetch(`https://ntfy.sh/${ntfyTopic}`, {
+            method: 'POST',
+            body: `SYNA signal generated for ${assetSymbol} by user ${userId}`,
+            headers: { 'Title': 'SYNA Alert', 'Priority': 'high' }
+        }).catch(e => console.error('Notification error:', e));
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 // ==================== ADMIN PANEL (with WhatsApp send buttons) ====================
