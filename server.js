@@ -4,7 +4,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const fetch = require('node-fetch'); // <-- add this
+const fetch = require('node-fetch');   // for ntfy notifications
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -132,7 +132,7 @@ app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// ==================== NOTIFICATION ENDPOINT (for frontend) ====================
+// ==================== NOTIFICATION ENDPOINT ====================
 app.post('/api/admin/notify-signal', async (req, res) => {
     const { secret, userId, assetSymbol } = req.body;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
@@ -277,6 +277,37 @@ app.post('/api/admin/delete-user', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email required' });
     await pool.query('DELETE FROM users WHERE email = $1', [email]);
     res.json({ success: true });
+});
+
+// ==================== TEMPORARY DEBUG & FORCE SIGNAL ====================
+app.get('/api/admin/debug-user', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    const email = req.query.email || 'freshstart2024@mail.com';
+    try {
+        const user = await pool.query('SELECT id, email, phone, trial_signals_used FROM users WHERE email = $1', [email]);
+        if (user.rows.length === 0) return res.json({ error: 'User not found' });
+        const assets = await pool.query('SELECT asset_symbol FROM user_assets WHERE user_id = $1', [user.rows[0].id]);
+        res.json({ user: user.rows[0], assets: assets.rows.map(r => r.asset_symbol) });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/force-signal', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    const asset = req.query.asset || 'XAUUSD';
+    try {
+        const direction = Date.now() % 2 === 0 ? 'BUY' : 'SELL';
+        const entry = 100.0;
+        const tp = entry * (direction === 'BUY' ? 1.005 : 0.995);
+        const sl = entry * (direction === 'BUY' ? 0.997 : 1.003);
+        await pool.query(
+            `INSERT INTO auto_signals (asset_symbol, signal_type, entry_price, take_profit, stop_loss, confidence)
+             VALUES ($1, $2, $3, $4, $5, 'High')`,
+            [asset, direction, entry, tp, sl]
+        );
+        res.send(`New signal generated for ${asset} (${direction}). Refresh admin panel.`);
+    } catch (err) { res.status(500).send('Error: ' + err.message); }
 });
 
 // ==================== INITIALIZE DATABASE ====================
