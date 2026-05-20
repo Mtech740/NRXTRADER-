@@ -137,9 +137,7 @@ app.post('/api/admin/notify-signal', async (req, res) => {
     const { secret, userId, assetSymbol } = req.body;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     try {
-        // Increment trial usage counter
         await pool.query('UPDATE users SET trial_signals_used = trial_signals_used + 1 WHERE id = $1', [userId]);
-        // Send push notification via ntfy.sh
         const ntfyTopic = process.env.NTFY_TOPIC || 'syna_alerts';
         fetch(`https://ntfy.sh/${ntfyTopic}`, {
             method: 'POST',
@@ -153,7 +151,7 @@ app.post('/api/admin/notify-signal', async (req, res) => {
     }
 });
 
-// ==================== ADMIN PANEL (with WhatsApp send buttons) ====================
+// ==================== ADMIN PANEL ====================
 app.get('/admin', (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
@@ -245,6 +243,7 @@ app.get('/admin', (req, res) => {
     `);
 });
 
+// IMPORTANT FIX: Show ALL users with a phone number (no asset filter)
 app.get('/api/admin/latest-signal', async (req, res) => {
     const { secret } = req.query;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
@@ -252,16 +251,16 @@ app.get('/api/admin/latest-signal', async (req, res) => {
         const signalResult = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin = FALSE ORDER BY generated_at DESC LIMIT 1`);
         if (signalResult.rows.length === 0) return res.json({ error: 'No pending signals' });
         const signal = signalResult.rows[0];
-        const usersResult = await pool.query(`
-            SELECT u.phone FROM users u
-            JOIN user_assets ua ON u.id = ua.user_id
-            WHERE ua.asset_symbol = $1
-        `, [signal.asset_symbol]);
+        // Show ALL users who have a phone number (no asset selection required)
+        const usersResult = await pool.query(`SELECT phone FROM users WHERE phone IS NOT NULL AND phone != ''`);
         res.json({
             signal,
             whatsapp_numbers: usersResult.rows.map(r => r.phone).filter(p => p)
         });
-    } catch (err) { res.json({ error: 'No pending signals' }); }
+    } catch (err) { 
+        console.error(err);
+        res.json({ error: 'No pending signals' }); 
+    }
 });
 
 app.post('/api/admin/mark-sent', async (req, res) => {
