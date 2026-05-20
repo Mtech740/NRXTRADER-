@@ -274,41 +274,18 @@ app.post('/api/admin/mark-sent', async (req, res) => {
     res.json({ success: true });
 });
 
-// GET endpoint to delete user by email (simple URL)
-app.get('/api/admin/delete-user-get', async (req, res) => {
-    const secret = req.query.secret;
-    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
-    const email = req.query.email;
-    if (!email) return res.status(400).send('Email parameter missing');
-    try {
-        await pool.query('DELETE FROM users WHERE email = $1', [email]);
-        res.send(`User with email ${email} deleted successfully.`);
-    } catch (err) {
-        res.status(500).send('Error: ' + err.message);
-    }
-});
-
-// GET endpoint to delete user by phone number (simple URL)
-app.get('/api/admin/delete-user-by-phone', async (req, res) => {
-    const secret = req.query.secret;
-    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
-    const phone = req.query.phone;
-    if (!phone) return res.status(400).send('Phone parameter missing');
-    try {
-        const result = await pool.query('DELETE FROM users WHERE phone = $1 RETURNING email', [phone]);
-        if (result.rows.length === 0) return res.send(`No user found with phone ${phone}`);
-        res.send(`User with phone ${phone} (email: ${result.rows[0].email}) deleted successfully.`);
-    } catch (err) {
-        res.status(500).send('Error: ' + err.message);
-    }
-});
-
+// Only POST version remains for user deletion (secure)
 app.post('/api/admin/delete-user', async (req, res) => {
     const { secret, email } = req.body;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     if (!email) return res.status(400).json({ error: 'Email required' });
-    await pool.query('DELETE FROM users WHERE email = $1', [email]);
-    res.json({ success: true });
+    try {
+        await pool.query('DELETE FROM users WHERE email = $1', [email]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 // ==================== TEMPORARY ADMIN ENDPOINTS ====================
