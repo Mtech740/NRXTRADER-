@@ -3,14 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>SYNA – Neural Trading Intelligence</title>
+    <title>SYNA – Neural Intelligence Core</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: radial-gradient(circle at 20% 30%, #0a0f1a, #03060c);
             font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', monospace;
@@ -19,7 +14,6 @@
             min-height: 100vh;
             padding: 20px;
         }
-
         .glass {
             background: rgba(15, 25, 45, 0.65);
             backdrop-filter: blur(12px);
@@ -27,12 +21,7 @@
             border-radius: 28px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
+        .container { max-width: 1200px; margin: 0 auto; }
         .syna-header {
             display: flex;
             align-items: center;
@@ -41,25 +30,9 @@
             flex-wrap: wrap;
             gap: 16px;
         }
-
-        .logo-area {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .aviator {
-            width: 80px;
-            height: 80px;
-            position: relative;
-        }
-
-        .aviator canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
+        .logo-area { display: flex; align-items: center; gap: 20px; }
+        .aviator { width: 80px; height: 80px; position: relative; }
+        .aviator canvas { width: 100%; height: 100%; display: block; }
         .title h1 {
             font-size: 2.2rem;
             font-weight: 700;
@@ -69,13 +42,7 @@
             background-clip: text;
             color: transparent;
         }
-
-        .title p {
-            font-size: 0.8rem;
-            color: #8ba3c7;
-            letter-spacing: 1px;
-        }
-
+        .title p { font-size: 0.8rem; color: #8ba3c7; letter-spacing: 1px; }
         .card {
             background: rgba(10, 20, 35, 0.7);
             backdrop-filter: blur(8px);
@@ -83,9 +50,7 @@
             border-radius: 28px;
             padding: 24px;
             margin-bottom: 24px;
-            transition: all 0.2s;
         }
-
         .card h3 {
             font-size: 1.2rem;
             font-weight: 500;
@@ -93,7 +58,6 @@
             color: #7ad0ff;
             letter-spacing: 0.5px;
         }
-
         input, button {
             background: #0f1a2a;
             border: 1px solid #2a3a55;
@@ -105,13 +69,6 @@
             margin-bottom: 16px;
             font-family: inherit;
         }
-
-        input:focus {
-            outline: none;
-            border-color: #2aa9ff;
-            box-shadow: 0 0 8px rgba(42, 169, 255, 0.3);
-        }
-
         button {
             background: linear-gradient(95deg, #1e3a8a, #2563eb);
             border: none;
@@ -120,100 +77,74 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        /* Enhanced asset selection grid */
         .assets-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 16px;
             margin: 24px 0;
         }
-
         .asset-card {
             background: rgba(5, 15, 25, 0.7);
             border: 1px solid rgba(42, 169, 255, 0.3);
             border-radius: 20px;
             padding: 14px 12px;
             cursor: pointer;
-            transition: all 0.2s ease;
             text-align: center;
-            backdrop-filter: blur(4px);
+            transition: all 0.2s;
         }
-
         .asset-card:hover {
             background: rgba(42, 169, 255, 0.15);
             border-color: #2aa9ff;
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
         }
-
         .asset-card.selected {
             background: linear-gradient(135deg, rgba(42, 169, 255, 0.25), rgba(0, 100, 200, 0.2));
             border-color: #2aa9ff;
             box-shadow: 0 0 12px rgba(42, 169, 255, 0.3);
         }
-
-        .asset-symbol {
-            font-size: 1.2rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
-
-        .asset-desc {
-            font-size: 0.7rem;
-            color: #8ba3c7;
-            margin-top: 4px;
-        }
-
-        .asset-card input {
-            display: none;
-        }
-
+        .asset-symbol { font-size: 1.2rem; font-weight: 600; }
+        .asset-desc { font-size: 0.7rem; color: #8ba3c7; margin-top: 4px; }
         .status-badge {
             background: #0a1622;
             padding: 6px 12px;
             border-radius: 24px;
             font-size: 0.8rem;
-            font-family: monospace;
             border-left: 3px solid #2aa9ff;
         }
-
         .payment-details {
             background: rgba(0, 40, 30, 0.4);
             border: 1px solid #2aa9ff;
             border-radius: 20px;
             padding: 16px;
             margin-top: 16px;
-            font-size: 0.9rem;
         }
-
         .payment-details code {
             background: #00000040;
             padding: 6px 12px;
             border-radius: 28px;
             font-size: 1rem;
-            display: inline-block;
         }
-
+        .plan-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(42,169,255,0.2);
+        }
+        .plan-price { font-size: 1.4rem; font-weight: bold; color: #7ad0ff; }
         @keyframes pulse-glow {
             0% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.3); }
             70% { box-shadow: 0 0 0 12px rgba(0, 255, 255, 0); }
             100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0); }
         }
-
-        .glow-btn {
-            animation: pulse-glow 1.5s infinite;
-        }
-
+        .glow-btn { animation: pulse-glow 1.5s infinite; }
         @media (max-width: 640px) {
             .syna-header { flex-direction: column; align-items: flex-start; }
             .aviator { width: 60px; height: 60px; }
             .assets-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-            .asset-symbol { font-size: 1rem; }
         }
     </style>
 </head>
@@ -225,7 +156,7 @@
             <div class="aviator" id="aviatorCanvas"></div>
             <div class="title">
                 <h1>SYNA</h1>
-                <p>Neural Market Intelligence</p>
+                <p>neural intelligence core</p>
             </div>
         </div>
         <input type="email" id="email" placeholder="Email address">
@@ -243,7 +174,7 @@
                 <div class="aviator" id="aviatorDashboard"></div>
                 <div class="title">
                     <h1>SYNA ACTIVE</h1>
-                    <p>quantitative analysis engine</p>
+                    <p>neural intelligence core</p>
                 </div>
             </div>
             <button id="logoutBtn" style="width: auto; background:#1f2a40;">TERMINATE SESSION</button>
@@ -259,15 +190,23 @@
         <div class="card">
             <h3>SIGNAL ALLOCATION</h3>
             <div id="trialStatus" class="status-badge" style="background:#0a1622; padding:10px;">Loading...</div>
-            <div id="paymentSection" style="display:none;">
-                <div class="payment-details">
-                    <strong>SUBSCRIPTION REQUIRED</strong><br>
-                    You have used all free signals. To continue receiving SYNA signals, send payment via MTN Mobile Money to:<br>
-                    <code>0960168307</code><br>
-                    Amount: $5 (Basic) or $15 (Premium) – equivalent in ZMW.<br>
-                    After payment, send screenshot + your email to WhatsApp support: <strong>+260 96 016 8307</strong>.<br>
-                    Your subscription will be activated within 12 hours.
-                </div>
+        </div>
+
+        <!-- Subscription Plans (always visible) -->
+        <div class="card">
+            <h3>SUBSCRIPTION PLANS</h3>
+            <div class="plan-card">
+                <div><strong>Basic</strong><br>Daily signals, Forex + Gold</div>
+                <div class="plan-price">$5 / month</div>
+            </div>
+            <div class="plan-card">
+                <div><strong>Premium</strong><br>Priority signals, all assets, crypto & indices</div>
+                <div class="plan-price">$15 / month</div>
+            </div>
+            <div class="payment-details" style="margin-top:12px;">
+                <strong>Payment via MTN Mobile Money</strong><br>
+                Send amount to <code>0960168307</code>. After payment, send screenshot + your email to <strong>+260 96 016 8307</strong>.<br>
+                Your subscription will be activated within 12 hours.
             </div>
         </div>
 
@@ -279,15 +218,15 @@
 
         <div class="card">
             <h3>CONTROL PANEL</h3>
-            <button id="genSignalBtn" class="glow-btn">GENERATE TEST SIGNAL (XAUUSD)</button>
-            <div id="signalResult" style="margin-top:12px; font-size:0.8rem;"></div>
+            <button id="genSignalBtn" class="glow-btn">ACTIVATE FREE TRIAL SIGNALS (3 signals)</button>
+            <div id="signalResult" style="margin-top:12px; font-size:0.9rem;"></div>
         </div>
     </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    // 3D Aviator (unchanged)
+    // 3D Aviator (same)
     function initAviator(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -300,12 +239,10 @@
         renderer.setSize(width, height);
         renderer.setClearColor(0x000000, 0);
         container.appendChild(renderer.domElement);
-
         const geometry = new THREE.IcosahedronGeometry(0.6, 0);
-        const material = new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x1e3a8a, roughness: 0.3, metalness: 0.7 });
+        const material = new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x1e3a8a });
         const core = new THREE.Mesh(geometry, material);
         scene.add(core);
-
         const particleCount = 80;
         const particleGeometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
@@ -318,21 +255,14 @@
             positions[i*3+2] = r * Math.cos(phi);
         }
         particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        const particleMaterial = new THREE.PointsMaterial({ color: 0x00aaff, size: 0.05 });
-        const particles = new THREE.Points(particleGeometry, particleMaterial);
+        const particles = new THREE.Points(particleGeometry, new THREE.PointsMaterial({ color: 0x00aaff, size: 0.05 }));
         scene.add(particles);
-
-        const ringGeo = new THREE.TorusGeometry(0.9, 0.03, 64, 200);
-        const ringMat = new THREE.MeshStandardMaterial({ color: 0x2aa9ff, emissive: 0x004466 });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.03, 64, 200), new THREE.MeshStandardMaterial({ color: 0x2aa9ff, emissive: 0x004466 }));
         scene.add(ring);
-
         const light = new THREE.PointLight(0xffffff, 1);
         light.position.set(2, 2, 2);
         scene.add(light);
-        const ambientLight = new THREE.AmbientLight(0x404060);
-        scene.add(ambientLight);
-
+        scene.add(new THREE.AmbientLight(0x404060));
         let angle = 0;
         function animate() {
             requestAnimationFrame(animate);
@@ -342,11 +272,9 @@
             ring.rotation.x = angle;
             ring.rotation.z = angle * 0.3;
             particles.rotation.y = angle * 0.2;
-            particles.rotation.x = angle * 0.1;
             renderer.render(scene, camera);
         }
         animate();
-
         window.addEventListener('resize', () => {
             const w = container.clientWidth;
             const h = container.clientHeight;
@@ -356,7 +284,6 @@
         });
     }
 
-    // API & UI
     const API = 'https://nrxtrader-api.onrender.com';
     let token = localStorage.getItem('token');
 
@@ -364,10 +291,7 @@
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Request failed');
-        }
+        if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
         return res.json();
     }
 
@@ -376,30 +300,17 @@
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         document.getElementById('userEmailDisplay').innerText = user.email;
         document.getElementById('userPhoneDisplay').innerText = user.phone;
-
         try {
-            const trialData = await apiCall('GET', '/api/user/trial-remaining');
-            const remaining = trialData.remaining;
-            const trialStatusDiv = document.getElementById('trialStatus');
-            const paymentSection = document.getElementById('paymentSection');
-            if (remaining > 0) {
-                trialStatusDiv.innerHTML = `Free signals remaining: ${remaining} of 3`;
-                paymentSection.style.display = 'none';
-            } else {
-                trialStatusDiv.innerHTML = `Free signals exhausted. Subscription required.`;
-                paymentSection.style.display = 'block';
-            }
-        } catch(e) {
-            document.getElementById('trialStatus').innerHTML = 'Trial status unavailable';
-        }
-
+            const trial = await apiCall('GET', '/api/user/trial-remaining');
+            const remaining = trial.remaining;
+            document.getElementById('trialStatus').innerHTML = remaining > 0 ? `Free signals remaining: ${remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
+        } catch(e) { document.getElementById('trialStatus').innerHTML = 'Trial status unavailable'; }
         try {
-            const assetsRes = await apiCall('GET', '/api/user/assets');
-            renderAssets(assetsRes.assets);
+            const assets = await apiCall('GET', '/api/user/assets');
+            renderAssets(assets.assets);
         } catch(e) { renderAssets([]); }
     }
 
-    // Asset list with descriptions
     const assetList = [
         { symbol: 'XAUUSD', desc: 'Gold' },
         { symbol: 'US30', desc: 'Dow Jones' },
@@ -414,38 +325,64 @@
         grid.innerHTML = '';
         assetList.forEach(asset => {
             const isSelected = selected.includes(asset.symbol);
-            const cardDiv = document.createElement('div');
-            cardDiv.className = `asset-card ${isSelected ? 'selected' : ''}`;
-            cardDiv.setAttribute('data-symbol', asset.symbol);
-            cardDiv.innerHTML = `
-                <div class="asset-symbol">${asset.symbol}</div>
-                <div class="asset-desc">${asset.desc}</div>
-            `;
-            cardDiv.onclick = (e) => {
-                e.stopPropagation();
-                cardDiv.classList.toggle('selected');
-            };
-            grid.appendChild(cardDiv);
+            const card = document.createElement('div');
+            card.className = `asset-card ${isSelected ? 'selected' : ''}`;
+            card.setAttribute('data-symbol', asset.symbol);
+            card.innerHTML = `<div class="asset-symbol">${asset.symbol}</div><div class="asset-desc">${asset.desc}</div>`;
+            card.onclick = (e) => { e.stopPropagation(); card.classList.toggle('selected'); };
+            grid.appendChild(card);
         });
     }
 
     async function saveAssets() {
         const cards = document.querySelectorAll('#assetsGrid .asset-card');
-        const assets = Array.from(cards)
-            .filter(card => card.classList.contains('selected'))
-            .map(card => card.getAttribute('data-symbol'));
+        const assets = Array.from(cards).filter(c => c.classList.contains('selected')).map(c => c.getAttribute('data-symbol'));
         try {
             await apiCall('POST', '/api/user/assets', { assets });
             alert('Asset list updated');
         } catch(e) { alert('Error: ' + e.message); }
     }
 
-    async function generateSignal() {
+    async function generateAllThreeSignals() {
+        const btn = document.getElementById('genSignalBtn');
+        const resultDiv = document.getElementById('signalResult');
+        btn.disabled = true;
+        resultDiv.innerHTML = 'SYNA neural core is processing your signals...';
         try {
-            const res = await apiCall('POST', '/api/trades/generate-signal', { assetSymbol: 'XAUUSD' });
-            if (res.success) alert('Signal dispatched to admin console');
-            else alert('Signal generation failed');
-        } catch(e) { alert('Error: ' + e.message); }
+            const user = JSON.parse(localStorage.getItem('user'));
+            const userId = user.id;
+            // Get current trial remaining
+            const trial = await apiCall('GET', '/api/user/trial-remaining');
+            let remaining = trial.remaining;
+            if (remaining === 0) {
+                resultDiv.innerHTML = 'Your free trial has ended. Please subscribe to continue receiving signals.';
+                btn.disabled = false;
+                return;
+            }
+            const signalsToSend = Math.min(remaining, 3);
+            for (let i = 0; i < signalsToSend; i++) {
+                resultDiv.innerHTML = `Generating signal ${i+1} of ${signalsToSend}...`;
+                // Generate signal
+                const res = await apiCall('POST', '/api/trades/generate-signal', { assetSymbol: 'XAUUSD' });
+                if (res.success) {
+                    // Notify admin and increment trial counter
+                    await fetch(API + '/api/admin/notify-signal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ secret: 'A8dF8d9B2cE5fG1hJ3kL6zX7cV9bN4mQ', userId, assetSymbol: 'XAUUSD' })
+                    });
+                }
+                await new Promise(r => setTimeout(r, 500));
+            }
+            resultDiv.innerHTML = 'All 3 free signals have been queued. You will receive them on WhatsApp shortly. Our dispatch system is delivering them now.';
+            // Reload trial status
+            const newTrial = await apiCall('GET', '/api/user/trial-remaining');
+            document.getElementById('trialStatus').innerHTML = newTrial.remaining > 0 ? `Free signals remaining: ${newTrial.remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
+        } catch(e) {
+            resultDiv.innerHTML = 'Error: ' + e.message;
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     // Auth
@@ -464,7 +401,6 @@
             initAviator('aviatorDashboard');
         } catch(e) { document.getElementById('authError').innerText = e.message; }
     };
-
     document.getElementById('registerBtn').onclick = async () => {
         const email = document.getElementById('email').value.trim();
         const phone = document.getElementById('phone').value.trim();
@@ -472,17 +408,13 @@
         if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
         try {
             await apiCall('POST', '/api/auth/register', { email, phone, password });
-            document.getElementById('authError').innerText = 'Account created. Log in.';
+            document.getElementById('authError').innerText = 'Account created. Please log in.';
             document.getElementById('authError').style.color = '#6fbf4c';
         } catch(e) { document.getElementById('authError').innerText = e.message; }
     };
-
-    document.getElementById('logoutBtn')?.addEventListener('click', () => {
-        localStorage.clear();
-        location.reload();
-    });
+    document.getElementById('logoutBtn')?.addEventListener('click', () => { localStorage.clear(); location.reload(); });
     document.getElementById('saveAssetsBtn')?.addEventListener('click', saveAssets);
-    document.getElementById('genSignalBtn')?.addEventListener('click', generateSignal);
+    document.getElementById('genSignalBtn')?.addEventListener('click', generateAllThreeSignals);
 
     if (token) {
         document.getElementById('authPanel').style.display = 'none';
