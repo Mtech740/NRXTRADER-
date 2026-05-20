@@ -4,7 +4,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const fetch = require('node-fetch');   // for ntfy notifications
+const fetch = require('node-fetch');   // for API calls
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -15,26 +15,9 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
+// ==================== HEALTH ====================
 app.get('/', (req, res) => res.json({ status: 'NRXTRADER API ONLINE' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
-
-// ==================== TEMPORARY FIX ====================
-app.get('/api/fix-table', async (req, res) => {
-    const secret = req.query.secret;
-    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
-    try {
-        await pool.query(`
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20) UNIQUE;
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(20) DEFAULT 'free';
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_signals_used INTEGER DEFAULT 0;
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS signal_subscription_end TIMESTAMP;
-        `);
-        res.send('Table fixed! Now register a new user.');
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Error: ' + err.message);
-    }
-});
 
 // ==================== AUTH ====================
 app.post('/api/auth/register', async (req, res) => {
@@ -108,28 +91,131 @@ app.get('/api/user/trial-remaining', authMiddleware, async (req, res) => {
     res.json({ remaining: Math.max(0, 3 - used) });
 });
 
-// ==================== PRICE & SIGNAL ====================
-app.get('/api/price', async (req, res) => {
-    const { symbol } = req.query;
-    const fallbacks = { 'XAUUSD': 2350, 'US30': 33500, 'NAS100': 18500, 'EURUSD': 1.08, 'GBPUSD': 1.26, 'BTCUSD': 65000 };
-    res.json({ price: fallbacks[symbol] || 1.0 });
-});
+// ==================== LIVE PRICE FETCHING ====================
+// Map asset symbols to API endpoints (free, no API key required for demo)
+async function getLivePrice(asset) {
+    try {
+        if (asset === 'XAUUSD') {
+            // Gold price in USD from metals.live
+            const res = await fetch('https://api.metals.live/v1/spot/gold');
+            const data = await res.json();
+            return data.price; // returns USD per ounce
+        } else if (asset === 'US30') {
+            // Dow Jones index from Yahoo Finance via free API
+            const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI');
+            const data = await res.json();
+            return data.chart.result[0].meta.regularMarketPrice;
+        } else if (asset === 'NAS100') {
+            const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC');
+            const data = await res.json();
+            return data.chart.result[0].meta.regularMarketPrice;
+        } else if (asset === 'EURUSD') {
+            const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
+            const data = await res.json();
+            return data.rates.USD;
+        } else if (asset === 'GBPUSD') {
+            const res = await fetch('https://api.exchangerate-api.com/v4/latest/GBP');
+            const data = await res.json();
+            return data.rates.USD;
+        } else if (asset === 'BTCUSD') {
+            const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+            const data = await res.json();
+            return data.bitcoin.usd;
+        } else {
+            // fallback for unsupported assets
+            return 100.0;
+        }
+    } catch (err) {
+        console.error(`Price fetch error for ${asset}:`, err);
+        return null;
+    }
+}
 
+// Price cache table to store last price
+async function ensurePriceCacheTable() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS price_cache (
+            asset_symbol VARCHAR(20) PRIMARY KEY,
+            last_price DECIMAL(15,5),
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+    `);
+}
+
+// Get last stored price for asset
+async function getLastPrice(asset) {
+    const res = await pool.query('SELECT last_price FROM price_cache WHERE asset_symbol = $1', [asset]);
+    if (res.rows.length === 0) return null;
+    return parseFloat(res.rows[0].last_price);
+}
+
+// Update price cache
+async function updatePriceCache(asset, price) {
+    await pool.query(`
+        INSERT INTO price_cache (asset_symbol, last_price, updated_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (asset_symbol) DO UPDATE SET last_price = $2, updated_at = NOW()
+    `, [asset, price]);
+}
+
+// ==================== SIGNAL GENERATION (REAL MARKET) ====================
 app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
     const { assetSymbol } = req.body;
     if (!assetSymbol) return res.status(400).json({ error: 'Asset symbol required' });
     try {
-        const direction = Date.now() % 2 === 0 ? 'BUY' : 'SELL';
-        const entry = 100.0;
-        const tp = entry * (direction === 'BUY' ? 1.005 : 0.995);
-        const sl = entry * (direction === 'BUY' ? 0.997 : 1.003);
-        await pool.query(
-            `INSERT INTO auto_signals (asset_symbol, signal_type, entry_price, take_profit, stop_loss, confidence)
-             VALUES ($1, $2, $3, $4, $5, 'High')`,
-            [assetSymbol, direction, entry, tp, sl]
-        );
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+        // Ensure price cache table exists
+        await ensurePriceCacheTable();
+
+        // 1. Get live price
+        const currentPrice = await getLivePrice(assetSymbol);
+        if (!currentPrice) {
+            return res.status(500).json({ error: `Could not fetch live price for ${assetSymbol}` });
+        }
+
+        // 2. Get previous price
+        const lastPrice = await getLastPrice(assetSymbol);
+        let direction = null;
+        let confidence = 'Medium';
+
+        if (lastPrice !== null) {
+            const percentChange = ((currentPrice - lastPrice) / lastPrice) * 100;
+            if (percentChange > 0.05) {
+                direction = 'BUY';
+                confidence = percentChange > 0.2 ? 'High' : 'Medium';
+            } else if (percentChange < -0.05) {
+                direction = 'SELL';
+                confidence = percentChange < -0.2 ? 'High' : 'Medium';
+            }
+        }
+
+        // Update cache with current price
+        await updatePriceCache(assetSymbol, currentPrice);
+
+        // Only generate signal if a direction is determined
+        if (direction) {
+            const entry = currentPrice;
+            let tp, sl;
+            if (direction === 'BUY') {
+                tp = entry * 1.005;   // +0.5%
+                sl = entry * 0.997;    // -0.3%
+            } else {
+                tp = entry * 0.995;    // -0.5%
+                sl = entry * 1.003;    // +0.3%
+            }
+            await pool.query(
+                `INSERT INTO auto_signals (asset_symbol, signal_type, entry_price, take_profit, stop_loss, confidence)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [assetSymbol, direction, entry, tp, sl, confidence]
+            );
+            res.json({ success: true, direction, price: currentPrice });
+        } else {
+            // No significant movement: no signal
+            res.json({ success: true, message: 'No significant price movement', price: currentPrice });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 // ==================== NOTIFICATION ENDPOINT ====================
@@ -158,92 +244,54 @@ app.get('/admin', (req, res) => {
     res.send(`
         <!DOCTYPE html>
         <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>SYNA Admin Console</title>
-            <style>
-                body { font-family: monospace; background: #0a0e17; color: #e2e8f0; padding: 20px; }
-                .signal-card { background: #111827; border-left: 4px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-                .numbers-list { background: #0a0e17; border-radius: 8px; padding: 12px; margin-top: 12px; }
-                .number-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #1f2937; }
-                .send-btn { background: #25D366; color: black; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; }
-                button { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; margin-top: 10px; }
-            </style>
-        </head>
-        <body>
-            <h1>SYNA Signal Dispatch</h1>
-            <div id="signalCard" class="signal-card">
-                <h2>Latest Signal</h2>
-                <div id="signalDetails">Loading...</div>
-                <div id="numbersContainer"></div>
-                <button id="markSentBtn">Mark as Sent</button>
-            </div>
-            <script>
-                const ADMIN_SECRET = "${secret}";
-                let currentSignalId = null;
-
-                async function fetchLatest() {
-                    const res = await fetch('/api/admin/latest-signal?secret=' + ADMIN_SECRET);
-                    const data = await res.json();
-                    if (data.error) {
-                        document.getElementById('signalDetails').innerHTML = '<p style="color:#ef4444">' + data.error + '</p>';
-                        document.getElementById('numbersContainer').innerHTML = '';
-                        return;
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SYNA Admin Console</title>
+        <style>body{font-family:monospace;background:#0a0e17;color:#e2e8f0;padding:20px}.signal-card{background:#111827;border-left:4px solid #10b981;border-radius:12px;padding:20px;margin-bottom:20px}.numbers-list{background:#0a0e17;border-radius:8px;padding:12px;margin-top:12px}.number-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #1f2937}.send-btn{background:#25D366;color:black;border:none;padding:6px 16px;border-radius:20px;cursor:pointer;text-decoration:none;display:inline-block}button{background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-top:10px}</style></head>
+        <body><h1>SYNA Signal Dispatch</h1><div id="signalCard" class="signal-card"><h2>Latest Signal</h2><div id="signalDetails">Loading...</div><div id="numbersContainer"></div><button id="markSentBtn">Mark as Sent</button></div>
+        <script>
+            const ADMIN_SECRET = "${secret}";
+            let currentSignalId = null;
+            async function fetchLatest() {
+                const res = await fetch('/api/admin/latest-signal?secret=' + ADMIN_SECRET);
+                const data = await res.json();
+                if (data.error) { document.getElementById('signalDetails').innerHTML = '<p style="color:#ef4444">' + data.error + '</p>'; document.getElementById('numbersContainer').innerHTML = ''; return; }
+                currentSignalId = data.signal.id;
+                const sig = data.signal;
+                document.getElementById('signalDetails').innerHTML = \`
+                    <p><strong>Asset:</strong> \${sig.asset_symbol}</p>
+                    <p><strong>Action:</strong> \${sig.signal_type}</p>
+                    <p><strong>Entry:</strong> \${sig.entry_price}</p>
+                    <p><strong>Take Profit:</strong> \${sig.take_profit}</p>
+                    <p><strong>Stop Loss:</strong> \${sig.stop_loss}</p>
+                    <p><strong>Confidence:</strong> \${sig.confidence}</p>
+                    <p><strong>Generated:</strong> \${new Date(sig.generated_at).toLocaleString()}</p>
+                \`;
+                if (data.whatsapp_numbers && data.whatsapp_numbers.length) {
+                    let numbersHtml = '<h3>WhatsApp Recipients</h3><div class="numbers-list">';
+                    for (let phone of data.whatsapp_numbers) {
+                        let cleanPhone = phone.replace(/\\D/g, '');
+                        if (!cleanPhone.startsWith('260') && phone.includes('+260')) cleanPhone = phone.replace('+', '');
+                        const message = \`📢 SYNA SIGNAL\\nAsset: \${sig.asset_symbol}\\nAction: \${sig.signal_type}\\nEntry: \${sig.entry_price}\\nTP: \${sig.take_profit}\\nSL: \${sig.stop_loss}\\nConfidence: \${sig.confidence}\`;
+                        const waLink = \`https://wa.me/\${cleanPhone}?text=\${encodeURIComponent(message)}\`;
+                        numbersHtml += \`<div class="number-item"><span>\${phone}</span><a href="\${waLink}" target="_blank" class="send-btn">Send via WhatsApp</a></div>\`;
                     }
-                    currentSignalId = data.signal.id;
-                    const sig = data.signal;
-                    document.getElementById('signalDetails').innerHTML = \`
-                        <p><strong>Asset:</strong> \${sig.asset_symbol}</p>
-                        <p><strong>Action:</strong> \${sig.signal_type}</p>
-                        <p><strong>Entry:</strong> \${sig.entry_price}</p>
-                        <p><strong>Take Profit:</strong> \${sig.take_profit}</p>
-                        <p><strong>Stop Loss:</strong> \${sig.stop_loss}</p>
-                        <p><strong>Confidence:</strong> \${sig.confidence}</p>
-                        <p><strong>Generated:</strong> \${new Date(sig.generated_at).toLocaleString()}</p>
-                    \`;
-                    if (data.whatsapp_numbers && data.whatsapp_numbers.length) {
-                        let numbersHtml = '<h3>WhatsApp Recipients</h3><div class="numbers-list">';
-                        for (let phone of data.whatsapp_numbers) {
-                            let cleanPhone = phone.replace(/\\D/g, '');
-                            if (!cleanPhone.startsWith('260') && phone.includes('+260')) cleanPhone = phone.replace('+', '');
-                            const message = \`📢 SYNA SIGNAL\\nAsset: \${sig.asset_symbol}\\nAction: \${sig.signal_type}\\nEntry: \${sig.entry_price}\\nTP: \${sig.take_profit}\\nSL: \${sig.stop_loss}\\nConfidence: \${sig.confidence}\`;
-                            const waLink = \`https://wa.me/\${cleanPhone}?text=\${encodeURIComponent(message)}\`;
-                            numbersHtml += \`
-                                <div class="number-item">
-                                    <span>\${phone}</span>
-                                    <a href="\${waLink}" target="_blank" class="send-btn">Send via WhatsApp</a>
-                                </div>
-                            \`;
-                        }
-                        numbersHtml += '</div>';
-                        document.getElementById('numbersContainer').innerHTML = numbersHtml;
-                    } else {
-                        document.getElementById('numbersContainer').innerHTML = '<p>No active subscribers for this asset.</p>';
-                    }
+                    numbersHtml += '</div>';
+                    document.getElementById('numbersContainer').innerHTML = numbersHtml;
+                } else {
+                    document.getElementById('numbersContainer').innerHTML = '<p>No active subscribers for this asset.</p>';
                 }
-
-                document.getElementById('markSentBtn').onclick = async () => {
-                    if (!currentSignalId) return alert('No signal to mark');
-                    const res = await fetch('/api/admin/mark-sent', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ secret: ADMIN_SECRET, signal_id: currentSignalId })
-                    });
-                    const data = await res.json();
-                    if (data.success) { alert('Signal marked as sent'); fetchLatest(); }
-                    else alert('Error: ' + data.error);
-                };
-
-                fetchLatest();
-                setInterval(fetchLatest, 30000);
-            </script>
-        </body>
-        </html>
+            }
+            document.getElementById('markSentBtn').onclick = async () => {
+                if (!currentSignalId) return alert('No signal to mark');
+                const res = await fetch('/api/admin/mark-sent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secret: ADMIN_SECRET, signal_id: currentSignalId }) });
+                const data = await res.json();
+                if (data.success) { alert('Signal marked as sent'); fetchLatest(); } else alert('Error: ' + data.error);
+            };
+            fetchLatest();
+            setInterval(fetchLatest, 30000);
+        </script></body></html>
     `);
 });
 
-// IMPORTANT FIX: Show ALL users with a phone number (no asset filter)
 app.get('/api/admin/latest-signal', async (req, res) => {
     const { secret } = req.query;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
@@ -251,16 +299,9 @@ app.get('/api/admin/latest-signal', async (req, res) => {
         const signalResult = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin = FALSE ORDER BY generated_at DESC LIMIT 1`);
         if (signalResult.rows.length === 0) return res.json({ error: 'No pending signals' });
         const signal = signalResult.rows[0];
-        // Show ALL users who have a phone number (no asset selection required)
         const usersResult = await pool.query(`SELECT phone FROM users WHERE phone IS NOT NULL AND phone != ''`);
-        res.json({
-            signal,
-            whatsapp_numbers: usersResult.rows.map(r => r.phone).filter(p => p)
-        });
-    } catch (err) { 
-        console.error(err);
-        res.json({ error: 'No pending signals' }); 
-    }
+        res.json({ signal, whatsapp_numbers: usersResult.rows.map(r => r.phone).filter(p => p) });
+    } catch (err) { res.json({ error: 'No pending signals' }); }
 });
 
 app.post('/api/admin/mark-sent', async (req, res) => {
@@ -296,16 +337,19 @@ app.get('/api/admin/force-signal', async (req, res) => {
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
     const asset = req.query.asset || 'XAUUSD';
     try {
-        const direction = Date.now() % 2 === 0 ? 'BUY' : 'SELL';
-        const entry = 100.0;
-        const tp = entry * (direction === 'BUY' ? 1.005 : 0.995);
-        const sl = entry * (direction === 'BUY' ? 0.997 : 1.003);
+        // Force check with real price
+        const currentPrice = await getLivePrice(asset);
+        if (!currentPrice) throw new Error('Price fetch failed');
+        const direction = Math.random() < 0.5 ? 'BUY' : 'SELL'; // fake direction for force
+        const entry = currentPrice;
+        const tp = direction === 'BUY' ? entry * 1.005 : entry * 0.995;
+        const sl = direction === 'BUY' ? entry * 0.997 : entry * 1.003;
         await pool.query(
             `INSERT INTO auto_signals (asset_symbol, signal_type, entry_price, take_profit, stop_loss, confidence)
              VALUES ($1, $2, $3, $4, $5, 'High')`,
             [asset, direction, entry, tp, sl]
         );
-        res.send(`New signal generated for ${asset} (${direction}). Refresh admin panel.`);
+        res.send(`New signal generated for ${asset} (${direction}) at price ${entry}. Refresh admin panel.`);
     } catch (err) { res.status(500).send('Error: ' + err.message); }
 });
 
@@ -336,12 +380,19 @@ async function initDB() {
             id SERIAL PRIMARY KEY,
             asset_symbol VARCHAR(20) NOT NULL,
             signal_type VARCHAR(4) CHECK (signal_type IN ('BUY','SELL')),
-            entry_price DECIMAL(10,5),
-            take_profit DECIMAL(10,5),
-            stop_loss DECIMAL(10,5),
+            entry_price DECIMAL(15,5),
+            take_profit DECIMAL(15,5),
+            stop_loss DECIMAL(15,5),
             confidence VARCHAR(20),
             generated_at TIMESTAMP DEFAULT NOW(),
             sent_to_admin BOOLEAN DEFAULT FALSE
+        );
+    `);
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS price_cache (
+            asset_symbol VARCHAR(20) PRIMARY KEY,
+            last_price DECIMAL(15,5),
+            updated_at TIMESTAMP DEFAULT NOW()
         );
     `);
     console.log('Database tables ready');
