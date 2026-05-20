@@ -103,7 +103,6 @@
             color: white;
             width: 100%;
             margin-bottom: 16px;
-            transition: all 0.2s;
             font-family: inherit;
         }
 
@@ -126,26 +125,52 @@
             transform: scale(0.98);
         }
 
+        /* Enhanced asset selection grid */
         .assets-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 12px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
         }
 
-        .asset-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #07121f;
-            padding: 8px 14px;
-            border-radius: 44px;
-            border: 1px solid #2a3a55;
+        .asset-card {
+            background: rgba(5, 15, 25, 0.7);
+            border: 1px solid rgba(42, 169, 255, 0.3);
+            border-radius: 20px;
+            padding: 14px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            backdrop-filter: blur(4px);
         }
 
-        .asset-checkbox input {
-            width: auto;
-            margin: 0;
+        .asset-card:hover {
+            background: rgba(42, 169, 255, 0.15);
+            border-color: #2aa9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .asset-card.selected {
+            background: linear-gradient(135deg, rgba(42, 169, 255, 0.25), rgba(0, 100, 200, 0.2));
+            border-color: #2aa9ff;
+            box-shadow: 0 0 12px rgba(42, 169, 255, 0.3);
+        }
+
+        .asset-symbol {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .asset-desc {
+            font-size: 0.7rem;
+            color: #8ba3c7;
+            margin-top: 4px;
+        }
+
+        .asset-card input {
+            display: none;
         }
 
         .status-badge {
@@ -155,20 +180,6 @@
             font-size: 0.8rem;
             font-family: monospace;
             border-left: 3px solid #2aa9ff;
-        }
-
-        .admin-link {
-            font-family: monospace;
-            word-break: break-all;
-            color: #7ad0ff;
-        }
-
-        .trial-warning {
-            background: rgba(255, 160, 0, 0.1);
-            border-left: 3px solid #ffaa00;
-            padding: 16px;
-            border-radius: 16px;
-            margin-top: 16px;
         }
 
         .payment-details {
@@ -201,6 +212,8 @@
         @media (max-width: 640px) {
             .syna-header { flex-direction: column; align-items: flex-start; }
             .aviator { width: 60px; height: 60px; }
+            .assets-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+            .asset-symbol { font-size: 1rem; }
         }
     </style>
 </head>
@@ -269,17 +282,12 @@
             <button id="genSignalBtn" class="glow-btn">GENERATE TEST SIGNAL (XAUUSD)</button>
             <div id="signalResult" style="margin-top:12px; font-size:0.8rem;"></div>
         </div>
-
-        <div class="card">
-            <h3>ADMIN CONSOLE</h3>
-            <p class="admin-link" id="adminLink"></p>
-        </div>
     </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    // 3D Aviator (same as before)
+    // 3D Aviator (unchanged)
     function initAviator(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -369,7 +377,6 @@
         document.getElementById('userEmailDisplay').innerText = user.email;
         document.getElementById('userPhoneDisplay').innerText = user.phone;
 
-        // Fetch trial remaining
         try {
             const trialData = await apiCall('GET', '/api/user/trial-remaining');
             const remaining = trialData.remaining;
@@ -392,19 +399,41 @@
         } catch(e) { renderAssets([]); }
     }
 
+    // Asset list with descriptions
+    const assetList = [
+        { symbol: 'XAUUSD', desc: 'Gold' },
+        { symbol: 'US30', desc: 'Dow Jones' },
+        { symbol: 'NAS100', desc: 'Nasdaq' },
+        { symbol: 'EURUSD', desc: 'Euro/Dollar' },
+        { symbol: 'GBPUSD', desc: 'Pound/Dollar' },
+        { symbol: 'BTCUSD', desc: 'Bitcoin' }
+    ];
+
     function renderAssets(selected = []) {
-        const list = ['XAUUSD','US30','NAS100','EURUSD','GBPUSD','BTCUSD'];
         const grid = document.getElementById('assetsGrid');
         grid.innerHTML = '';
-        list.forEach(asset => {
-            const checked = selected.includes(asset);
-            grid.innerHTML += `<label class="asset-checkbox"><input type="checkbox" value="${asset}" ${checked ? 'checked' : ''}> ${asset}</label>`;
+        assetList.forEach(asset => {
+            const isSelected = selected.includes(asset.symbol);
+            const cardDiv = document.createElement('div');
+            cardDiv.className = `asset-card ${isSelected ? 'selected' : ''}`;
+            cardDiv.setAttribute('data-symbol', asset.symbol);
+            cardDiv.innerHTML = `
+                <div class="asset-symbol">${asset.symbol}</div>
+                <div class="asset-desc">${asset.desc}</div>
+            `;
+            cardDiv.onclick = (e) => {
+                e.stopPropagation();
+                cardDiv.classList.toggle('selected');
+            };
+            grid.appendChild(cardDiv);
         });
     }
 
     async function saveAssets() {
-        const checkboxes = document.querySelectorAll('#assetsGrid input');
-        const assets = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const cards = document.querySelectorAll('#assetsGrid .asset-card');
+        const assets = Array.from(cards)
+            .filter(card => card.classList.contains('selected'))
+            .map(card => card.getAttribute('data-symbol'));
         try {
             await apiCall('POST', '/api/user/assets', { assets });
             alert('Asset list updated');
@@ -454,13 +483,6 @@
     });
     document.getElementById('saveAssetsBtn')?.addEventListener('click', saveAssets);
     document.getElementById('genSignalBtn')?.addEventListener('click', generateSignal);
-
-    const adminSecret = 'A8dF8d9B2cE5fG1hJ3kL6zX7cV9bN4mQ';
-    const adminLink = document.getElementById('adminLink');
-    if (adminLink) {
-        adminLink.innerHTML = `https://nrxtrader-api.onrender.com/admin?secret=${adminSecret}`;
-        adminLink.href = `https://nrxtrader-api.onrender.com/admin?secret=${adminSecret}`;
-    }
 
     if (token) {
         document.getElementById('authPanel').style.display = 'none';
