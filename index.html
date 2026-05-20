@@ -226,7 +226,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    // 3D Aviator (same)
+    // 3D Aviator
     function initAviator(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -351,7 +351,6 @@
         try {
             const user = JSON.parse(localStorage.getItem('user'));
             const userId = user.id;
-            // Get current trial remaining
             const trial = await apiCall('GET', '/api/user/trial-remaining');
             let remaining = trial.remaining;
             if (remaining === 0) {
@@ -362,10 +361,8 @@
             const signalsToSend = Math.min(remaining, 3);
             for (let i = 0; i < signalsToSend; i++) {
                 resultDiv.innerHTML = `Generating signal ${i+1} of ${signalsToSend}...`;
-                // Generate signal
                 const res = await apiCall('POST', '/api/trades/generate-signal', { assetSymbol: 'XAUUSD' });
                 if (res.success) {
-                    // Notify admin and increment trial counter
                     await fetch(API + '/api/admin/notify-signal', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -375,7 +372,6 @@
                 await new Promise(r => setTimeout(r, 500));
             }
             resultDiv.innerHTML = 'All 3 free signals have been queued. You will receive them on WhatsApp shortly. Our dispatch system is delivering them now.';
-            // Reload trial status
             const newTrial = await apiCall('GET', '/api/user/trial-remaining');
             document.getElementById('trialStatus').innerHTML = newTrial.remaining > 0 ? `Free signals remaining: ${newTrial.remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
         } catch(e) {
