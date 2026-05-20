@@ -250,7 +250,7 @@ app.get('/admin', (req, res) => {
     `);
 });
 
-// IMPORTANT: FILTER WhatsApp NUMBERS BY ASSET (only users who selected this asset)
+// Filter WhatsApp numbers by asset (only users who selected that asset)
 app.get('/api/admin/latest-signal', async (req, res) => {
     const { secret } = req.query;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
@@ -258,7 +258,6 @@ app.get('/api/admin/latest-signal', async (req, res) => {
         const signalResult = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin = FALSE ORDER BY generated_at DESC LIMIT 1`);
         if (signalResult.rows.length === 0) return res.json({ error: 'No pending signals' });
         const signal = signalResult.rows[0];
-        // Only users who have selected this specific asset
         const usersResult = await pool.query(`
             SELECT u.phone FROM users u
             JOIN user_assets ua ON u.id = ua.user_id
@@ -273,6 +272,20 @@ app.post('/api/admin/mark-sent', async (req, res) => {
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     await pool.query('UPDATE auto_signals SET sent_to_admin = TRUE WHERE id = $1', [signal_id]);
     res.json({ success: true });
+});
+
+// GET endpoint to delete user by email (simple URL)
+app.get('/api/admin/delete-user-get', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    const email = req.query.email;
+    if (!email) return res.status(400).send('Email parameter missing');
+    try {
+        await pool.query('DELETE FROM users WHERE email = $1', [email]);
+        res.send(`User with email ${email} deleted successfully.`);
+    } catch (err) {
+        res.status(500).send('Error: ' + err.message);
+    }
 });
 
 app.post('/api/admin/delete-user', async (req, res) => {
@@ -361,7 +374,6 @@ setInterval(async () => {
                     await updatePriceCache(asset, currentPrice);
                     console.log(`Auto-signal generated for ${asset} (${direction}) at ${entry.toFixed(2)}`);
                 } else {
-                    // just update cache even if no signal
                     await updatePriceCache(asset, currentPrice);
                 }
             } else {
