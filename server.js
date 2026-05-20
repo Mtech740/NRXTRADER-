@@ -114,7 +114,7 @@ async function updatePriceCache(asset, price) {
     `, [asset, price]);
 }
 
-// Realistic market prices (no external API dependency – but realistic)
+// Realistic market prices (no external API, but realistic)
 function getRealisticPrice(asset) {
     const basePrices = {
         'XAUUSD': 2350.50,
@@ -124,9 +124,9 @@ function getRealisticPrice(asset) {
         'GBPUSD': 1.2650,
         'BTCUSD': 65000.00
     };
-    // Add small random movement to simulate live market (for demonstration)
     let price = basePrices[asset] || 100.00;
-    const variation = (Math.random() - 0.5) * 0.01 * price; // +/- 0.5%
+    // Small random movement to simulate live market (±0.5%)
+    const variation = (Math.random() - 0.5) * 0.01 * price;
     return price + variation;
 }
 
@@ -197,8 +197,8 @@ app.get('/admin', (req, res) => {
         <!DOCTYPE html>
         <html>
         <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SYNA Admin Console</title>
-        <style>body{font-family:monospace;background:#0a0e17;color:#e2e8f0;padding:20px}.signal-card{background:#111827;border-left:4px solid #10b981;border-radius:12px;padding:20px;margin-bottom:20px}.numbers-list{background:#0a0e17;border-radius:8px;padding:12px;margin-top:12px}.number-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #1f2937}.send-btn{background:#25D366;color:black;border:none;padding:6px 16px;border-radius:20px;cursor:pointer;text-decoration:none;display:inline-block}button{background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-top:10px}</style></head>
-        <body><h1>SYNA Signal Dispatch</h1><div id="signalCard" class="signal-card"><h2>Latest Signal</h2><div id="signalDetails">Loading...</div><div id="numbersContainer"></div><button id="markSentBtn">Mark as Sent</button></div>
+        <style>body{font-family:monospace;background:#0a0e17;color:#e2e8f0;padding:20px}.signal-card{background:#111827;border-left:4px solid #10b981;border-radius:12px;padding:20px;margin-bottom:20px}.numbers-list{background:#0a0e17;border-radius:8px;padding:12px;margin-top:12px}.number-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #1f2937}.send-btn{background:#25D366;color:black;border:none;padding:6px 16px;border-radius:20px;cursor:pointer;text-decoration:none;display:inline-block}button{background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-top:10px}.delete-btn{background:#ef4444}</style></head>
+        <body><h1>SYNA Signal Dispatch</h1><div id="signalCard" class="signal-card"><h2>Latest Signal</h2><div id="signalDetails">Loading...</div><div id="numbersContainer"></div><button id="markSentBtn">Mark as Sent</button><button id="deleteAllBtn" class="delete-btn">Delete All Pending Signals</button></div>
         <script>
             const ADMIN_SECRET = "${secret}";
             let currentSignalId = null;
@@ -238,6 +238,14 @@ app.get('/admin', (req, res) => {
                 const data = await res.json();
                 if (data.success) { alert('Signal marked as sent'); fetchLatest(); } else alert('Error: ' + data.error);
             };
+            document.getElementById('deleteAllBtn').onclick = async () => {
+                if (confirm('Delete ALL pending signals?')) {
+                    const res = await fetch('/api/admin/clear-fake-signals?secret=' + ADMIN_SECRET);
+                    const text = await res.text();
+                    alert(text);
+                    fetchLatest();
+                }
+            };
             fetchLatest();
             setInterval(fetchLatest, 30000);
         </script></body></html>
@@ -271,13 +279,26 @@ app.post('/api/admin/delete-user', async (req, res) => {
     res.json({ success: true });
 });
 
-// ==================== TEMPORARY: CLEAR ALL FAKE SIGNALS (ENTRY 100) ====================
+// ==================== FIXED: CLEAR FAKE SIGNALS (price 99-101) ====================
 app.get('/api/admin/clear-fake-signals', async (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
     try {
-        const result = await pool.query(`DELETE FROM auto_signals WHERE entry_price = 100 OR entry_price = 100.00000 OR entry_price = 100.0`);
+        const result = await pool.query(`DELETE FROM auto_signals WHERE entry_price BETWEEN 99 AND 101`);
         res.send(`Deleted ${result.rowCount} fake signals. Now generate a new signal.`);
+    } catch (err) {
+        res.status(500).send('Error: ' + err.message);
+    }
+});
+
+// ==================== RESET TRIAL FOR A USER ====================
+app.get('/api/admin/reset-trial', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    const email = req.query.email || 'freshstart2024@mail.com';
+    try {
+        await pool.query('UPDATE users SET trial_signals_used = 0 WHERE email = $1', [email]);
+        res.send(`Trial reset for ${email}. Now you can generate 3 free signals again.`);
     } catch (err) {
         res.status(500).send('Error: ' + err.message);
     }
@@ -313,6 +334,41 @@ app.get('/api/admin/force-signal', async (req, res) => {
         res.status(500).send('Error: ' + err.message);
     }
 });
+
+// ==================== OPTIONAL: AUTO SIGNAL GENERATION EVERY 5 MINUTES ====================
+// Uncomment the following block if you want automatic signals without manual intervention
+/*
+setInterval(async () => {
+    const assets = ['XAUUSD', 'US30', 'NAS100', 'EURUSD', 'GBPUSD', 'BTCUSD'];
+    for (const asset of assets) {
+        try {
+            await ensurePriceCacheTable();
+            const currentPrice = getRealisticPrice(asset);
+            const lastPrice = await getLastPrice(asset);
+            if (lastPrice !== null) {
+                const percentChange = ((currentPrice - lastPrice) / lastPrice) * 100;
+                if (Math.abs(percentChange) > 0.05) {
+                    const direction = currentPrice > lastPrice ? 'BUY' : 'SELL';
+                    const entry = currentPrice;
+                    const tp = direction === 'BUY' ? entry * 1.005 : entry * 0.995;
+                    const sl = direction === 'BUY' ? entry * 0.997 : entry * 1.003;
+                    await pool.query(
+                        `INSERT INTO auto_signals (asset_symbol, signal_type, entry_price, take_profit, stop_loss, confidence)
+                         VALUES ($1, $2, $3, $4, $5, 'Medium')`,
+                        [asset, direction, entry, tp, sl]
+                    );
+                    await updatePriceCache(asset, currentPrice);
+                    console.log(`Auto-signal: ${asset} ${direction} at ${entry.toFixed(2)}`);
+                }
+            } else {
+                await updatePriceCache(asset, currentPrice);
+            }
+        } catch (err) {
+            console.error(`Auto-signal error for ${asset}:`, err);
+        }
+    }
+}, 5 * 60 * 1000); // every 5 minutes
+*/
 
 // ==================== INITIALIZE DATABASE ====================
 async function initDB() {
