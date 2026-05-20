@@ -288,6 +288,21 @@ app.get('/api/admin/delete-user-get', async (req, res) => {
     }
 });
 
+// GET endpoint to delete user by phone number (simple URL)
+app.get('/api/admin/delete-user-by-phone', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    const phone = req.query.phone;
+    if (!phone) return res.status(400).send('Phone parameter missing');
+    try {
+        const result = await pool.query('DELETE FROM users WHERE phone = $1 RETURNING email', [phone]);
+        if (result.rows.length === 0) return res.send(`No user found with phone ${phone}`);
+        res.send(`User with phone ${phone} (email: ${result.rows[0].email}) deleted successfully.`);
+    } catch (err) {
+        res.status(500).send('Error: ' + err.message);
+    }
+});
+
 app.post('/api/admin/delete-user', async (req, res) => {
     const { secret, email } = req.body;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
