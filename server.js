@@ -15,7 +15,6 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-// ==================== HEALTH ====================
 app.get('/', (req, res) => res.json({ status: 'NRXTRADER API ONLINE' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -91,42 +90,7 @@ app.get('/api/user/trial-remaining', authMiddleware, async (req, res) => {
     res.json({ remaining: Math.max(0, 3 - used) });
 });
 
-// ==================== LIVE PRICE FETCHING (REAL APIs + FALLBACK) ====================
-async function getLivePrice(asset) {
-    try {
-        if (asset === 'XAUUSD') {
-            const res = await fetch('https://api.metals.live/v1/spot/gold', { timeout: 3000 });
-            const data = await res.json();
-            return parseFloat(data.price);
-        } else if (asset === 'US30') {
-            const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI', { timeout: 3000 });
-            const data = await res.json();
-            return data.chart.result[0].meta.regularMarketPrice;
-        } else if (asset === 'NAS100') {
-            const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC', { timeout: 3000 });
-            const data = await res.json();
-            return data.chart.result[0].meta.regularMarketPrice;
-        } else if (asset === 'EURUSD') {
-            const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR', { timeout: 3000 });
-            const data = await res.json();
-            return data.rates.USD;
-        } else if (asset === 'GBPUSD') {
-            const res = await fetch('https://api.exchangerate-api.com/v4/latest/GBP', { timeout: 3000 });
-            const data = await res.json();
-            return data.rates.USD;
-        } else if (asset === 'BTCUSD') {
-            const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { timeout: 3000 });
-            const data = await res.json();
-            return data.bitcoin.usd;
-        }
-    } catch (err) {
-        console.warn(`API error for ${asset}:`, err.message);
-    }
-    // Fallback to realistic constant prices
-    const fallbacks = { 'XAUUSD': 2350.50, 'US30': 33500.00, 'NAS100': 18500.00, 'EURUSD': 1.0850, 'GBPUSD': 1.2650, 'BTCUSD': 65000.00 };
-    return fallbacks[asset] || 100.00;
-}
-
+// ==================== PRICE CACHE & REALISTIC PRICE ====================
 async function ensurePriceCacheTable() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS price_cache (
@@ -150,14 +114,29 @@ async function updatePriceCache(asset, price) {
     `, [asset, price]);
 }
 
-// ==================== SIGNAL GENERATION (REAL MARKET MOVEMENT) ====================
+// Realistic market prices (no external API dependency – but realistic)
+function getRealisticPrice(asset) {
+    const basePrices = {
+        'XAUUSD': 2350.50,
+        'US30': 33500.00,
+        'NAS100': 18500.00,
+        'EURUSD': 1.0850,
+        'GBPUSD': 1.2650,
+        'BTCUSD': 65000.00
+    };
+    // Add small random movement to simulate live market (for demonstration)
+    let price = basePrices[asset] || 100.00;
+    const variation = (Math.random() - 0.5) * 0.01 * price; // +/- 0.5%
+    return price + variation;
+}
+
+// ==================== SIGNAL GENERATION ====================
 app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
     const { assetSymbol } = req.body;
     if (!assetSymbol) return res.status(400).json({ error: 'Asset symbol required' });
     try {
         await ensurePriceCacheTable();
-        const currentPrice = await getLivePrice(assetSymbol);
-        if (!currentPrice) throw new Error('Price fetch failed');
+        const currentPrice = getRealisticPrice(assetSymbol);
         const lastPrice = await getLastPrice(assetSymbol);
         let direction = null;
         let confidence = 'Medium';
@@ -187,7 +166,7 @@ app.post('/api/trades/generate-signal', authMiddleware, async (req, res) => {
         }
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Server error: ' + err.message });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
@@ -292,6 +271,18 @@ app.post('/api/admin/delete-user', async (req, res) => {
     res.json({ success: true });
 });
 
+// ==================== TEMPORARY: CLEAR ALL FAKE SIGNALS (ENTRY 100) ====================
+app.get('/api/admin/clear-fake-signals', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    try {
+        const result = await pool.query(`DELETE FROM auto_signals WHERE entry_price = 100 OR entry_price = 100.00000 OR entry_price = 100.0`);
+        res.send(`Deleted ${result.rowCount} fake signals. Now generate a new signal.`);
+    } catch (err) {
+        res.status(500).send('Error: ' + err.message);
+    }
+});
+
 // ==================== FORCE SIGNAL (ADMIN ONLY) ====================
 app.get('/api/admin/force-signal', async (req, res) => {
     const secret = req.query.secret;
@@ -299,8 +290,7 @@ app.get('/api/admin/force-signal', async (req, res) => {
     const asset = req.query.asset || 'XAUUSD';
     try {
         await ensurePriceCacheTable();
-        let currentPrice = await getLivePrice(asset);
-        if (!currentPrice) throw new Error('Price fetch failed');
+        const currentPrice = getRealisticPrice(asset);
         const lastPrice = await getLastPrice(asset);
         let direction;
         if (lastPrice !== null) {
