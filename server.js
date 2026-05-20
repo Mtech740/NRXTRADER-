@@ -114,7 +114,6 @@ async function updatePriceCache(asset, price) {
     `, [asset, price]);
 }
 
-// Realistic market prices (no external API, but realistic)
 function getRealisticPrice(asset) {
     const basePrices = {
         'XAUUSD': 2350.50,
@@ -125,7 +124,6 @@ function getRealisticPrice(asset) {
         'BTCUSD': 65000.00
     };
     let price = basePrices[asset] || 100.00;
-    // Small random movement to simulate live market (±0.5%)
     const variation = (Math.random() - 0.5) * 0.01 * price;
     return price + variation;
 }
@@ -252,6 +250,7 @@ app.get('/admin', (req, res) => {
     `);
 });
 
+// IMPORTANT: FILTER WhatsApp NUMBERS BY ASSET (only users who selected this asset)
 app.get('/api/admin/latest-signal', async (req, res) => {
     const { secret } = req.query;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
@@ -259,8 +258,13 @@ app.get('/api/admin/latest-signal', async (req, res) => {
         const signalResult = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin = FALSE ORDER BY generated_at DESC LIMIT 1`);
         if (signalResult.rows.length === 0) return res.json({ error: 'No pending signals' });
         const signal = signalResult.rows[0];
-        const usersResult = await pool.query(`SELECT phone FROM users WHERE phone IS NOT NULL AND phone != ''`);
-        res.json({ signal, whatsapp_numbers: usersResult.rows.map(r => r.phone).filter(p => p) });
+        // Only users who have selected this specific asset
+        const usersResult = await pool.query(`
+            SELECT u.phone FROM users u
+            JOIN user_assets ua ON u.id = ua.user_id
+            WHERE ua.asset_symbol = $1 AND u.phone IS NOT NULL AND u.phone != ''
+        `, [signal.asset_symbol]);
+        res.json({ signal, whatsapp_numbers: usersResult.rows.map(r => r.phone) });
     } catch (err) { res.json({ error: 'No pending signals' }); }
 });
 
@@ -279,7 +283,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
     res.json({ success: true });
 });
 
-// ==================== FIXED: CLEAR FAKE SIGNALS (price 99-101) ====================
+// ==================== TEMPORARY ADMIN ENDPOINTS ====================
 app.get('/api/admin/clear-fake-signals', async (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
@@ -291,7 +295,6 @@ app.get('/api/admin/clear-fake-signals', async (req, res) => {
     }
 });
 
-// ==================== RESET TRIAL FOR A USER ====================
 app.get('/api/admin/reset-trial', async (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
@@ -304,7 +307,6 @@ app.get('/api/admin/reset-trial', async (req, res) => {
     }
 });
 
-// ==================== FORCE SIGNAL (ADMIN ONLY) ====================
 app.get('/api/admin/force-signal', async (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
@@ -335,11 +337,10 @@ app.get('/api/admin/force-signal', async (req, res) => {
     }
 });
 
-// ==================== OPTIONAL: AUTO SIGNAL GENERATION EVERY 5 MINUTES ====================
-// Uncomment the following block if you want automatic signals without manual intervention
-/*
+// ==================== AUTO SIGNAL GENERATION (EVERY 5 MINUTES) ====================
 setInterval(async () => {
     const assets = ['XAUUSD', 'US30', 'NAS100', 'EURUSD', 'GBPUSD', 'BTCUSD'];
+    console.log('Auto-signal cron running...');
     for (const asset of assets) {
         try {
             await ensurePriceCacheTable();
@@ -358,7 +359,10 @@ setInterval(async () => {
                         [asset, direction, entry, tp, sl]
                     );
                     await updatePriceCache(asset, currentPrice);
-                    console.log(`Auto-signal: ${asset} ${direction} at ${entry.toFixed(2)}`);
+                    console.log(`Auto-signal generated for ${asset} (${direction}) at ${entry.toFixed(2)}`);
+                } else {
+                    // just update cache even if no signal
+                    await updatePriceCache(asset, currentPrice);
                 }
             } else {
                 await updatePriceCache(asset, currentPrice);
@@ -368,7 +372,6 @@ setInterval(async () => {
         }
     }
 }, 5 * 60 * 1000); // every 5 minutes
-*/
 
 // ==================== INITIALIZE DATABASE ====================
 async function initDB() {
