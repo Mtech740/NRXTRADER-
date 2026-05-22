@@ -13,9 +13,9 @@ const app = express();
 // ==========================
 
 const PORT = process.env.PORT || 5000;
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;   // required for forex & gold
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
-const SIGNAL_COOLDOWN_MINUTES = 15;   // no duplicate signal for same asset/direction within 15 min
+const SIGNAL_COOLDOWN_MINUTES = 15;
 
 const SUPPORTED_ASSETS = [
     'XAUUSD',
@@ -54,7 +54,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ==========================
-// DB INIT (includes all tables)
+// DB INIT
 // ==========================
 
 async function initDB() {
@@ -204,7 +204,6 @@ app.get('/api/user/trial-remaining', authMiddleware, async (req, res) => {
 
 async function getLivePrice(asset) {
     try {
-        // Forex & Gold via Finnhub
         const forexMap = { 'EURUSD': 'OANDA:EUR_USD', 'GBPUSD': 'OANDA:GBP_USD', 'XAUUSD': 'OANDA:XAU_USD' };
         if (forexMap[asset]) {
             const url = `https://finnhub.io/api/v1/quote?symbol=${forexMap[asset]}&token=${FINNHUB_API_KEY}`;
@@ -212,13 +211,11 @@ async function getLivePrice(asset) {
             const data = await res.json();
             if (data && data.c) return parseFloat(data.c);
         }
-        // Crypto via Binance
         if (asset === 'BTCUSD') {
             const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
             const data = await res.json();
             if (data && data.price) return parseFloat(data.price);
         }
-        // Indices via Yahoo Finance (free, no API key)
         const yahooMap = { 'US30': '^DJI', 'NAS100': '^IXIC' };
         if (yahooMap[asset]) {
             const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooMap[asset]}`;
@@ -235,7 +232,7 @@ async function getLivePrice(asset) {
 }
 
 // ==========================
-// CONFIDENCE ENGINE (based on real movement & volatility)
+// CONFIDENCE ENGINE
 // ==========================
 
 function calculateConfidence(movement, volatility) {
@@ -260,7 +257,7 @@ async function hasRecentSignal(asset, direction) {
 }
 
 // ==========================
-// SIGNAL GENERATION (REAL MARKET)
+// SIGNAL GENERATION
 // ==========================
 
 async function generateSignal(asset) {
@@ -271,18 +268,17 @@ async function generateSignal(asset) {
         const cache = await pool.query(`SELECT last_price FROM price_cache WHERE asset_symbol=$1`, [asset]);
         const lastPrice = cache.rows[0]?.last_price || null;
 
-        // Update cache with current price
         await pool.query(
             `INSERT INTO price_cache(asset_symbol, last_price) VALUES($1,$2) ON CONFLICT(asset_symbol) DO UPDATE SET last_price=$2, updated_at=NOW()`,
             [asset, currentPrice]
         );
 
-        if (!lastPrice) return null;   // first run, wait for next cycle
+        if (!lastPrice) return null;
 
         const movement = ((currentPrice - lastPrice) / lastPrice) * 100;
         const volatility = Math.abs(movement);
 
-        if (volatility < 0.03) return null;    // no significant move
+        if (volatility < 0.03) return null;
 
         const direction = movement > 0 ? 'BUY' : 'SELL';
 
@@ -310,7 +306,7 @@ async function generateSignal(asset) {
 }
 
 // ==========================
-// AUTO SCANNER (every 5 minutes)
+// AUTO SCANNER
 // ==========================
 
 setInterval(async () => {
@@ -385,7 +381,7 @@ app.get('/api/admin/latest-signals', async (req, res) => {
                 JOIN user_assets ua ON u.id=ua.user_id
                 WHERE ua.asset_symbol=$1 AND u.phone IS NOT NULL AND u.phone!=''
             `, [sig.asset_symbol]);
-            if (users.rows.length > 0) {   // ← only include if at least one recipient exists
+            if (users.rows.length > 0) {
                 output.push({ signal: sig, whatsapp_numbers: users.rows.map(r => r.phone) });
             }
         }
@@ -411,6 +407,22 @@ app.post('/api/admin/notify-signal', async (req, res) => {
     const ntfyTopic = process.env.NTFY_TOPIC || 'syna_alerts';
     fetch(`https://ntfy.sh/${ntfyTopic}`, { method: 'POST', body: `SYNA signal: ${assetSymbol}`, headers: { 'Title': 'SYNA Alert' } }).catch(e=>console.error);
     res.json({ success: true });
+});
+
+// ==========================
+// TEMPORARY: DELETE USER BY EMAIL VIA GET (remove after use)
+// ==========================
+app.get('/api/admin/delete-user-by-email', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    const email = req.query.email;
+    if (!email) return res.status(400).send('Email missing');
+    try {
+        await pool.query('DELETE FROM users WHERE email = $1', [email]);
+        res.send(`✅ User with email ${email} deleted successfully. Now they can register again.`);
+    } catch (err) {
+        res.status(500).send('Error: ' + err.message);
+    }
 });
 
 // ==========================
