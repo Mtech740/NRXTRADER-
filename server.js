@@ -1,5 +1,4 @@
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -14,9 +13,9 @@ const app = express();
 // ==========================
 
 const PORT = process.env.PORT || 5000;
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;   // required for forex & gold
 
-const SIGNAL_COOLDOWN_MINUTES = 15;
+const SIGNAL_COOLDOWN_MINUTES = 15;   // no duplicate signal for same asset/direction within 15 min
 
 const SUPPORTED_ASSETS = [
     'XAUUSD',
@@ -44,26 +43,18 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 // ==========================
-// ROOT
+// HEALTH
 // ==========================
 
 app.get('/', (req, res) => {
-    res.json({
-        status: 'SYNA LIVE MARKET ENGINE ONLINE',
-        version: '3.1',
-        market: 'LIVE'
-    });
+    res.json({ status: 'SYNA LIVE MARKET ENGINE', market: 'REAL' });
 });
-
 app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        uptime: process.uptime()
-    });
+    res.json({ status: 'ok', uptime: process.uptime() });
 });
 
 // ==========================
-// DB INIT
+// DB INIT (includes all tables)
 // ==========================
 
 async function initDB() {
@@ -73,11 +64,12 @@ async function initDB() {
         CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             email VARCHAR(255) UNIQUE NOT NULL,
-            phone VARCHAR(20),
-            telegram_id VARCHAR(50),
+            phone VARCHAR(20) UNIQUE,
+            telegram_id VARCHAR(50) UNIQUE,
             password_hash VARCHAR(255) NOT NULL,
             subscription_plan VARCHAR(20) DEFAULT 'free',
             trial_signals_used INTEGER DEFAULT 0,
+            signal_subscription_end TIMESTAMP,
             created_at TIMESTAMP DEFAULT NOW()
         );
     `);
@@ -85,7 +77,7 @@ async function initDB() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS user_assets (
             user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-            asset_symbol VARCHAR(20),
+            asset_symbol VARCHAR(20) NOT NULL,
             PRIMARY KEY(user_id, asset_symbol)
         );
     `);
@@ -124,9 +116,8 @@ async function initDB() {
         );
     `);
 
-    console.log("Database ready");
+    console.log('Database ready');
 }
-
 initDB().catch(console.error);
 
 // ==========================
@@ -135,287 +126,288 @@ initDB().catch(console.error);
 
 app.post('/api/auth/register', async (req, res) => {
     const { email, phone, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Missing fields' });
-    }
-
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
     try {
         const hash = await bcrypt.hash(password, 10);
-
         const result = await pool.query(
-            `INSERT INTO users(email, phone, password_hash)
-             VALUES($1,$2,$3)
-             RETURNING id,email,phone`,
+            `INSERT INTO users(email, phone, password_hash) VALUES($1,$2,$3) RETURNING id,email,phone`,
             [email, phone || null, hash]
         );
-
         res.json({ success: true, user: result.rows[0] });
-
     } catch (err) {
-        console.error(err);
+        if (err.code === '23505') return res.status(400).json({ error: 'Email already registered' });
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-// ==========================
-// LOGIN
-// ==========================
-
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
-
     try {
-        const result = await pool.query(
-            `SELECT * FROM users WHERE email=$1`,
-            [email]
-        );
-
-        if (result.rows.length === 0)
-            return res.status(401).json({ error: 'Invalid credentials' });
-
+        const result = await pool.query(`SELECT * FROM users WHERE email=$1`, [email]);
+        if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
         const user = result.rows[0];
-
         const valid = await bcrypt.compare(password, user.password_hash);
-
-        if (!valid)
-            return res.status(401).json({ error: 'Invalid credentials' });
-
-        const token = jwt.sign(
-            { userId: user.id },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        res.json({
-            token,
-            user: {
-                id: user.id,
-                email: user.email,
-                phone: user.phone,
-                subscription_plan: user.subscription_plan
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
+        if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+        const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: user.id, email: user.email, phone: user.phone, subscription_plan: user.subscription_plan } });
+    } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 // ==========================
 // AUTH MIDDLEWARE
 // ==========================
 
-function authMiddleware(req, res, next) {
-    const auth = req.headers.authorization;
-
-    if (!auth) return res.status(401).json({ error: 'No token' });
-
-    const token = auth.split(' ')[1];
-
+async function authMiddleware(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No token' });
+    const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.userId = decoded.userId;
         next();
-    } catch {
-        res.status(401).json({ error: 'Invalid token' });
-    }
+    } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
 
 // ==========================
-// LIVE MARKET DATA (REAL)
+// USER ASSETS
+// ==========================
+
+app.post('/api/user/assets', authMiddleware, async (req, res) => {
+    const { assets } = req.body;
+    if (!Array.isArray(assets)) return res.status(400).json({ error: 'Assets must be array' });
+    try {
+        await pool.query(`DELETE FROM user_assets WHERE user_id=$1`, [req.userId]);
+        for (const asset of assets) {
+            if (!SUPPORTED_ASSETS.includes(asset)) continue;
+            await pool.query(`INSERT INTO user_assets(user_id, asset_symbol) VALUES($1,$2)`, [req.userId, asset]);
+        }
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
+
+app.get('/api/user/assets', authMiddleware, async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT asset_symbol FROM user_assets WHERE user_id=$1`, [req.userId]);
+        res.json({ assets: result.rows.map(r => r.asset_symbol) });
+    } catch (err) { res.json({ assets: [] }); }
+});
+
+app.get('/api/user/trial-remaining', authMiddleware, async (req, res) => {
+    const user = await pool.query(`SELECT trial_signals_used FROM users WHERE id=$1`, [req.userId]);
+    const used = parseInt(user.rows[0]?.trial_signals_used) || 0;
+    res.json({ remaining: Math.max(0, 3 - used) });
+});
+
+// ==========================
+// REAL MARKET PRICE (NO SIMULATION)
 // ==========================
 
 async function getLivePrice(asset) {
     try {
-
-        const map = {
-            EURUSD: 'OANDA:EUR_USD',
-            GBPUSD: 'OANDA:GBP_USD',
-            XAUUSD: 'OANDA:XAU_USD'
-        };
-
-        if (map[asset]) {
-            const url = `https://finnhub.io/api/v1/quote?symbol=${map[asset]}&token=${FINNHUB_API_KEY}`;
-            const r = await fetch(url);
-            const d = await r.json();
-            return d?.c || null;
+        // Forex & Gold via Finnhub
+        const forexMap = { 'EURUSD': 'OANDA:EUR_USD', 'GBPUSD': 'OANDA:GBP_USD', 'XAUUSD': 'OANDA:XAU_USD' };
+        if (forexMap[asset]) {
+            const url = `https://finnhub.io/api/v1/quote?symbol=${forexMap[asset]}&token=${FINNHUB_API_KEY}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data && data.c) return parseFloat(data.c);
         }
-
-        if (asset === "BTCUSD") {
-            const r = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
-            const d = await r.json();
-            return parseFloat(d.price);
+        // Crypto via Binance
+        if (asset === 'BTCUSD') {
+            const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+            const data = await res.json();
+            if (data && data.price) return parseFloat(data.price);
         }
-
-        if (asset === "US30") return 39000 + (Math.random() * 50);
-        if (asset === "NAS100") return 18000 + (Math.random() * 50);
-
+        // Indices via Yahoo Finance (free, no API key)
+        const yahooMap = { 'US30': '^DJI', 'NAS100': '^IXIC' };
+        if (yahooMap[asset]) {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooMap[asset]}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+            if (price) return parseFloat(price);
+        }
         return null;
-
     } catch (err) {
-        console.error(err);
+        console.error(`Price fetch error for ${asset}:`, err);
         return null;
     }
 }
 
 // ==========================
-// CONFIDENCE ENGINE (REAL)
+// CONFIDENCE ENGINE (based on real movement & volatility)
 // ==========================
 
-function confidenceEngine(movement, volatility) {
-
-    let score = 70;
-
-    if (Math.abs(movement) > 0.1) score += 10;
-    if (Math.abs(movement) > 0.2) score += 10;
-    if (volatility > 0.05) score += 5;
-
-    if (score > 92) score = 92;
-
-    return Math.round(score);
+function calculateConfidence(movement, volatility) {
+    let confidence = 70;
+    if (Math.abs(movement) > 0.08) confidence += 5;
+    if (Math.abs(movement) > 0.15) confidence += 5;
+    if (volatility > 0.05) confidence += 5;
+    if (Math.abs(movement) > 0.2) confidence += 5;
+    return Math.min(confidence, 95);
 }
 
 // ==========================
-// DUPLICATE CHECK
+// DUPLICATE PROTECTION
 // ==========================
 
-async function isDuplicate(asset, direction) {
-    const r = await pool.query(
-        `SELECT * FROM auto_signals
-         WHERE asset_symbol=$1
-         AND signal_type=$2
-         AND generated_at > NOW() - INTERVAL '10 minutes'`,
+async function hasRecentSignal(asset, direction) {
+    const res = await pool.query(
+        `SELECT * FROM auto_signals WHERE asset_symbol=$1 AND signal_type=$2 AND generated_at > NOW() - INTERVAL '${SIGNAL_COOLDOWN_MINUTES} minutes'`,
         [asset, direction]
     );
-
-    return r.rows.length > 0;
+    return res.rows.length > 0;
 }
 
 // ==========================
-// SIGNAL ENGINE
+// SIGNAL GENERATION (REAL MARKET)
 // ==========================
 
 async function generateSignal(asset) {
+    try {
+        const currentPrice = await getLivePrice(asset);
+        if (!currentPrice) return null;
 
-    const price = await getLivePrice(asset);
-    if (!price) return null;
+        const cache = await pool.query(`SELECT last_price FROM price_cache WHERE asset_symbol=$1`, [asset]);
+        const lastPrice = cache.rows[0]?.last_price || null;
 
-    const cache = await pool.query(
-        `SELECT * FROM price_cache WHERE asset_symbol=$1`,
-        [asset]
-    );
+        // Update cache with current price
+        await pool.query(
+            `INSERT INTO price_cache(asset_symbol, last_price) VALUES($1,$2) ON CONFLICT(asset_symbol) DO UPDATE SET last_price=$2, updated_at=NOW()`,
+            [asset, currentPrice]
+        );
 
-    const last = cache.rows[0]?.last_price || null;
+        if (!lastPrice) return null;   // first run, wait for next cycle
 
-    await pool.query(
-        `INSERT INTO price_cache(asset_symbol,last_price)
-         VALUES($1,$2)
-         ON CONFLICT(asset_symbol)
-         DO UPDATE SET last_price=$2`,
-        [asset, price]
-    );
+        const movement = ((currentPrice - lastPrice) / lastPrice) * 100;
+        const volatility = Math.abs(movement);
 
-    if (!last) return null;
+        if (volatility < 0.03) return null;    // no significant move
 
-    const movement = ((price - last) / last) * 100;
-    const volatility = Math.abs(movement);
+        const direction = movement > 0 ? 'BUY' : 'SELL';
 
-    if (volatility < 0.03) return null;
+        if (await hasRecentSignal(asset, direction)) return null;
 
-    const direction = movement > 0 ? "BUY" : "SELL";
+        const confidence = calculateConfidence(movement, volatility);
+        if (confidence < 75) return null;
 
-    if (await isDuplicate(asset, direction)) return null;
+        const entry = currentPrice;
+        const tp = direction === 'BUY' ? entry * 1.005 : entry * 0.995;
+        const sl = direction === 'BUY' ? entry * 0.997 : entry * 1.003;
+        const trend = movement > 0 ? 'bullish' : 'bearish';
 
-    const confidence = confidenceEngine(movement, volatility);
+        const result = await pool.query(
+            `INSERT INTO auto_signals(asset_symbol, signal_type, entry_price, take_profit, stop_loss, confidence, market_trend, volatility)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+            [asset, direction, entry, tp, sl, confidence, trend, volatility]
+        );
 
-    if (confidence < 80) return null;
-
-    const entry = price;
-    const tp = direction === "BUY" ? entry * 1.005 : entry * 0.995;
-    const sl = direction === "BUY" ? entry * 0.997 : entry * 1.003;
-
-    const result = await pool.query(
-        `INSERT INTO auto_signals
-        (asset_symbol,signal_type,entry_price,take_profit,stop_loss,confidence,market_trend,volatility)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-        RETURNING *`,
-        [
-            asset,
-            direction,
-            entry,
-            tp,
-            sl,
-            confidence,
-            movement > 0 ? "bullish" : "bearish",
-            volatility
-        ]
-    );
-
-    return result.rows[0];
+        return result.rows[0];
+    } catch (err) {
+        console.error(`Signal generation error for ${asset}:`, err);
+        return null;
+    }
 }
 
 // ==========================
-// AUTO SCANNER (FIXED END)
+// AUTO SCANNER (every 5 minutes)
 // ==========================
 
 setInterval(async () => {
-
-    console.log("SYNA scanning live market...");
-
+    console.log('SYNA scanning live markets...');
     for (const asset of SUPPORTED_ASSETS) {
-
         try {
-
             const signal = await generateSignal(asset);
-
             if (signal) {
-                console.log("NEW SIGNAL:", signal.asset_symbol, signal.signal_type, signal.confidence);
+                console.log(`NEW SIGNAL: ${signal.asset_symbol} ${signal.signal_type} (${signal.confidence}%)`);
             }
-
         } catch (err) {
-            console.error("scan error:", err);
+            console.error(`Scan error for ${asset}:`, err);
         }
     }
-
-}, 300000); // 5 min
+}, 5 * 60 * 1000);
 
 // ==========================
-// ADMIN SIGNAL FETCH
+// ADMIN PANEL & SIGNAL FETCHING
 // ==========================
+
+app.get('/admin', (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><title>SYNA Admin Console</title>
+        <style>body{font-family:monospace;background:#0a0e17;color:#e2e8f0;padding:20px}.signal-card{background:#111827;border-left:4px solid #10b981;border-radius:12px;padding:20px;margin-bottom:20px}.numbers-list{background:#0a0e17;border-radius:8px;padding:12px}.number-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #1f2937}.send-btn{background:#25D366;color:black;padding:6px 16px;border-radius:20px;text-decoration:none}button{background:#3b82f6;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer}.delete-btn{background:#ef4444}</style></head>
+        <body><h1>SYNA Signal Dispatch</h1><div id="signalList"></div><script>
+            const ADMIN_SECRET = "${secret}";
+            async function fetchSignals() {
+                const res = await fetch('/api/admin/latest-signals?secret='+ADMIN_SECRET);
+                const data = await res.json();
+                const container = document.getElementById('signalList');
+                if (!data.signals || data.signals.length===0) { container.innerHTML='<p>No pending signals</p>'; return; }
+                let html = '';
+                for (let s of data.signals) {
+                    html += \`<div class="signal-card"><h3>\${s.signal.asset_symbol} – \${s.signal.signal_type}</h3>
+                    <p>Entry: \${s.signal.entry_price} | TP: \${s.signal.take_profit} | SL: \${s.signal.stop_loss}</p>
+                    <p>Confidence: \${s.signal.confidence}% | Trend: \${s.signal.market_trend}</p>
+                    <div class="numbers-list"><h4>WhatsApp Recipients</h4>\`;
+                    for (let phone of s.whatsapp_numbers) {
+                        let clean = phone.replace(/\\D/g,'');
+                        if (!clean.startsWith('260') && phone.includes('+260')) clean = phone.replace('+','');
+                        const msg = encodeURIComponent(\`📢 SYNA SIGNAL\\nAsset: \${s.signal.asset_symbol}\\nAction: \${s.signal.signal_type}\\nEntry: \${s.signal.entry_price}\\nTP: \${s.signal.take_profit}\\nSL: \${s.signal.stop_loss}\\nConfidence: \${s.signal.confidence}%\`);
+                        html += \`<div class="number-item"><span>\${phone}</span><a href="https://wa.me/\${clean}?text=\${msg}" target="_blank" class="send-btn">Send via WhatsApp</a></div>\`;
+                    }
+                    html += \`</div><button onclick="markSent(\${s.signal.id})">Mark as Sent</button></div>\`;
+                }
+                container.innerHTML = html;
+            }
+            async function markSent(id) {
+                await fetch('/api/admin/mark-sent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:ADMIN_SECRET,signal_id:id})});
+                fetchSignals();
+            }
+            fetchSignals();
+            setInterval(fetchSignals,30000);
+        </script></body></html>
+    `);
+});
 
 app.get('/api/admin/latest-signals', async (req, res) => {
-
     const secret = req.query.secret;
-    if (secret !== process.env.ADMIN_SECRET)
-        return res.status(403).json({ error: "Unauthorized" });
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    try {
+        const signals = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin=FALSE ORDER BY generated_at DESC LIMIT 20`);
+        const output = [];
+        for (const sig of signals.rows) {
+            const users = await pool.query(`
+                SELECT u.phone FROM users u
+                JOIN user_assets ua ON u.id=ua.user_id
+                WHERE ua.asset_symbol=$1 AND u.phone IS NOT NULL AND u.phone!=''
+            `, [sig.asset_symbol]);
+            output.push({ signal: sig, whatsapp_numbers: users.rows.map(r => r.phone) });
+        }
+        res.json({ signals: output });
+    } catch (err) { res.status(500).json({ error: 'Server error' }); }
+});
 
-    const signals = await pool.query(
-        `SELECT * FROM auto_signals
-         WHERE sent_to_admin=false
-         ORDER BY generated_at DESC
-         LIMIT 10`
-    );
+app.post('/api/admin/mark-sent', async (req, res) => {
+    const { secret, signal_id } = req.body;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    await pool.query('UPDATE auto_signals SET sent_to_admin=TRUE WHERE id=$1', [signal_id]);
+    res.json({ success: true });
+});
 
-    const output = [];
+// ==========================
+// NOTIFICATION (optional)
+// ==========================
 
-    for (const sig of signals.rows) {
-
-        const users = await pool.query(
-            `SELECT phone FROM users u
-             JOIN user_assets ua ON u.id=ua.user_id
-             WHERE ua.asset_symbol=$1`,
-            [sig.asset_symbol]
-        );
-
-        output.push({
-            signal: sig,
-            whatsapp_numbers: users.rows.map(u => u.phone)
-        });
-    }
-
-    res.json({ signals: output });
+app.post('/api/admin/notify-signal', async (req, res) => {
+    const { secret, userId, assetSymbol } = req.body;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
+    await pool.query('UPDATE users SET trial_signals_used = trial_signals_used + 1 WHERE id=$1', [userId]);
+    const ntfyTopic = process.env.NTFY_TOPIC || 'syna_alerts';
+    fetch(`https://ntfy.sh/${ntfyTopic}`, { method: 'POST', body: `SYNA signal: ${assetSymbol}`, headers: { 'Title': 'SYNA Alert' } }).catch(e=>console.error);
+    res.json({ success: true });
 });
 
 // ==========================
@@ -423,12 +415,10 @@ app.get('/api/admin/latest-signals', async (req, res) => {
 // ==========================
 
 app.listen(PORT, () => {
-    console.log(`
-=================================
-SYNA LIVE MARKET ENGINE RUNNING
-PORT: ${PORT}
-REAL MARKET CONNECTED
-CONFIDENCE ENGINE ACTIVE
-=================================
-    `);
+    console.log(`\n=================================`);
+    console.log(`SYNA LIVE MARKET ENGINE`);
+    console.log(`PORT: ${PORT}`);
+    console.log(`REAL MARKET DATA ACTIVE`);
+    console.log(`CONFIDENCE ENGINE ACTIVE`);
+    console.log(`=================================\n`);
 });
