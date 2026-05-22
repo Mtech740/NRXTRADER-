@@ -372,11 +372,12 @@ app.get('/admin', (req, res) => {
     `);
 });
 
+// ========== FIX: Only show signals that have at least one WhatsApp recipient ==========
 app.get('/api/admin/latest-signals', async (req, res) => {
     const secret = req.query.secret;
     if (secret !== process.env.ADMIN_SECRET) return res.status(403).json({ error: 'Unauthorized' });
     try {
-        const signals = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin=FALSE ORDER BY generated_at DESC LIMIT 20`);
+        const signals = await pool.query(`SELECT * FROM auto_signals WHERE sent_to_admin=FALSE ORDER BY generated_at DESC LIMIT 50`);
         const output = [];
         for (const sig of signals.rows) {
             const users = await pool.query(`
@@ -384,7 +385,9 @@ app.get('/api/admin/latest-signals', async (req, res) => {
                 JOIN user_assets ua ON u.id=ua.user_id
                 WHERE ua.asset_symbol=$1 AND u.phone IS NOT NULL AND u.phone!=''
             `, [sig.asset_symbol]);
-            output.push({ signal: sig, whatsapp_numbers: users.rows.map(r => r.phone) });
+            if (users.rows.length > 0) {   // ← only include if at least one recipient exists
+                output.push({ signal: sig, whatsapp_numbers: users.rows.map(r => r.phone) });
+            }
         }
         res.json({ signals: output });
     } catch (err) { res.status(500).json({ error: 'Server error' }); }
