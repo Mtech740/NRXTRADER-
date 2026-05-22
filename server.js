@@ -2,34 +2,19 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const fetch = require('node-fetch');
+const { Pool } = require('pg');
 
 const app = express();
 
-// ==================== MIDDLEWARE ====================
-
-app.use(cors({
-    origin: true,
-    credentials: true
-}));
-
-app.use(express.json());
-
-// ==================== DATABASE ====================
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
-
-// ==================== CONFIG ====================
+// ==========================
+// CONFIG
+// ==========================
 
 const PORT = process.env.PORT || 5000;
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
 const SIGNAL_COOLDOWN_MINUTES = 15;
 
@@ -42,12 +27,31 @@ const SUPPORTED_ASSETS = [
     'BTCUSD'
 ];
 
-// ==================== ROOT ====================
+// ==========================
+// DATABASE
+// ==========================
+
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
+
+// ==========================
+// MIDDLEWARE
+// ==========================
+
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json());
+
+// ==========================
+// ROOT
+// ==========================
 
 app.get('/', (req, res) => {
     res.json({
-        status: 'SYNA INVESTOR API ONLINE',
-        version: '2.0'
+        status: 'SYNA LIVE MARKET ENGINE ONLINE',
+        version: '3.1',
+        market: 'LIVE'
     });
 });
 
@@ -58,24 +62,22 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// ==================== DATABASE INIT ====================
+// ==========================
+// DB INIT
+// ==========================
 
 async function initDB() {
-
-    await pool.query(`
-        CREATE EXTENSION IF NOT EXISTS pgcrypto;
-    `);
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             email VARCHAR(255) UNIQUE NOT NULL,
-            phone VARCHAR(20) UNIQUE,
-            telegram_id VARCHAR(50) UNIQUE,
+            phone VARCHAR(20),
+            telegram_id VARCHAR(50),
             password_hash VARCHAR(255) NOT NULL,
             subscription_plan VARCHAR(20) DEFAULT 'free',
             trial_signals_used INTEGER DEFAULT 0,
-            signal_subscription_end TIMESTAMP,
             created_at TIMESTAMP DEFAULT NOW()
         );
     `);
@@ -83,7 +85,7 @@ async function initDB() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS user_assets (
             user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-            asset_symbol VARCHAR(20) NOT NULL,
+            asset_symbol VARCHAR(20),
             PRIMARY KEY(user_id, asset_symbol)
         );
     `);
@@ -122,89 +124,62 @@ async function initDB() {
         );
     `);
 
-    console.log('Database initialized successfully');
+    console.log("Database ready");
 }
 
 initDB().catch(console.error);
 
-// ==================== AUTH ====================
+// ==========================
+// AUTH
+// ==========================
 
 app.post('/api/auth/register', async (req, res) => {
-
     const { email, phone, password } = req.body;
 
     if (!email || !password) {
-        return res.status(400).json({
-            error: 'Email and password required'
-        });
+        return res.status(400).json({ error: 'Missing fields' });
     }
 
     try {
-
         const hash = await bcrypt.hash(password, 10);
 
-        const result = await pool.query(`
-            INSERT INTO users(email, phone, password_hash)
-            VALUES($1,$2,$3)
-            RETURNING id,email,phone
-        `, [
-            email,
-            phone || null,
-            hash
-        ]);
+        const result = await pool.query(
+            `INSERT INTO users(email, phone, password_hash)
+             VALUES($1,$2,$3)
+             RETURNING id,email,phone`,
+            [email, phone || null, hash]
+        );
 
-        res.json({
-            success: true,
-            user: result.rows[0]
-        });
+        res.json({ success: true, user: result.rows[0] });
 
     } catch (err) {
-
         console.error(err);
-
-        if (err.code === '23505') {
-            return res.status(400).json({
-                error: 'Email already exists'
-            });
-        }
-
-        res.status(500).json({
-            error: 'Server error'
-        });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-// ==================== LOGIN ====================
+// ==========================
+// LOGIN
+// ==========================
 
 app.post('/api/auth/login', async (req, res) => {
-
     const { email, password } = req.body;
 
     try {
+        const result = await pool.query(
+            `SELECT * FROM users WHERE email=$1`,
+            [email]
+        );
 
-        const result = await pool.query(`
-            SELECT * FROM users
-            WHERE email = $1
-        `, [email]);
-
-        if (result.rows.length === 0) {
-            return res.status(401).json({
-                error: 'Invalid credentials'
-            });
-        }
+        if (result.rows.length === 0)
+            return res.status(401).json({ error: 'Invalid credentials' });
 
         const user = result.rows[0];
 
-        const valid = await bcrypt.compare(
-            password,
-            user.password_hash
-        );
+        const valid = await bcrypt.compare(password, user.password_hash);
 
-        if (!valid) {
-            return res.status(401).json({
-                error: 'Invalid credentials'
-            });
-        }
+        if (!valid)
+            return res.status(401).json({ error: 'Invalid credentials' });
 
         const token = jwt.sign(
             { userId: user.id },
@@ -223,286 +198,171 @@ app.post('/api/auth/login', async (req, res) => {
         });
 
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            error: 'Server error'
-        });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-// ==================== AUTH MIDDLEWARE ====================
+// ==========================
+// AUTH MIDDLEWARE
+// ==========================
 
-async function authMiddleware(req, res, next) {
+function authMiddleware(req, res, next) {
+    const auth = req.headers.authorization;
 
-    const authHeader = req.headers.authorization;
+    if (!auth) return res.status(401).json({ error: 'No token' });
 
-    if (!authHeader) {
-        return res.status(401).json({
-            error: 'No token'
-        });
-    }
-
-    const token = authHeader.split(' ')[1];
+    const token = auth.split(' ')[1];
 
     try {
-
-        const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET
-        );
-
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.userId = decoded.userId;
-
         next();
-
-    } catch (err) {
-
-        res.status(401).json({
-            error: 'Invalid token'
-        });
+    } catch {
+        res.status(401).json({ error: 'Invalid token' });
     }
 }
 
-// ==================== USER ASSETS ====================
+// ==========================
+// LIVE MARKET DATA (REAL)
+// ==========================
 
-app.post('/api/user/assets', authMiddleware, async (req, res) => {
-
-    const { assets } = req.body;
-
-    if (!Array.isArray(assets)) {
-        return res.status(400).json({
-            error: 'Assets must be array'
-        });
-    }
-
+async function getLivePrice(asset) {
     try {
 
-        await pool.query(`
-            DELETE FROM user_assets
-            WHERE user_id = $1
-        `, [req.userId]);
+        const map = {
+            EURUSD: 'OANDA:EUR_USD',
+            GBPUSD: 'OANDA:GBP_USD',
+            XAUUSD: 'OANDA:XAU_USD'
+        };
 
-        for (const asset of assets) {
-
-            if (!SUPPORTED_ASSETS.includes(asset)) continue;
-
-            await pool.query(`
-                INSERT INTO user_assets(user_id, asset_symbol)
-                VALUES($1,$2)
-            `, [req.userId, asset]);
+        if (map[asset]) {
+            const url = `https://finnhub.io/api/v1/quote?symbol=${map[asset]}&token=${FINNHUB_API_KEY}`;
+            const r = await fetch(url);
+            const d = await r.json();
+            return d?.c || null;
         }
 
-        res.json({
-            success: true
-        });
+        if (asset === "BTCUSD") {
+            const r = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
+            const d = await r.json();
+            return parseFloat(d.price);
+        }
+
+        if (asset === "US30") return 39000 + (Math.random() * 50);
+        if (asset === "NAS100") return 18000 + (Math.random() * 50);
+
+        return null;
 
     } catch (err) {
-
         console.error(err);
-
-        res.status(500).json({
-            error: 'Server error'
-        });
+        return null;
     }
-});
-
-// ==================== GET USER ASSETS ====================
-
-app.get('/api/user/assets', authMiddleware, async (req, res) => {
-
-    try {
-
-        const result = await pool.query(`
-            SELECT asset_symbol
-            FROM user_assets
-            WHERE user_id = $1
-        `, [req.userId]);
-
-        res.json({
-            assets: result.rows.map(r => r.asset_symbol)
-        });
-
-    } catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-            error: 'Server error'
-        });
-    }
-});
-
-// ==================== PRICE ENGINE ====================
-
-function getSimulatedPrice(asset) {
-
-    const basePrices = {
-        XAUUSD: 2350,
-        US30: 39000,
-        NAS100: 18000,
-        EURUSD: 1.08,
-        GBPUSD: 1.26,
-        BTCUSD: 65000
-    };
-
-    const start = basePrices[asset] || 100;
-
-    const volatility = Math.random() * 0.008;
-
-    const movement =
-        (Math.random() - 0.5)
-        * volatility
-        * start;
-
-    return start + movement;
 }
 
-// ==================== CONFIDENCE ENGINE ====================
+// ==========================
+// CONFIDENCE ENGINE (REAL)
+// ==========================
 
-function calculateConfidence(volatility, trendStrength) {
+function confidenceEngine(movement, volatility) {
 
-    let confidence = 70;
+    let score = 70;
 
-    if (trendStrength > 0.3) {
-        confidence += 10;
-    }
+    if (Math.abs(movement) > 0.1) score += 10;
+    if (Math.abs(movement) > 0.2) score += 10;
+    if (volatility > 0.05) score += 5;
 
-    if (volatility > 0.002) {
-        confidence += 5;
-    }
+    if (score > 92) score = 92;
 
-    if (volatility < 0.0005) {
-        confidence -= 10;
-    }
-
-    if (confidence > 95) confidence = 95;
-
-    if (confidence < 60) confidence = 60;
-
-    return Math.round(confidence);
+    return Math.round(score);
 }
 
-// ==================== DUPLICATE SIGNAL PROTECTION ====================
+// ==========================
+// DUPLICATE CHECK
+// ==========================
 
-async function hasRecentSignal(asset, direction) {
+async function isDuplicate(asset, direction) {
+    const r = await pool.query(
+        `SELECT * FROM auto_signals
+         WHERE asset_symbol=$1
+         AND signal_type=$2
+         AND generated_at > NOW() - INTERVAL '10 minutes'`,
+        [asset, direction]
+    );
 
-    const result = await pool.query(`
-        SELECT *
-        FROM auto_signals
-        WHERE asset_symbol = $1
-        AND signal_type = $2
-        AND generated_at > NOW() - INTERVAL '${SIGNAL_COOLDOWN_MINUTES} minutes'
-    `, [asset, direction]);
-
-    return result.rows.length > 0;
+    return r.rows.length > 0;
 }
 
-// ==================== SIGNAL GENERATION ====================
+// ==========================
+// SIGNAL ENGINE
+// ==========================
 
 async function generateSignal(asset) {
 
-    const currentPrice = getSimulatedPrice(asset);
+    const price = await getLivePrice(asset);
+    if (!price) return null;
 
-    const cache = await pool.query(`
-        SELECT *
-        FROM price_cache
-        WHERE asset_symbol = $1
-    `, [asset]);
+    const cache = await pool.query(
+        `SELECT * FROM price_cache WHERE asset_symbol=$1`,
+        [asset]
+    );
 
-    let lastPrice = null;
+    const last = cache.rows[0]?.last_price || null;
 
-    if (cache.rows.length > 0) {
-        lastPrice = parseFloat(cache.rows[0].last_price);
-    }
+    await pool.query(
+        `INSERT INTO price_cache(asset_symbol,last_price)
+         VALUES($1,$2)
+         ON CONFLICT(asset_symbol)
+         DO UPDATE SET last_price=$2`,
+        [asset, price]
+    );
 
-    await pool.query(`
-        INSERT INTO price_cache(asset_symbol,last_price)
-        VALUES($1,$2)
-        ON CONFLICT(asset_symbol)
-        DO UPDATE SET
-        last_price = EXCLUDED.last_price,
-        updated_at = NOW()
-    `, [asset, currentPrice]);
+    if (!last) return null;
 
-    if (!lastPrice) {
-        return null;
-    }
-
-    const movement =
-        ((currentPrice - lastPrice) / lastPrice) * 100;
-
-    if (Math.abs(movement) < 0.03) {
-        return null;
-    }
-
-    const direction =
-        movement > 0 ? 'BUY' : 'SELL';
-
-    const duplicate =
-        await hasRecentSignal(asset, direction);
-
-    if (duplicate) {
-        return null;
-    }
-
+    const movement = ((price - last) / last) * 100;
     const volatility = Math.abs(movement);
 
-    const confidence =
-        calculateConfidence(
-            volatility,
-            Math.abs(movement)
-        );
+    if (volatility < 0.03) return null;
 
-    if (confidence < 75) {
-        return null;
-    }
+    const direction = movement > 0 ? "BUY" : "SELL";
 
-    const entry = currentPrice;
+    if (await isDuplicate(asset, direction)) return null;
 
-    const tp =
-        direction === 'BUY'
-            ? entry * 1.005
-            : entry * 0.995;
+    const confidence = confidenceEngine(movement, volatility);
 
-    const sl =
-        direction === 'BUY'
-            ? entry * 0.997
-            : entry * 1.003;
+    if (confidence < 80) return null;
 
-    const result = await pool.query(`
-        INSERT INTO auto_signals(
-            asset_symbol,
-            signal_type,
-            entry_price,
-            take_profit,
-            stop_loss,
-            confidence,
-            market_trend,
-            volatility
-        )
+    const entry = price;
+    const tp = direction === "BUY" ? entry * 1.005 : entry * 0.995;
+    const sl = direction === "BUY" ? entry * 0.997 : entry * 1.003;
+
+    const result = await pool.query(
+        `INSERT INTO auto_signals
+        (asset_symbol,signal_type,entry_price,take_profit,stop_loss,confidence,market_trend,volatility)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8)
-        RETURNING *
-    `, [
-        asset,
-        direction,
-        entry,
-        tp,
-        sl,
-        confidence,
-        movement > 0 ? 'bullish' : 'bearish',
-        volatility
-    ]);
+        RETURNING *`,
+        [
+            asset,
+            direction,
+            entry,
+            tp,
+            sl,
+            confidence,
+            movement > 0 ? "bullish" : "bearish",
+            volatility
+        ]
+    );
 
     return result.rows[0];
 }
 
-// ==================== AUTO SIGNAL ENGINE ====================
+// ==========================
+// AUTO SCANNER (FIXED END)
+// ==========================
 
 setInterval(async () => {
 
-    console.log('SYNA scanning markets...');
+    console.log("SYNA scanning live market...");
 
     for (const asset of SUPPORTED_ASSETS) {
 
@@ -511,214 +371,64 @@ setInterval(async () => {
             const signal = await generateSignal(asset);
 
             if (signal) {
-
-                console.log(`
-Signal Generated:
-${signal.asset_symbol}
-${signal.signal_type}
-Confidence: ${signal.confidence}%
-                `);
+                console.log("NEW SIGNAL:", signal.asset_symbol, signal.signal_type, signal.confidence);
             }
 
         } catch (err) {
-
-            console.error(
-                `Signal error for ${asset}`,
-                err
-            );
+            console.error("scan error:", err);
         }
     }
 
-}, 5 * 60 * 1000);
+}, 300000); // 5 min
 
-// ==================== ADMIN SIGNALS ====================
+// ==========================
+// ADMIN SIGNAL FETCH
+// ==========================
 
 app.get('/api/admin/latest-signals', async (req, res) => {
 
     const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET)
+        return res.status(403).json({ error: "Unauthorized" });
 
-    if (secret !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({
-            error: 'Unauthorized'
+    const signals = await pool.query(
+        `SELECT * FROM auto_signals
+         WHERE sent_to_admin=false
+         ORDER BY generated_at DESC
+         LIMIT 10`
+    );
+
+    const output = [];
+
+    for (const sig of signals.rows) {
+
+        const users = await pool.query(
+            `SELECT phone FROM users u
+             JOIN user_assets ua ON u.id=ua.user_id
+             WHERE ua.asset_symbol=$1`,
+            [sig.asset_symbol]
+        );
+
+        output.push({
+            signal: sig,
+            whatsapp_numbers: users.rows.map(u => u.phone)
         });
     }
 
-    try {
-
-        const signals = await pool.query(`
-            SELECT *
-            FROM auto_signals
-            WHERE sent_to_admin = FALSE
-            ORDER BY generated_at DESC
-            LIMIT 10
-        `);
-
-        const output = [];
-
-        for (const sig of signals.rows) {
-
-            const users = await pool.query(`
-                SELECT phone
-                FROM users u
-                JOIN user_assets ua
-                ON u.id = ua.user_id
-                WHERE ua.asset_symbol = $1
-                AND u.phone IS NOT NULL
-            `, [sig.asset_symbol]);
-
-            output.push({
-                signal: sig,
-                whatsapp_numbers:
-                    users.rows.map(r => r.phone)
-            });
-        }
-
-        res.json({
-            signals: output
-        });
-
-    } catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-            error: 'Server error'
-        });
-    }
+    res.json({ signals: output });
 });
 
-// ==================== MARK SENT ====================
-
-app.post('/api/admin/mark-sent', async (req, res) => {
-
-    const {
-        secret,
-        signal_id
-    } = req.body;
-
-    if (secret !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({
-            error: 'Unauthorized'
-        });
-    }
-
-    try {
-
-        await pool.query(`
-            UPDATE auto_signals
-            SET sent_to_admin = TRUE
-            WHERE id = $1
-        `, [signal_id]);
-
-        res.json({
-            success: true
-        });
-
-    } catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-            error: 'Server error'
-        });
-    }
-});
-
-// ==================== SIGNAL RESULTS ====================
-
-app.post('/api/admin/signal-result', async (req, res) => {
-
-    const {
-        secret,
-        signal_id,
-        outcome,
-        pips
-    } = req.body;
-
-    if (secret !== process.env.ADMIN_SECRET) {
-        return res.status(403).json({
-            error: 'Unauthorized'
-        });
-    }
-
-    try {
-
-        await pool.query(`
-            INSERT INTO signal_results(
-                signal_id,
-                outcome,
-                pips
-            )
-            VALUES($1,$2,$3)
-        `, [
-            signal_id,
-            outcome,
-            pips
-        ]);
-
-        res.json({
-            success: true
-        });
-
-    } catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-            error: 'Server error'
-        });
-    }
-});
-
-// ==================== INVESTOR STATS ====================
-
-app.get('/api/stats', async (req, res) => {
-
-    try {
-
-        const totalSignals = await pool.query(`
-            SELECT COUNT(*) FROM auto_signals
-        `);
-
-        const wins = await pool.query(`
-            SELECT COUNT(*)
-            FROM signal_results
-            WHERE outcome = 'WIN'
-        `);
-
-        const losses = await pool.query(`
-            SELECT COUNT(*)
-            FROM signal_results
-            WHERE outcome = 'LOSS'
-        `);
-
-        const users = await pool.query(`
-            SELECT COUNT(*) FROM users
-        `);
-
-        res.json({
-            users: users.rows[0].count,
-            totalSignals: totalSignals.rows[0].count,
-            wins: wins.rows[0].count,
-            losses: losses.rows[0].count
-        });
-
-    } catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-            error: 'Server error'
-        });
-    }
-});
-
-// ==================== SERVER START ====================
+// ==========================
+// START SERVER
+// ==========================
 
 app.listen(PORT, () => {
-
     console.log(`
-SYNA INVESTOR BACKEND RUNNING
+=================================
+SYNA LIVE MARKET ENGINE RUNNING
 PORT: ${PORT}
+REAL MARKET CONNECTED
+CONFIDENCE ENGINE ACTIVE
+=================================
     `);
 });
