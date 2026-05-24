@@ -410,7 +410,7 @@ app.post('/api/admin/notify-signal', async (req, res) => {
 });
 
 // ==========================
-// TEMPORARY: DELETE USER BY EMAIL VIA GET (remove after use)
+// TEMPORARY: DELETE USER BY EMAIL OR PHONE VIA GET (remove after use)
 // ==========================
 app.get('/api/admin/delete-user-by-email', async (req, res) => {
     const secret = req.query.secret;
@@ -420,6 +420,19 @@ app.get('/api/admin/delete-user-by-email', async (req, res) => {
     try {
         await pool.query('DELETE FROM users WHERE email = $1', [email]);
         res.send(`✅ User with email ${email} deleted successfully. Now they can register again.`);
+    } catch (err) {
+        res.status(500).send('Error: ' + err.message);
+    }
+});
+
+app.get('/api/admin/delete-user-by-phone', async (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== process.env.ADMIN_SECRET) return res.status(403).send('Unauthorized');
+    const phone = req.query.phone;
+    if (!phone) return res.status(400).send('Phone missing');
+    try {
+        await pool.query('DELETE FROM users WHERE phone = $1', [phone]);
+        res.send(`✅ User with phone ${phone} deleted successfully. Now they can register again.`);
     } catch (err) {
         res.status(500).send('Error: ' + err.message);
     }
