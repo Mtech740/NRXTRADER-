@@ -51,13 +51,7 @@
             padding: 24px;
             margin-bottom: 24px;
         }
-        .card h3 {
-            font-size: 1.2rem;
-            font-weight: 500;
-            margin-bottom: 16px;
-            color: #7ad0ff;
-            letter-spacing: 0.5px;
-        }
+        .card h3 { font-size: 1.2rem; font-weight: 500; margin-bottom: 16px; color: #7ad0ff; }
         input, button {
             background: #0f1a2a;
             border: 1px solid #2a3a55;
@@ -92,11 +86,7 @@
             text-align: center;
             transition: all 0.2s;
         }
-        .asset-card:hover {
-            background: rgba(42, 169, 255, 0.15);
-            border-color: #2aa9ff;
-            transform: translateY(-2px);
-        }
+        .asset-card:hover { background: rgba(42, 169, 255, 0.15); border-color: #2aa9ff; transform: translateY(-2px); }
         .asset-card.selected {
             background: linear-gradient(135deg, rgba(42, 169, 255, 0.25), rgba(0, 100, 200, 0.2));
             border-color: #2aa9ff;
@@ -118,12 +108,6 @@
             padding: 16px;
             margin-top: 16px;
         }
-        .payment-details code {
-            background: #00000040;
-            padding: 6px 12px;
-            border-radius: 28px;
-            font-size: 1rem;
-        }
         .plan-card {
             display: flex;
             justify-content: space-between;
@@ -133,18 +117,36 @@
             padding: 16px;
             margin-bottom: 12px;
             border: 1px solid rgba(42,169,255,0.2);
+            flex-wrap: wrap;
+            gap: 12px;
         }
         .plan-price { font-size: 1.4rem; font-weight: bold; color: #7ad0ff; }
+        .payment-buttons { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        .pay-mtn { background: #ff9900; }
+        .pay-airtel { background: #e10000; }
         @keyframes pulse-glow {
             0% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.3); }
             70% { box-shadow: 0 0 0 12px rgba(0, 255, 255, 0); }
             100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0); }
         }
         .glow-btn { animation: pulse-glow 1.5s infinite; }
+        .profile-pic {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #2a6fdb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
         @media (max-width: 640px) {
             .syna-header { flex-direction: column; align-items: flex-start; }
             .aviator { width: 60px; height: 60px; }
             .assets-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+            .plan-card { flex-direction: column; align-items: stretch; }
         }
     </style>
 </head>
@@ -159,9 +161,10 @@
                 <p>neural intelligence core</p>
             </div>
         </div>
-        <input type="email" id="email" placeholder="Email address">
-        <input type="tel" id="phone" placeholder="WhatsApp number (e.g. 260XXXXXXXXX)">
-        <input type="password" id="password" placeholder="Password">
+        <input type="text" id="regUsername" placeholder="Username (optional)">
+        <input type="email" id="regEmail" placeholder="Email address">
+        <input type="tel" id="regPhone" placeholder="WhatsApp number (e.g. 260XXXXXXXXX)">
+        <input type="password" id="regPassword" placeholder="Password">
         <div id="authError" style="color:#ff6b6b; font-size:0.8rem; margin-bottom:12px;"></div>
         <button id="loginBtn">ACCESS SYSTEM</button>
         <button id="registerBtn" style="background:#1f2a40; margin-top:8px;">INITIATE ACCOUNT</button>
@@ -177,13 +180,17 @@
                     <p>neural intelligence core</p>
                 </div>
             </div>
-            <button id="logoutBtn" style="width: auto; background:#1f2a40;">TERMINATE SESSION</button>
+            <div style="display: flex; gap: 16px; align-items: center;">
+                <div class="profile-pic" id="profilePic">U</div>
+                <button id="logoutBtn" style="width: auto; background:#1f2a40;">TERMINATE SESSION</button>
+            </div>
         </div>
 
         <div class="card">
             <h3>ACTIVE PROFILE</h3>
             <div class="status-badge" id="userEmailDisplay"></div>
             <div class="status-badge" id="userPhoneDisplay" style="margin-top:8px;"></div>
+            <div class="status-badge" id="userPlanDisplay" style="margin-top:8px;"></div>
         </div>
 
         <!-- Free Trial Status -->
@@ -192,21 +199,28 @@
             <div id="trialStatus" class="status-badge" style="background:#0a1622; padding:10px;">Loading...</div>
         </div>
 
-        <!-- Subscription Plans (always visible) -->
+        <!-- Subscription Plans -->
         <div class="card">
             <h3>SUBSCRIPTION PLANS</h3>
-            <div class="plan-card">
+            <div id="planBasic" class="plan-card">
                 <div><strong>Basic</strong><br>Daily signals, Forex + Gold</div>
                 <div class="plan-price">$5 / month</div>
+                <div class="payment-buttons">
+                    <button class="pay-mtn" data-plan="basic" data-provider="mtn">Pay with MTN</button>
+                    <button class="pay-airtel" data-plan="basic" data-provider="airtel">Pay with Airtel</button>
+                </div>
             </div>
-            <div class="plan-card">
+            <div id="planPremium" class="plan-card">
                 <div><strong>Premium</strong><br>Priority signals, all assets, crypto & indices</div>
                 <div class="plan-price">$15 / month</div>
+                <div class="payment-buttons">
+                    <button class="pay-mtn" data-plan="premium" data-provider="mtn">Pay with MTN</button>
+                    <button class="pay-airtel" data-plan="premium" data-provider="airtel">Pay with Airtel</button>
+                </div>
             </div>
             <div class="payment-details" style="margin-top:12px;">
-                <strong>Payment via MTN Mobile Money</strong><br>
-                Send amount to <code>0960168307</code>. After payment, send screenshot + your email to <strong>+260 96 016 8307</strong>.<br>
-                Your subscription will be activated within 12 hours.
+                <strong>Payment via Mobile Money</strong><br>
+                After clicking, you will receive a prompt on your registered phone number. Follow the instructions to complete payment.
             </div>
         </div>
 
@@ -221,12 +235,22 @@
             <button id="genSignalBtn" class="glow-btn">ACTIVATE FREE TRIAL SIGNALS (3 signals)</button>
             <div id="signalResult" style="margin-top:12px; font-size:0.9rem;"></div>
         </div>
+
+        <!-- Profile Settings Modal -->
+        <div id="profileModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:1000;">
+            <div style="background:#111827; padding:24px; border-radius:28px; max-width:400px; width:90%;">
+                <h3>Edit Profile</h3>
+                <input type="text" id="profileUsername" placeholder="Username">
+                <button id="saveProfileBtn">Save Changes</button>
+                <button onclick="closeProfileModal()" style="background:#1f2a40; margin-top:8px;">Cancel</button>
+            </div>
+        </div>
     </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    // 3D Aviator
+    // 3D Aviator (unchanged)
     function initAviator(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -286,6 +310,7 @@
 
     const API = 'https://nrxtrader-api.onrender.com';
     let token = localStorage.getItem('token');
+    let currentUser = null;
 
     async function apiCall(method, path, body = null) {
         const headers = { 'Content-Type': 'application/json' };
@@ -297,18 +322,22 @@
 
     async function loadDashboard() {
         if (!token) return;
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        document.getElementById('userEmailDisplay').innerText = user.email;
-        document.getElementById('userPhoneDisplay').innerText = user.phone;
         try {
+            const user = await apiCall('GET', '/api/user/profile');
+            currentUser = user;
+            document.getElementById('userEmailDisplay').innerText = user.email;
+            document.getElementById('userPhoneDisplay').innerText = user.phone || '—';
+            document.getElementById('userPlanDisplay').innerHTML = `Plan: ${user.subscription_plan === 'free' ? 'Free Trial' : user.subscription_plan.toUpperCase()}`;
+            const profilePic = document.getElementById('profilePic');
+            profilePic.innerText = (user.username ? user.username[0].toUpperCase() : user.email[0].toUpperCase());
+            profilePic.onclick = () => openProfileModal();
+
             const trial = await apiCall('GET', '/api/user/trial-remaining');
-            const remaining = trial.remaining;
-            document.getElementById('trialStatus').innerHTML = remaining > 0 ? `Free signals remaining: ${remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
-        } catch(e) { document.getElementById('trialStatus').innerHTML = 'Trial status unavailable'; }
-        try {
+            document.getElementById('trialStatus').innerHTML = trial.remaining > 0 ? `Free signals remaining: ${trial.remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
+
             const assets = await apiCall('GET', '/api/user/assets');
             renderAssets(assets.assets);
-        } catch(e) { renderAssets([]); }
+        } catch(e) { console.error(e); }
     }
 
     const assetList = [
@@ -329,7 +358,7 @@
             card.className = `asset-card ${isSelected ? 'selected' : ''}`;
             card.setAttribute('data-symbol', asset.symbol);
             card.innerHTML = `<div class="asset-symbol">${asset.symbol}</div><div class="asset-desc">${asset.desc}</div>`;
-            card.onclick = (e) => { e.stopPropagation(); card.classList.toggle('selected'); };
+            card.onclick = () => card.classList.toggle('selected');
             grid.appendChild(card);
         });
     }
@@ -343,14 +372,12 @@
         } catch(e) { alert('Error: ' + e.message); }
     }
 
-    async function generateAllThreeSignals() {
+    async function generateTrialSignals() {
         const btn = document.getElementById('genSignalBtn');
         const resultDiv = document.getElementById('signalResult');
         btn.disabled = true;
-        resultDiv.innerHTML = 'SYNA neural core is processing your signals...';
+        resultDiv.innerHTML = 'SYNA neural core is processing...';
         try {
-            const user = JSON.parse(localStorage.getItem('user'));
-            const userId = user.id;
             const trial = await apiCall('GET', '/api/user/trial-remaining');
             let remaining = trial.remaining;
             if (remaining === 0) {
@@ -362,18 +389,12 @@
             for (let i = 0; i < signalsToSend; i++) {
                 resultDiv.innerHTML = `Generating signal ${i+1} of ${signalsToSend}...`;
                 const res = await apiCall('POST', '/api/trades/generate-signal', { assetSymbol: 'XAUUSD' });
-                if (res.success) {
-                    await fetch(API + '/api/admin/notify-signal', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ secret: 'A8dF8d9B2cE5fG1hJ3kL6zX7cV9bN4mQ', userId, assetSymbol: 'XAUUSD' })
-                    });
-                }
+                if (res.success && res.message) resultDiv.innerHTML = res.message;
                 await new Promise(r => setTimeout(r, 500));
             }
-            resultDiv.innerHTML = 'All 3 free signals have been queued. You will receive them on WhatsApp shortly. Our dispatch system is delivering them now.';
             const newTrial = await apiCall('GET', '/api/user/trial-remaining');
             document.getElementById('trialStatus').innerHTML = newTrial.remaining > 0 ? `Free signals remaining: ${newTrial.remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
+            resultDiv.innerHTML = 'All 3 free signals have been queued. You will receive them on WhatsApp shortly.';
         } catch(e) {
             resultDiv.innerHTML = 'Error: ' + e.message;
         } finally {
@@ -381,42 +402,90 @@
         }
     }
 
+    // Profile modal
+    function openProfileModal() {
+        document.getElementById('profileUsername').value = currentUser?.username || '';
+        document.getElementById('profileModal').style.display = 'flex';
+    }
+    function closeProfileModal() {
+        document.getElementById('profileModal').style.display = 'none';
+    }
+    async function saveProfile() {
+        const username = document.getElementById('profileUsername').value.trim();
+        if (!username) return alert('Username required');
+        try {
+            await apiCall('PUT', '/api/user/profile', { username });
+            alert('Profile updated');
+            closeProfileModal();
+            loadDashboard();
+        } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    // Payment initiation
+    async function initiatePayment(plan, provider) {
+        const endpoint = provider === 'mtn' ? '/api/payment/mtn' : '/api/payment/airtel';
+        try {
+            const res = await apiCall('POST', endpoint, { plan });
+            alert(res.message);
+        } catch(e) {
+            alert('Payment initiation failed: ' + e.message);
+        }
+    }
+
     // Auth
-    document.getElementById('loginBtn').onclick = async () => {
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        if (!email || !password) { document.getElementById('authError').innerText = 'Credentials required'; return; }
+    async function handleLogin() {
+        const email = document.getElementById('regEmail').value.trim();
+        const password = document.getElementById('regPassword').value;
+        if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
         try {
             const data = await apiCall('POST', '/api/auth/login', { email, password });
             token = data.token;
             localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(data.user));
             document.getElementById('authPanel').style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
-            loadDashboard();
             initAviator('aviatorDashboard');
+            loadDashboard();
         } catch(e) { document.getElementById('authError').innerText = e.message; }
-    };
-    document.getElementById('registerBtn').onclick = async () => {
-        const email = document.getElementById('email').value.trim();
-        const phone = document.getElementById('phone').value.trim();
-        const password = document.getElementById('password').value;
+    }
+
+    async function handleRegister() {
+        const username = document.getElementById('regUsername').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const phone = document.getElementById('regPhone').value.trim();
+        const password = document.getElementById('regPassword').value;
         if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
         try {
-            await apiCall('POST', '/api/auth/register', { email, phone, password });
+            await apiCall('POST', '/api/auth/register', { email, phone, password, username: username || undefined });
             document.getElementById('authError').innerText = 'Account created. Please log in.';
             document.getElementById('authError').style.color = '#6fbf4c';
         } catch(e) { document.getElementById('authError').innerText = e.message; }
-    };
-    document.getElementById('logoutBtn')?.addEventListener('click', () => { localStorage.clear(); location.reload(); });
-    document.getElementById('saveAssetsBtn')?.addEventListener('click', saveAssets);
-    document.getElementById('genSignalBtn')?.addEventListener('click', generateAllThreeSignals);
+    }
 
+    function logout() {
+        localStorage.clear();
+        location.reload();
+    }
+
+    document.getElementById('loginBtn').onclick = handleLogin;
+    document.getElementById('registerBtn').onclick = handleRegister;
+    document.getElementById('logoutBtn').onclick = logout;
+    document.getElementById('saveAssetsBtn').onclick = saveAssets;
+    document.getElementById('genSignalBtn').onclick = generateTrialSignals;
+    document.getElementById('saveProfileBtn').onclick = saveProfile;
+    // Payment buttons
+    document.querySelectorAll('.pay-mtn').forEach(btn => {
+        btn.onclick = () => initiatePayment(btn.getAttribute('data-plan'), 'mtn');
+    });
+    document.querySelectorAll('.pay-airtel').forEach(btn => {
+        btn.onclick = () => initiatePayment(btn.getAttribute('data-plan'), 'airtel');
+    });
+
+    // Auto-login on load
     if (token) {
         document.getElementById('authPanel').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
-        loadDashboard();
         initAviator('aviatorDashboard');
+        loadDashboard();
     } else {
         initAviator('aviatorCanvas');
     }
