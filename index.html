@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>SYNA – Neural Intelligence Core</title>
+    <title>SYNA – Neural Trading Intelligence</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: radial-gradient(circle at 20% 30%, #0a0f1a, #03060c);
-            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', monospace;
+            font-family: 'Inter', system-ui, -apple-system, monospace;
             color: #eef2ff;
             line-height: 1.5;
             min-height: 100vh;
@@ -36,7 +36,6 @@
         .title h1 {
             font-size: 2.2rem;
             font-weight: 700;
-            letter-spacing: -0.5px;
             background: linear-gradient(135deg, #aaffff, #2a6fdb);
             -webkit-background-clip: text;
             background-clip: text;
@@ -71,6 +70,19 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+        .btn-locked { background: #2a3a55; opacity: 0.6; cursor: not-allowed; }
+        .plan-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(42,169,255,0.2);
+            flex-wrap: wrap;
+            gap: 12px;
+        }
         .assets-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -101,52 +113,12 @@
             font-size: 0.8rem;
             border-left: 3px solid #2aa9ff;
         }
-        .payment-details {
-            background: rgba(0, 40, 30, 0.4);
-            border: 1px solid #2aa9ff;
-            border-radius: 20px;
-            padding: 16px;
-            margin-top: 16px;
-        }
-        .plan-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(0,0,0,0.3);
-            border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 12px;
-            border: 1px solid rgba(42,169,255,0.2);
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .plan-price { font-size: 1.4rem; font-weight: bold; color: #7ad0ff; }
-        .payment-buttons { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-        .pay-mtn { background: #ff9900; }
-        .pay-airtel { background: #e10000; }
-        @keyframes pulse-glow {
-            0% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.3); }
-            70% { box-shadow: 0 0 0 12px rgba(0, 255, 255, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0); }
-        }
-        .glow-btn { animation: pulse-glow 1.5s infinite; }
-        .profile-pic {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #2a6fdb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-            cursor: pointer;
-        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #1f2937; }
         @media (max-width: 640px) {
             .syna-header { flex-direction: column; align-items: flex-start; }
             .aviator { width: 60px; height: 60px; }
             .assets-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-            .plan-card { flex-direction: column; align-items: stretch; }
         }
     </style>
 </head>
@@ -165,8 +137,8 @@
         <input type="email" id="regEmail" placeholder="Email address">
         <input type="tel" id="regPhone" placeholder="WhatsApp number (e.g. 260XXXXXXXXX)">
         <input type="password" id="regPassword" placeholder="Password">
-        <div id="authError" style="color:#ff6b6b; font-size:0.8rem; margin-bottom:12px;"></div>
-        <button id="loginBtn">ACCESS SYSTEM</button>
+        <div id="authError" style="color:#ff6b6b; font-size:0.8rem;"></div>
+        <button id="loginBtn" class="btn-primary">ACCESS SYSTEM</button>
         <button id="registerBtn" style="background:#1f2a40; margin-top:8px;">INITIATE ACCOUNT</button>
     </div>
 
@@ -180,69 +152,59 @@
                     <p>neural intelligence core</p>
                 </div>
             </div>
-            <div style="display: flex; gap: 16px; align-items: center;">
-                <div class="profile-pic" id="profilePic">U</div>
-                <button id="logoutBtn" style="width: auto; background:#1f2a40;">TERMINATE SESSION</button>
+            <div style="display: flex; gap: 12px;">
+                <button id="logoutBtn" style="background:#1f2a40; width: auto;">LOGOUT</button>
             </div>
         </div>
 
-        <div class="card">
-            <h3>ACTIVE PROFILE</h3>
-            <div class="status-badge" id="userEmailDisplay"></div>
-            <div class="status-badge" id="userPhoneDisplay" style="margin-top:8px;"></div>
-            <div class="status-badge" id="userPlanDisplay" style="margin-top:8px;"></div>
+        <!-- Tabs -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button id="tabDashboard" class="btn-primary" style="width: auto;">Dashboard</button>
+            <button id="tabLeaderboard" style="background:#1f2a40; width: auto;">Leaderboard</button>
         </div>
 
-        <!-- Free Trial Status -->
-        <div class="card">
-            <h3>SIGNAL ALLOCATION</h3>
-            <div id="trialStatus" class="status-badge" style="background:#0a1622; padding:10px;">Loading...</div>
-        </div>
+        <!-- Dashboard Tab -->
+        <div id="dashboardTab">
+            <div class="card">
+                <h3>ACTIVE PROFILE</h3>
+                <div class="status-badge" id="userEmailDisplay"></div>
+                <div class="status-badge" id="userPhoneDisplay" style="margin-top:8px;"></div>
+                <div class="status-badge" id="userPlanDisplay" style="margin-top:8px;"></div>
+                <button id="startTrialBtn" class="btn-primary" style="margin-top:16px;">START FREE TRIAL (3 SIGNALS)</button>
+                <button id="toggleSynaBtn" style="margin-top:8px;">START SYNA TRADING</button>
+            </div>
 
-        <!-- Subscription Plans -->
-        <div class="card">
-            <h3>SUBSCRIPTION PLANS</h3>
-            <div id="planBasic" class="plan-card">
-                <div><strong>Basic</strong><br>Daily signals, Forex + Gold</div>
-                <div class="plan-price">$5 / month</div>
-                <div class="payment-buttons">
-                    <button class="pay-mtn" data-plan="basic" data-provider="mtn">Pay with MTN</button>
-                    <button class="pay-airtel" data-plan="basic" data-provider="airtel">Pay with Airtel</button>
+            <div class="card">
+                <h3>SUBSCRIPTION PACKAGES</h3>
+                <div class="plan-card">
+                    <div><strong>Basic</strong><br>$5 / month</div>
+                    <button class="unlock-btn" data-plan="basic">UNLOCK PACKAGE</button>
+                </div>
+                <div class="plan-card">
+                    <div><strong>Premium</strong><br>$15 / month</div>
+                    <button class="unlock-btn" data-plan="premium">UNLOCK PACKAGE</button>
+                </div>
+                <div class="payment-details" style="margin-top:12px; font-size:12px;">
+                    <strong>Payment via Mobile Money</strong><br>
+                    Click Unlock – you will receive a prompt on your registered phone number.
                 </div>
             </div>
-            <div id="planPremium" class="plan-card">
-                <div><strong>Premium</strong><br>Priority signals, all assets, crypto & indices</div>
-                <div class="plan-price">$15 / month</div>
-                <div class="payment-buttons">
-                    <button class="pay-mtn" data-plan="premium" data-provider="mtn">Pay with MTN</button>
-                    <button class="pay-airtel" data-plan="premium" data-provider="airtel">Pay with Airtel</button>
-                </div>
-            </div>
-            <div class="payment-details" style="margin-top:12px;">
-                <strong>Payment via Mobile Money</strong><br>
-                After clicking, you will receive a prompt on your registered phone number. Follow the instructions to complete payment.
+
+            <div class="card">
+                <h3>ASSET MONITORING</h3>
+                <div id="assetsGrid" class="assets-grid"></div>
+                <button id="saveAssetsBtn">UPDATE SURVEILLANCE LIST</button>
             </div>
         </div>
 
-        <div class="card">
-            <h3>ASSET MONITORING</h3>
-            <div id="assetsGrid" class="assets-grid"></div>
-            <button id="saveAssetsBtn">UPDATE SURVEILLANCE LIST</button>
-        </div>
-
-        <div class="card">
-            <h3>CONTROL PANEL</h3>
-            <button id="genSignalBtn" class="glow-btn">ACTIVATE FREE TRIAL SIGNALS (3 signals)</button>
-            <div id="signalResult" style="margin-top:12px; font-size:0.9rem;"></div>
-        </div>
-
-        <!-- Profile Settings Modal -->
-        <div id="profileModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:1000;">
-            <div style="background:#111827; padding:24px; border-radius:28px; max-width:400px; width:90%;">
-                <h3>Edit Profile</h3>
-                <input type="text" id="profileUsername" placeholder="Username">
-                <button id="saveProfileBtn">Save Changes</button>
-                <button onclick="closeProfileModal()" style="background:#1f2a40; margin-top:8px;">Cancel</button>
+        <!-- Leaderboard Tab -->
+        <div id="leaderboardTab" style="display:none;">
+            <div class="card">
+                <h3>🏆 TOP TRADERS BY SYNA PROFIT</h3>
+                <table>
+                    <thead><tr><th>Rank</th><th>Trader</th><th>Total Profit (USD)</th></tr></thead>
+                    <tbody id="leaderboardList"></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -250,7 +212,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    // 3D Aviator (unchanged)
+    // 3D Aviator (same as before)
     function initAviator(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -322,22 +284,18 @@
 
     async function loadDashboard() {
         if (!token) return;
-        try {
-            const user = await apiCall('GET', '/api/user/profile');
-            currentUser = user;
-            document.getElementById('userEmailDisplay').innerText = user.email;
-            document.getElementById('userPhoneDisplay').innerText = user.phone || '—';
-            document.getElementById('userPlanDisplay').innerHTML = `Plan: ${user.subscription_plan === 'free' ? 'Free Trial' : user.subscription_plan.toUpperCase()}`;
-            const profilePic = document.getElementById('profilePic');
-            profilePic.innerText = (user.username ? user.username[0].toUpperCase() : user.email[0].toUpperCase());
-            profilePic.onclick = () => openProfileModal();
-
-            const trial = await apiCall('GET', '/api/user/trial-remaining');
-            document.getElementById('trialStatus').innerHTML = trial.remaining > 0 ? `Free signals remaining: ${trial.remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
-
-            const assets = await apiCall('GET', '/api/user/assets');
-            renderAssets(assets.assets);
-        } catch(e) { console.error(e); }
+        currentUser = await apiCall('GET', '/api/user/profile');
+        document.getElementById('userEmailDisplay').innerText = currentUser.email;
+        document.getElementById('userPhoneDisplay').innerText = currentUser.phone || '—';
+        document.getElementById('userPlanDisplay').innerHTML = `Plan: ${currentUser.subscription_plan === 'free' ? 'Free Trial' : currentUser.subscription_plan.toUpperCase()}`;
+        const trial = await apiCall('GET', '/api/user/trial-remaining');
+        const trialBtn = document.getElementById('startTrialBtn');
+        trialBtn.innerText = trial.remaining > 0 ? `START FREE TRIAL (${trial.remaining} signals left)` : 'FREE TRIAL USED – UPGRADE';
+        trialBtn.disabled = trial.remaining === 0;
+        const toggleBtn = document.getElementById('toggleSynaBtn');
+        toggleBtn.innerText = currentUser.syna_active ? 'STOP SYNA TRADING' : 'START SYNA TRADING';
+        const assets = await apiCall('GET', '/api/user/assets');
+        renderAssets(assets.assets);
     }
 
     const assetList = [
@@ -372,64 +330,48 @@
         } catch(e) { alert('Error: ' + e.message); }
     }
 
-    async function generateTrialSignals() {
-        const btn = document.getElementById('genSignalBtn');
-        const resultDiv = document.getElementById('signalResult');
-        btn.disabled = true;
-        resultDiv.innerHTML = 'SYNA neural core is processing...';
+    async function startFreeTrial() {
         try {
-            const trial = await apiCall('GET', '/api/user/trial-remaining');
-            let remaining = trial.remaining;
-            if (remaining === 0) {
-                resultDiv.innerHTML = 'Your free trial has ended. Please subscribe to continue receiving signals.';
-                btn.disabled = false;
-                return;
-            }
-            const signalsToSend = Math.min(remaining, 3);
-            for (let i = 0; i < signalsToSend; i++) {
-                resultDiv.innerHTML = `Generating signal ${i+1} of ${signalsToSend}...`;
-                const res = await apiCall('POST', '/api/trades/generate-signal', { assetSymbol: 'XAUUSD' });
-                if (res.success && res.message) resultDiv.innerHTML = res.message;
-                await new Promise(r => setTimeout(r, 500));
-            }
-            const newTrial = await apiCall('GET', '/api/user/trial-remaining');
-            document.getElementById('trialStatus').innerHTML = newTrial.remaining > 0 ? `Free signals remaining: ${newTrial.remaining} of 3` : `Free signals exhausted. Subscribe to continue.`;
-            resultDiv.innerHTML = 'All 3 free signals have been queued. You will receive them on WhatsApp shortly.';
-        } catch(e) {
-            resultDiv.innerHTML = 'Error: ' + e.message;
-        } finally {
-            btn.disabled = false;
-        }
-    }
-
-    // Profile modal
-    function openProfileModal() {
-        document.getElementById('profileUsername').value = currentUser?.username || '';
-        document.getElementById('profileModal').style.display = 'flex';
-    }
-    function closeProfileModal() {
-        document.getElementById('profileModal').style.display = 'none';
-    }
-    async function saveProfile() {
-        const username = document.getElementById('profileUsername').value.trim();
-        if (!username) return alert('Username required');
-        try {
-            await apiCall('PUT', '/api/user/profile', { username });
-            alert('Profile updated');
-            closeProfileModal();
-            loadDashboard();
+            const res = await apiCall('POST', '/api/trades/generate-signal', { assetSymbol: 'XAUUSD' });
+            if (res.success) alert('Free signal generated. Check your MT5 EA if subscribed.');
+            else alert(res.message);
+            await loadDashboard();
         } catch(e) { alert('Error: ' + e.message); }
     }
 
-    // Payment initiation
-    async function initiatePayment(plan, provider) {
-        const endpoint = provider === 'mtn' ? '/api/payment/mtn' : '/api/payment/airtel';
+    async function toggleSyna() {
+        const newState = !currentUser.syna_active;
+        await apiCall('POST', '/api/syna/toggle', { active: newState });
+        currentUser.syna_active = newState;
+        loadDashboard();
+        alert(`SYNA trading ${newState ? 'started' : 'stopped'}.`);
+    }
+
+    async function unlockPackage(plan) {
+        const provider = confirm('Pay with MTN? (OK for MTN, Cancel for Airtel)') ? 'mtn' : 'airtel';
         try {
-            const res = await apiCall('POST', endpoint, { plan });
+            const res = await apiCall('POST', `/api/payment/${provider}`, { plan });
             alert(res.message);
-        } catch(e) {
-            alert('Payment initiation failed: ' + e.message);
-        }
+        } catch(e) { alert('Payment initiation failed: ' + e.message); }
+    }
+
+    // Leaderboard
+    async function loadLeaderboard() {
+        try {
+            const res = await fetch(`${API}/api/leaderboard`);
+            const data = await res.json();
+            const tbody = document.getElementById('leaderboardList');
+            tbody.innerHTML = '';
+            data.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${idx+1}</td>
+                    <td>${row.username || row.email.split('@')[0]}</td>
+                    <td>$${parseFloat(row.total_profit).toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch(e) { console.error(e); }
     }
 
     // Auth
@@ -457,7 +399,7 @@
         try {
             await apiCall('POST', '/api/auth/register', { email, phone, password, username: username || undefined });
             document.getElementById('authError').innerText = 'Account created. Please log in.';
-            document.getElementById('authError').style.color = '#6fbf4c';
+            document.getElementById('authError').style.color = '#10b981';
         } catch(e) { document.getElementById('authError').innerText = e.message; }
     }
 
@@ -466,21 +408,31 @@
         location.reload();
     }
 
+    // Tab switching
+    document.getElementById('tabDashboard').onclick = () => {
+        document.getElementById('dashboardTab').style.display = 'block';
+        document.getElementById('leaderboardTab').style.display = 'none';
+        document.getElementById('tabDashboard').style.background = '#2563eb';
+        document.getElementById('tabLeaderboard').style.background = '#1f2a40';
+    };
+    document.getElementById('tabLeaderboard').onclick = () => {
+        document.getElementById('dashboardTab').style.display = 'none';
+        document.getElementById('leaderboardTab').style.display = 'block';
+        document.getElementById('tabLeaderboard').style.background = '#2563eb';
+        document.getElementById('tabDashboard').style.background = '#1f2a40';
+        loadLeaderboard();
+    };
+
     document.getElementById('loginBtn').onclick = handleLogin;
     document.getElementById('registerBtn').onclick = handleRegister;
     document.getElementById('logoutBtn').onclick = logout;
     document.getElementById('saveAssetsBtn').onclick = saveAssets;
-    document.getElementById('genSignalBtn').onclick = generateTrialSignals;
-    document.getElementById('saveProfileBtn').onclick = saveProfile;
-    // Payment buttons
-    document.querySelectorAll('.pay-mtn').forEach(btn => {
-        btn.onclick = () => initiatePayment(btn.getAttribute('data-plan'), 'mtn');
-    });
-    document.querySelectorAll('.pay-airtel').forEach(btn => {
-        btn.onclick = () => initiatePayment(btn.getAttribute('data-plan'), 'airtel');
+    document.getElementById('startTrialBtn').onclick = startFreeTrial;
+    document.getElementById('toggleSynaBtn').onclick = toggleSyna;
+    document.querySelectorAll('.unlock-btn').forEach(btn => {
+        btn.onclick = () => unlockPackage(btn.getAttribute('data-plan'));
     });
 
-    // Auto-login on load
     if (token) {
         document.getElementById('authPanel').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
