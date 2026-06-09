@@ -62,6 +62,32 @@
             margin-bottom: 16px;
             font-family: inherit;
         }
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 48px;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8ba3c7;
+            font-size: 1.2rem;
+        }
         button {
             background: linear-gradient(95deg, #1e3a8a, #2563eb);
             border: none;
@@ -136,10 +162,13 @@
         <input type="text" id="regUsername" placeholder="Username (optional)">
         <input type="email" id="regEmail" placeholder="Email address">
         <input type="tel" id="regPhone" placeholder="WhatsApp number (e.g. 260XXXXXXXXX)">
-        <input type="password" id="regPassword" placeholder="Password">
+        <div class="password-wrapper">
+            <input type="password" id="regPassword" placeholder="Password">
+            <span class="toggle-password" onclick="togglePassword('regPassword')">👁️</span>
+        </div>
         <div id="authError" style="color:#ff6b6b; font-size:0.8rem;"></div>
-        <button id="loginBtn" class="btn-primary">ACCESS SYSTEM</button>
-        <button id="registerBtn" style="background:#1f2a40; margin-top:8px;">INITIATE ACCOUNT</button>
+        <button id="loginBtn" class="btn-primary">SIGN IN</button>
+        <button id="registerBtn" style="background:#1f2a40; margin-top:8px;">SIGN UP</button>
     </div>
 
     <!-- DASHBOARD -->
@@ -270,6 +299,16 @@
         });
     }
 
+    // Show/hide password
+    function togglePassword(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field.type === "password") {
+            field.type = "text";
+        } else {
+            field.type = "password";
+        }
+    }
+
     const API = 'https://nrxtrader-api.onrender.com';
     let token = localStorage.getItem('token');
     let currentUser = null;
@@ -278,7 +317,10 @@
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : null });
-        if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Request failed' }));
+            throw new Error(err.error || err.details || 'Request failed');
+        }
         return res.json();
     }
 
@@ -366,7 +408,7 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${idx+1}</td>
-                    <td>${row.username || row.email.split('@')[0]}</td>
+                    <td>${row.username || row.email.split('@')[0]} Such as
                     <td>$${parseFloat(row.total_profit).toFixed(2)}</td>
                 `;
                 tbody.appendChild(tr);
@@ -398,7 +440,7 @@
         if (!email || !password) { document.getElementById('authError').innerText = 'Email and password required'; return; }
         try {
             await apiCall('POST', '/api/auth/register', { email, phone, password, username: username || undefined });
-            document.getElementById('authError').innerText = 'Account created. Please log in.';
+            document.getElementById('authError').innerText = 'Account created. Please sign in.';
             document.getElementById('authError').style.color = '#10b981';
         } catch(e) { document.getElementById('authError').innerText = e.message; }
     }
